@@ -18,11 +18,18 @@ int main() {
     bb.setBit(50);
     bb.setBit(80);
     bb.print();
-    uint64_t bit = 0;
-    do {
+    bb.start_bitscan_forward();
+    uint64_t bit = UINT64_MAX;
+    while((bit = bb.next_bit()) != bb.size()) {
         std::cout << bit << " ";
-    } while((bit = bb.next_bit()) != bb.size());
+    }
+    std::cout << std::endl;
 
+    bb.start_bitscan_reverse();
+    bit = UINT64_MAX;
+    while((bit = bb.prev_bit()) != bb.size()) {
+        std::cout << bit << " ";
+    }
     std::cout << std::endl;
 
     bitarray bbi(100);
@@ -53,8 +60,11 @@ int main() {
 
     //bitscan_benchmark1();
     std::cout << __builtin_ctzll(0b001) << std::endl;
-    //bitscan_benchmark2();
-    bitwise_and_benchmark();
+
+    //bitscan_benchmark1();
+    bit_scan_forward_benchmark();
+    bit_scan_reverse_benchmark();
+    //bitwise_and_benchmark();
 
     return 0;
 }

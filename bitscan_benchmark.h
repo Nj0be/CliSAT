@@ -232,7 +232,7 @@ void bit_scan_forward_benchmark() {
     bitarray bbi(len);
     std::tr2::dynamic_bitset<> bb2(len);
     custom_bitset bb3(len);
-    for (auto i = 0; i < len; i++) {
+    for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
             bbi.set_bit(i);
             bb2[i] = 1;
@@ -240,6 +240,7 @@ void bit_scan_forward_benchmark() {
         }
     }
     bbi.init_scan(bbo::NON_DESTRUCTIVE);
+    bb3.start_bitscan_forward();
     // std::cout << bbi;
 
     begin = std::chrono::steady_clock::now();
@@ -274,6 +275,53 @@ void bit_scan_forward_benchmark() {
 
     std::cout << acc << std::endl;
 }
+
+void bit_scan_reverse_benchmark() {
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+    uint64_t len = 50000000;
+
+    uint64_t acc = 0;
+
+    bitarray bbi(len);
+    custom_bitset bb3(len);
+    for (uint64_t i = 0; i < len; i++) {
+        if (rand() % 2) {
+            bbi.set_bit(i);
+            bb3.setBit(i);
+        }
+    }
+    bbi.init_scan(bbo::NON_DESTRUCTIVE_REVERSE);
+    bb3.start_bitscan_reverse();
+    // std::cout << bbi;
+
+    begin = std::chrono::steady_clock::now();
+    do {
+        acc += 1;
+    } while(bbi.prev_bit() != BBObject::noBit);
+    end = std::chrono::steady_clock::now();
+    std::cout << "bit scan = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    begin = std::chrono::steady_clock::now();
+    do {
+        acc += 1;
+    } while(bb3.prev_bit() != bb3.size());
+    end = std::chrono::steady_clock::now();
+    std::cout << "custom bitset prev_bit = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    begin = std::chrono::steady_clock::now();
+    do {
+        acc += 1;
+    } while(bb3.prev_bit2() != bb3.size());
+    end = std::chrono::steady_clock::now();
+    std::cout << "custom bitset prev_bit2 = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    std::cout << acc << std::endl;
+}
+
 
 void bitwise_and_benchmark() {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
