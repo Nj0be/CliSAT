@@ -1,0 +1,5 @@
+ninja_dyndep_version = 1.0
+build CMakeFiles/CliSAT.dir/main.cpp.o: dyndep
+
+build CMakeFiles/CliSAT.dir/custom_bitset.cpp.o: dyndep
+

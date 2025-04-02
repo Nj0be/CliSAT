@@ -1,0 +1,76 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install"
+		],
+		"files" : 
+		[
+			"BitGraph/src/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 146,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 153,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "Unspecified",
+			"destination" : "lib/cmake/BitGraph",
+			"paths" : 
+			[
+				"cmake-build-release/BitGraph/src/generated/BitGraphConfig.cmake",
+				"cmake-build-release/BitGraph/src/generated/BitGraphConfigVersion.cmake"
+			],
+			"type" : "file"
+		},
+		{
+			"backtrace" : 2,
+			"component" : "Unspecified",
+			"destination" : "lib/cmake/BitGraph",
+			"exportName" : "BitGraphTargets",
+			"exportTargets" : 
+			[
+				{
+					"id" : "utils::@375a418ad6a25b6e78f8",
+					"index" : 3
+				},
+				{
+					"id" : "bitscan::@d7553b09f63705560281",
+					"index" : 1
+				},
+				{
+					"id" : "graph::@ee048b84d90bfcde163b",
+					"index" : 2
+				}
+			],
+			"paths" : 
+			[
+				"BitGraph/src/CMakeFiles/Export/b5faee12be0b8302bf47c61253c54598/BitGraphTargets.cmake"
+			],
+			"type" : "export"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "BitGraph/src",
+		"source" : "BitGraph/src"
+	}
+}

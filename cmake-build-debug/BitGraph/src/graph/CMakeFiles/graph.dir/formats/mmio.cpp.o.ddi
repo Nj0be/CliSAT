@@ -1,0 +1,11 @@
+{
+"rules": [
+{
+"primary-output": "BitGraph/src/graph/CMakeFiles/graph.dir/formats/mmio.cpp.o",
+"requires": [
+]
+}
+],
+"version": 0,
+"revision": 0
+}
