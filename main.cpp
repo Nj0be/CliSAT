@@ -18,14 +18,14 @@ int main() {
     bb.setBit(50);
     bb.setBit(80);
     bb.print();
-    bb.start_bitscan_forward();
+    bb.start_bit_scan_forward();
     uint64_t bit = UINT64_MAX;
     while((bit = bb.next_bit()) != bb.size()) {
         std::cout << bit << " ";
     }
     std::cout << std::endl;
 
-    bb.start_bitscan_reverse();
+    bb.start_bit_scan_reverse();
     bit = UINT64_MAX;
     while((bit = bb.prev_bit()) != bb.size()) {
         std::cout << bit << " ";
@@ -47,19 +47,6 @@ int main() {
     }
     std::cout << std::endl;
 
-
-    /*
-    bitscan_benchmark();
-
-    constexpr uint64_t a = 0x0800000000000800;
-
-    // best balance between various x86_64 architectures and portability
-    std::cout << std::bit_width(a) - 1 << std::endl;
-    std::cout << std::countr_zero(a) << std::endl;
-    */
-
-    //bitscan_benchmark1();
-    std::cout << __builtin_ctzll(0b001) << std::endl;
 
     //bitscan_benchmark1();
     bit_scan_forward_benchmark();
