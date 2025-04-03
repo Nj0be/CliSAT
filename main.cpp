@@ -16,10 +16,11 @@ int main() {
     g.add_edge(1, 2);
     */
 
-    custom_graph("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-1.clq");
+    //custom_graph("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-1.clq");
 
     //bitscan_benchmark1();
-    //test_custom_biset();
+    //test_custom_bitset();
+    //subtraction_benchmark();
     //bit_scan_forward_benchmark();
     //bit_scan_reverse_benchmark();
     //bitwise_and_benchmark();

@@ -17,11 +17,9 @@
 class custom_bitset {
     const uint64_t _size;
     std::vector<uint64_t> bits;
-    std::vector<uint64_t>::iterator forward_block;
-    std::vector<uint64_t>::reverse_iterator reverse_block;
+    std::vector<uint64_t>::iterator current_block;
     // uint64_t faster than other types
-    uint64_t forward_bit;
-    uint64_t reverse_bit;
+    uint64_t current_bit;
 
     static uint8_t bit_scan_forward(const uint64_t x) { return __builtin_ctzll(x); }
     static uint8_t bit_scan_reverse(const uint64_t x) { return __bsrq(x); }
@@ -37,9 +35,11 @@ public:
 
     custom_bitset operator&(const custom_bitset& other);
     custom_bitset operator|(const custom_bitset& other);
-    custom_bitset operator~();
+    custom_bitset operator~() const;
+    custom_bitset operator-(const custom_bitset& other);
     custom_bitset operator&=(const custom_bitset& other);
     custom_bitset operator|=(const custom_bitset& other);
+    custom_bitset operator-=(const custom_bitset& other);
     bool operator[](const uint64_t pos) const { return get_bit(pos); };
     friend std::ostream& operator<<(std::ostream& stream, const custom_bitset& bb);
 
@@ -117,12 +117,19 @@ inline custom_bitset custom_bitset::operator|(const custom_bitset &other) {
     return bb;
 }
 
-inline custom_bitset custom_bitset::operator~() {
+inline custom_bitset custom_bitset::operator~() const {
     auto bb = custom_bitset(*this);
 
     for (uint64_t i = 0; i < bb.bits.size(); ++i) {
         bb.bits[i] = ~bb.bits[i];
     }
+
+    return bb;
+}
+
+inline custom_bitset custom_bitset::operator-(const custom_bitset &other) {
+    auto bb = custom_bitset(*this);
+    bb -= other;
 
     return bb;
 }
@@ -147,20 +154,32 @@ inline custom_bitset custom_bitset::operator|=(const custom_bitset &other) {
     return *this;
 }
 
+inline custom_bitset custom_bitset::operator-=(const custom_bitset &other) {
+    if (bits.size() != other.bits.size()) return *this;
+
+
+    // equivalent to *this &= ~other; but faster
+    for (uint64_t i = 0; i < bits.size(); ++i) {
+        bits[i] &= ~other.bits[i];
+    }
+
+    return *this;
+}
+
 inline uint64_t custom_bitset::first_bit() {
-    forward_block = bits.begin();
-    forward_bit = 0;
+    current_block = bits.begin();
+    current_bit = 0;
 
     do {
-        if (*forward_block != 0) {
-            forward_bit = bit_scan_forward(*forward_block);
+        if (*current_block != 0) {
+            current_bit = bit_scan_forward(*current_block);
             // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), forward_block)*64 + forward_bit;
+            return std::distance(bits.begin(), current_block)*64 + current_bit;
             // it's equivalent but not any faster
             //return std::distance(bits.begin(), last_block) << 6 | last_bit;
         }
-        ++forward_block;
-    } while (forward_block != bits.end());
+        ++current_block;
+    } while (current_block != bits.end());
 
     // probably the latter is better, but in a loop it doesn't make a difference
     return _size;
@@ -173,18 +192,18 @@ inline uint64_t custom_bitset::next_bit() {
     // shift by 64 doesn't work!! undefined behaviour
     // ~1ULL is all 1's except for the lowest one, aka already shifted by one
     // the resulting shift is all 1's shifted by last_bit+1
-    uint64_t masked_number = *forward_block & (~1ULL << forward_bit);
+    uint64_t masked_number = *current_block & (~1ULL << current_bit);
 
     do {
         if (masked_number != 0) {
-            forward_bit = bit_scan_forward(masked_number);
+            current_bit = bit_scan_forward(masked_number);
             // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), forward_block)*64 + forward_bit;
+            return std::distance(bits.begin(), current_block)*64 + current_bit;
             // it's equivalent but not any faster
             //return std::distance(bits.begin(), last_block) << 6 | last_bit;
         }
-        masked_number = *(++forward_block);
-    } while (forward_block != bits.end());
+        masked_number = *(++current_block);
+    } while (current_block != bits.end());
 
     // probably the latter is better, but in a loop it doesn't make a difference
     return _size;
@@ -192,19 +211,19 @@ inline uint64_t custom_bitset::next_bit() {
 }
 
 inline uint64_t custom_bitset::last_bit() {
-    reverse_block = bits.rbegin();
-    reverse_bit = (_size-1)%64;
+    current_block = bits.end()-1;
+    current_bit = (_size-1)%64;
 
     do {
-        if (*reverse_block != 0) {
-            reverse_bit = bit_scan_reverse(*reverse_block);
+        if (*current_block != 0) {
+            current_bit = bit_scan_reverse(*current_block);
             // returns the index of the current block + the current bit
-            return (std::distance(reverse_block, bits.rend())-1)*64 + reverse_bit;
+            return std::distance(bits.begin(), current_block)*64 + current_bit;
             // it's equivalent but not any faster
             //return std::distance(bits.begin(), last_block) << 6 | last_bit;
         }
-        ++reverse_block;
-    } while (reverse_block != bits.rend());
+        --current_block;
+    } while (current_block != bits.begin()-1);
 
     // probably the latter is better, but in a loop it doesn't make a difference
     return _size;
@@ -215,21 +234,21 @@ inline uint64_t custom_bitset::prev_bit() {
     // shift by 64 doesn't work!! undefined behaviour
     // ~1ULL is all 1's except for the lowest one, aka already shifted by one
     // the resulting shift is all 1's shifted by last_bit+1
-    uint64_t masked_number = *reverse_block & ~(~0ULL << reverse_bit);
+    uint64_t masked_number = *current_block & ~(~0ULL << current_bit);
 
-    //std::cout << masked_number << " " << std::distance(reverse_block, bits.rend()) << " " << reverse_bit << std::endl;
-    //std::cout << std::bitset<SIZEOF_WORD>(masked_number).to_string() << " " << std::distance(reverse_block, bits.rend()) << " " << reverse_bit << std::endl;
+    //std::cout << masked_number << " " << std::distance(current_block, bits.rend()) << " " << current_bit << std::endl;
+    //std::cout << std::bitset<SIZEOF_WORD>(masked_number).to_string() << " " << std::distance(current_block, bits.rend()) << " " << current_bit << std::endl;
 
     do {
         if (masked_number != 0) {
-            reverse_bit = bit_scan_reverse(masked_number);
+            current_bit = bit_scan_reverse(masked_number);
             // returns the index of the current block + the current bit
-            return (std::distance(reverse_block, bits.rend())-1)*64 + reverse_bit;
+            return std::distance(bits.begin(), current_block)*64 + current_bit;
             // it's equivalent but not any faster
             //return std::distance(bits.begin(), last_block) << 6 | last_bit;
         }
-        masked_number = *(++reverse_block);
-    } while (reverse_block != bits.rend());
+        masked_number = *(--current_block);
+    } while (current_block != bits.begin()-1);
 
     // probably the latter is better, but in a loop it doesn't make a difference
     return _size;

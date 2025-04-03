@@ -11,61 +11,8 @@
 #include <algorithm>
 #include <bitset>
 #include <bitscan/bitscan.h>
+#include <graph/graph.h>
 #include "custom_bitset.h"
-
-constexpr uint64_t de_bruijn = 0x03f79d71b4cb0a89;
-
-constexpr uint8_t ms1bTable[256] {
-    0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5,
-    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-};
-
-uint8_t bit_scan_forward(const uint64_t number) {
-    if (number == 0) return 0;  // or do something else, it returns 0 anyway
-
-    const uint8_t index64[64] = {
-        0, 1, 48, 2, 57, 49, 28, 3,
-        61, 58, 50, 42, 38, 29, 17, 4,
-        62, 55, 59, 36, 53, 51, 43, 22,
-        45, 39, 33, 30, 24, 18, 12, 5,
-        63, 47, 56, 27, 60, 41, 37, 16,
-        54, 35, 52, 21, 44, 32, 23, 11,
-        46, 26, 40, 15, 34, 20, 31, 10,
-        25, 14, 19, 9, 13, 8, 7, 6
-    };
-    // The bitwise and between number and -number results in all 0's except for the least significant bit
-    // for the properties of two's complement
-    // Multiplying the least significant bit with the de_bruijn number B(2,6) results in a sequence of 6 MSB
-    // unique for each power of two (number with only one bit set)
-    // Then we shift the 6 MSB to 6 LSB, and we convert the unique sequence to the correspondent position
-    // of the LS1B (Least Significant 1 Bit)
-    return index64[(number & -number) * de_bruijn >> 58];
-}
-
-uint8_t bit_scan_reverse(uint64_t number) {
-    if (number == 0) return 0;  // or do something else, it returns 0 anyway
-
-    uint8_t result = 0;
-    if (number >= 0xFFFFFFFF) {
-        number >>= 32;
-        result = 32;
-    }
-    if (number >= 0xFFFF) {
-        number >>= 16;
-        result += 16;
-    }
-    if (number >= 0xFF) {
-        number >>= 8;
-        result += 8;
-    }
-
-    return result + ms1bTable[number];
-}
 
 uint64_t randll() {
     return (static_cast<uint64_t>(std::rand()) << 32) | std::rand();
@@ -83,13 +30,6 @@ void bitscan_benchmark1() {
 
     std::cout << "Bit Scan Forward:" << std::endl;
     uint64_t a = 0;
-
-    begin = std::chrono::steady_clock::now();
-    for (auto number : numbers) {
-        a += bit_scan_forward(number);
-    }
-    end = std::chrono::steady_clock::now();
-    std::cout << "diy implementation = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
     for (auto number : numbers) {
@@ -140,13 +80,6 @@ void bitscan_benchmark1() {
 
 
     std::cout << "Bit Scan Reverse" << std::endl;
-
-    begin = std::chrono::steady_clock::now();
-    for (auto number : numbers) {
-        a += bit_scan_reverse(number);
-    }
-    end = std::chrono::steady_clock::now();
-    std::cout << "diy implementation = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
     for (auto number : numbers) {
@@ -350,6 +283,7 @@ void bit_scan_reverse_benchmark() {
 
 
 void bitwise_and_benchmark() {
+    std::cout << "Benchmark bitwise and" << std::endl;
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -390,19 +324,79 @@ void bitwise_and_benchmark() {
     std::cout << acc << std::endl;
 }
 
-void test_custom_biset() {
-    bitarray bbi(100);
-    bbi.set_bit(10);
-    bbi.set_bit(20);
-    bbi.set_bit(25);
-    bbi.set_bit(70);
-    bbi.set_bit(85);
-    std::cout << bbi;
+void subtraction_benchmark() {
+    std::cout << "Benchmark subtraction" << std::endl;
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
 
-    bbi.init_scan(bbo::NON_DESTRUCTIVE);
-    int nBit = 0;
-    while( (nBit = bbi.next_bit()) != BBObject::noBit ) {
-        std::cout << nBit << " ";
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+    uint64_t len = 500000000;
+
+    bitarray bb1(len);
+    bitarray bb2(len);
+    custom_bitset c_bb1(len);
+    custom_bitset c_bb2(len);
+    for (uint64_t i = 0; i < len; i++) {
+        if (rand() % 2) {
+            bb1.set_bit(i);
+            c_bb1.set_bit(i);
+        }
     }
+    for (uint64_t i = 0; i < len; i++) {
+        if (rand() % 2) {
+            bb2.set_bit(i);
+            c_bb2.set_bit(i);
+        }
+    }
+    // std::cout << bbi;
+    /*
+    begin = std::chrono::steady_clock::now();
+    bb1 &= ~bb2;
+    end = std::chrono::steady_clock::now();
+    std::cout << "bit scan = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+    */
+
+    begin = std::chrono::steady_clock::now();
+    custom_bitset c_bb3 = c_bb1 - c_bb2;
+    end = std::chrono::steady_clock::now();
+    std::cout << "custom bitset = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+}
+
+void test_custom_bitset() {
+    auto bb = custom_bitset(128);
+    bb.set_bit(0);
+    bb.set_bit(5);
+    bb.set_bit(10);
+    bb.set_bit(20);
+    bb.set_bit(50);
+    bb.set_bit(64);
+    bb.set_bit(63);
+    bb.set_bit(80);
+    bb.set_bit(127);
+    std::cout << bb << std::endl;
+    std::cout << (~bb) << std::endl;
+
+    auto bb2 = custom_bitset(128);
+    bb2.set_bit(0);
+    bb2.set_bit(10);
+    bb2.set_bit(50);
+    bb2.set_bit(63);
+    bb2.set_bit(127);
+    std::cout << bb - bb2 << std::endl;
+
+    uint64_t bit = bb.first_bit();
+    do {
+        std::cout << bit << " ";
+    } while((bit = bb.next_bit()) != bb.size());
     std::cout << std::endl;
+
+    bit = bb.last_bit();
+    do {
+        std::cout << bit << " ";
+    } while((bit = bb.prev_bit()) != bb.size());
+    std::cout << std::endl;
+
+    auto bb3 = custom_bitset(bb);
+    auto bb4 = bb & bb2;
 }
