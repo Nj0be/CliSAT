@@ -1,5 +1,5 @@
 //
-// Created by benia on 31/03/25.
+// Created by Beniamino Vagnarelli on 31/03/25.
 //
 
 #pragma once
@@ -388,4 +388,21 @@ void bitwise_and_benchmark() {
     std::cout << "custom bitset next_bit = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     std::cout << acc << std::endl;
+}
+
+void test_custom_biset() {
+    bitarray bbi(100);
+    bbi.set_bit(10);
+    bbi.set_bit(20);
+    bbi.set_bit(25);
+    bbi.set_bit(70);
+    bbi.set_bit(85);
+    std::cout << bbi;
+
+    bbi.init_scan(bbo::NON_DESTRUCTIVE);
+    int nBit = 0;
+    while( (nBit = bbi.next_bit()) != BBObject::noBit ) {
+        std::cout << nBit << " ";
+    }
+    std::cout << std::endl;
 }

@@ -1,5 +1,5 @@
 //
-// Created by benia on 01/04/25.
+// Created by Beniamino Vagnarelli on 01/04/25.
 //
 
 #pragma once
@@ -40,11 +40,13 @@ public:
     custom_bitset operator~();
     custom_bitset operator&=(const custom_bitset& other);
     custom_bitset operator|=(const custom_bitset& other);
+    bool operator[](const uint64_t pos) const { return get_bit(pos); };
     friend std::ostream& operator<<(std::ostream& stream, const custom_bitset& bb);
 
     // TODO: not SAFE!
     void set_bit(const uint64_t pos) { bits[get_block(pos)] |= (1ULL << get_block_bit(pos)); }
     void unset_bit(const uint64_t pos) { bits[get_block(pos)] &= ~(1ULL << get_block_bit(pos)); }
+    bool get_bit(const uint64_t pos) const { return bits[get_block(pos)] >> get_block_bit(pos) & 1; }
 
     uint64_t first_bit();
     uint64_t next_bit();
