@@ -225,6 +225,8 @@ void bit_scan_forward_benchmark() {
     std::chrono::steady_clock::time_point end;
 
     uint64_t len = 50000000;
+    uint64_t acc = 0;
+    uint64_t bit = 0;
 
     bitarray bb_empty(len);
     bitarray bb_random(len);
@@ -235,49 +237,49 @@ void bit_scan_forward_benchmark() {
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
             bb_random.set_bit(i);
-            c_bb_random.setBit(i);
+            c_bb_random.set_bit(i);
         }
         bb_complete.set_bit(i);
-        c_bb_complete.setBit(i);
+        c_bb_complete.set_bit(i);
     }
     bb_empty.init_scan(bbo::NON_DESTRUCTIVE);
     bb_random.init_scan(bbo::NON_DESTRUCTIVE);
     bb_complete.init_scan(bbo::NON_DESTRUCTIVE);
-    c_bb_empty.start_bit_scan_forward();
-    c_bb_random.start_bit_scan_forward();
-    c_bb_complete.start_bit_scan_forward();
 
     begin = std::chrono::steady_clock::now();
-    while(bb_empty.next_bit() != BBObject::noBit) {}
+    while(bb_empty.next_bit() != BBObject::noBit) { ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "bit scan empty = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(c_bb_empty.next_bit() != c_bb_empty.size()) {}
+    bit = c_bb_empty.first_bit();
+    while(bit != c_bb_empty.size()) { bit = c_bb_empty.next_bit(); ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "custom bitset empty = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(bb_random.next_bit() != BBObject::noBit) {}
+    while(bb_random.next_bit() != BBObject::noBit) { ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "bit scan random = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(c_bb_random.next_bit() != c_bb_random.size()) {}
+    bit = c_bb_random.first_bit();
+    while(bit != c_bb_random.size()) { bit = c_bb_random.next_bit(); ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "custom bitset random = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(bb_complete.next_bit() != BBObject::noBit) {}
+    while(bb_complete.next_bit() != BBObject::noBit) { ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "bit scan complete = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(c_bb_complete.next_bit() != c_bb_complete.size()) {}
+    bit = c_bb_complete.first_bit();
+    while(bit != c_bb_complete.size()) { bit = c_bb_complete.next_bit(); ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "custom bitset complete = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
-    std::cout << std::endl;
+    std::cout << "Total bits scanned: " << acc << std::endl;
 }
 
 void bit_scan_reverse_benchmark() {
@@ -289,6 +291,7 @@ void bit_scan_reverse_benchmark() {
 
     uint64_t len = 50000000;
     uint64_t acc = 0;
+    uint64_t bit = 0;
 
     bitarray bb_empty(len);
     bitarray bb_random(len);
@@ -299,50 +302,50 @@ void bit_scan_reverse_benchmark() {
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
             bb_random.set_bit(i);
-            c_bb_random.setBit(i);
+            c_bb_random.set_bit(i);
         }
         bb_complete.set_bit(i);
-        c_bb_complete.setBit(i);
+        c_bb_complete.set_bit(i);
     }
     bb_empty.init_scan(bbo::NON_DESTRUCTIVE_REVERSE);
     bb_random.init_scan(bbo::NON_DESTRUCTIVE_REVERSE);
     bb_complete.init_scan(bbo::NON_DESTRUCTIVE_REVERSE);
-    c_bb_empty.start_bit_scan_reverse();
-    c_bb_random.start_bit_scan_reverse();
-    c_bb_complete.start_bit_scan_reverse();
     // std::cout << bbi;
 
     begin = std::chrono::steady_clock::now();
-    while(bb_empty.prev_bit() != BBObject::noBit) {}
+    while(bb_empty.prev_bit() != BBObject::noBit) { ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "bit scan empty = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(c_bb_empty.prev_bit() != c_bb_empty.size()) {}
+    bit = c_bb_empty.last_bit();
+    while(bit != c_bb_empty.size()) { bit = c_bb_empty.prev_bit(); ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "custom bitset empty = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(bb_random.prev_bit() != BBObject::noBit) {}
+    while(bb_random.prev_bit() != BBObject::noBit) { ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "bit scan random = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(c_bb_random.prev_bit() != c_bb_random.size()) {}
+    bit = c_bb_random.last_bit();
+    while(bit != c_bb_random.size()) { bit = c_bb_random.prev_bit(); ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "custom bitset random = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(bb_complete.prev_bit() != BBObject::noBit) {}
+    while(bb_complete.prev_bit() != BBObject::noBit) { ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "bit scan complete = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    while(c_bb_complete.prev_bit() != c_bb_complete.size()) {}
+    bit = c_bb_complete.last_bit();
+    while(bit != c_bb_complete.size()) { bit = c_bb_complete.prev_bit(); ++acc; }
     end = std::chrono::steady_clock::now();
     std::cout << "custom bitset complete = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
-    std::cout << std::endl;
+    std::cout << "Total bits scanned: " << acc << std::endl;
 }
 
 
@@ -363,13 +366,13 @@ void bitwise_and_benchmark() {
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
             bbi1.set_bit(i);
-            bb31.setBit(i);
+            bb31.set_bit(i);
         }
     }
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
             bbi2.set_bit(i);
-            bb32.setBit(i);
+            bb32.set_bit(i);
         }
     }
     // std::cout << bbi;

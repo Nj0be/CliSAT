@@ -11,26 +11,32 @@ int main() {
     g.add_edge(1, 2);
     */
 
-    auto bb = custom_bitset(100);
-    bb.setBit(5);
-    bb.setBit(10);
-    bb.setBit(20);
-    bb.setBit(50);
-    bb.setBit(80);
-    bb.print();
-    bb.start_bit_scan_forward();
-    uint64_t bit = UINT64_MAX;
-    while((bit = bb.next_bit()) != bb.size()) {
+    auto bb = custom_bitset(128);
+    bb.set_bit(0);
+    bb.set_bit(5);
+    bb.set_bit(10);
+    bb.set_bit(20);
+    bb.set_bit(50);
+    bb.set_bit(64);
+    bb.set_bit(63);
+    bb.set_bit(80);
+    bb.set_bit(127);
+    std::cout << (~bb) << std::endl;
+
+    uint64_t bit = bb.first_bit();
+    do {
         std::cout << bit << " ";
-    }
+    } while((bit = bb.next_bit()) != bb.size());
     std::cout << std::endl;
 
-    bb.start_bit_scan_reverse();
-    bit = UINT64_MAX;
-    while((bit = bb.prev_bit()) != bb.size()) {
+    bit = bb.last_bit();
+    do {
         std::cout << bit << " ";
-    }
+    } while((bit = bb.prev_bit()) != bb.size());
     std::cout << std::endl;
+
+    auto bb2 = custom_bitset(bb);
+    auto bb3 = bb & bb2;
 
     bitarray bbi(100);
     bbi.set_bit(10);
