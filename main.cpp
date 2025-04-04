@@ -22,6 +22,7 @@ int main() {
     //test_custom_bitset();
     //subtraction_benchmark();
     //bit_scan_forward_benchmark();
+    bit_scan_forward_destructive_benchmark();
     //bit_scan_reverse_benchmark();
     //bitwise_and_benchmark();
 
