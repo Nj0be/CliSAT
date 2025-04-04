@@ -31,6 +31,8 @@ class custom_bitset {
 
 public:
     explicit custom_bitset(uint64_t size);
+    explicit custom_bitset(uint64_t size, bool default_value);
+    explicit custom_bitset(const std::vector<uint64_t>& v);
     custom_bitset(const custom_bitset& other);
 
     custom_bitset operator&(const custom_bitset& other) const;
@@ -62,7 +64,11 @@ public:
 
     uint64_t degree();
 
+    void negate();
+
     [[nodiscard]] uint64_t size() const { return _size; }
+
+    void swap(custom_bitset& other) noexcept;
 };
 
 inline uint64_t custom_bitset::_next_bit(const uint64_t pos) const {
@@ -108,7 +114,19 @@ inline std::ostream& operator<<(std::ostream &stream, const custom_bitset &bb) {
 }
 
 // TODO: is assert good enough?
-inline custom_bitset::custom_bitset(const uint64_t size): _size((assert(size > 0), size)), bits(((size-1)/64) + 1) {}
+inline custom_bitset::custom_bitset(const uint64_t size): custom_bitset(size, 0) {}
+
+// we set everything to 1 or to 0
+inline custom_bitset::custom_bitset(uint64_t size, const bool default_value): _size((assert(size > 0), size)), bits(((_size-1)/64) + 1, default_value*~0ULL) {
+    bits.back() &= ~(~0ULL << (_size%64));
+}
+
+// TODO: change assert
+inline custom_bitset::custom_bitset(const std::vector<uint64_t> &v): _size((assert(v.size()), *ranges::max_element(v) + 1)), bits((_size-1)/64 + 1) {
+    for (const auto pos: v) {
+        set_bit(pos);
+    }
+}
 
 inline custom_bitset::custom_bitset(const custom_bitset &other): _size(other._size), bits(other.bits) {}
 
@@ -128,10 +146,7 @@ inline custom_bitset custom_bitset::operator|(const custom_bitset &other) const 
 
 inline custom_bitset custom_bitset::operator~() const {
     auto bb = custom_bitset(*this);
-
-    for (unsigned long & bit : bb.bits) {
-        bit = ~bit;
-    }
+    bb.negate();
 
     return bb;
 }
@@ -151,17 +166,18 @@ inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
 }
 
 inline custom_bitset custom_bitset::operator&=(const custom_bitset &other) {
-    if (bits.size() != other.bits.size()) return *this;
-
     for (uint64_t i = 0; i < bits.size(); ++i) {
-        bits[i] &= other.bits[i];
+        // to avoid out of bound memory access
+        if (i >= other.bits.size()) bits[i] = 0;
+        else bits[i] &= other.bits[i];
     }
 
     return *this;
 }
 
+// TODO: not safe
 inline custom_bitset custom_bitset::operator|=(const custom_bitset &other) {
-    if (bits.size() != other.bits.size()) return *this;
+    //if (bits.size() != other.bits.size()) return *this;
 
     for (uint64_t i = 0; i < bits.size(); ++i) {
         bits[i] |= other.bits[i];
@@ -171,10 +187,11 @@ inline custom_bitset custom_bitset::operator|=(const custom_bitset &other) {
 }
 
 inline custom_bitset custom_bitset::operator-=(const custom_bitset &other) {
-    if (bits.size() != other.bits.size()) return *this;
+    const auto min_length = min(size(), other.size());
+    const auto min_block = (min_length-1)/64 + 1;
 
     // equivalent to *this &= ~other; but faster
-    for (uint64_t i = 0; i < bits.size(); ++i) {
+    for (uint64_t i = 0; i < min_block; ++i) {
         bits[i] &= ~other.bits[i];
     }
 
@@ -182,13 +199,11 @@ inline custom_bitset custom_bitset::operator-=(const custom_bitset &other) {
 }
 
 inline custom_bitset::operator bool() const {
-    bool condition = false;
-
-    for (const unsigned long bit : bits) {
-        condition |= bit;
+    for (const auto bit : bits) {
+        if (bit) return true;
     }
 
-    return condition;
+    return false;
 }
 
 inline custom_bitset::operator vector<unsigned long>() {
@@ -359,4 +374,16 @@ inline uint64_t custom_bitset::degree() {
     current_bit = orig_bit;
 
     return degree;
+}
+
+inline void custom_bitset::negate() {
+    for (unsigned long & bit : bits) {
+        bit = ~bit;
+    }
+}
+
+inline void custom_bitset::swap(custom_bitset &other) noexcept {
+    const auto tmp = *this;
+    *this = other;
+    other = tmp;
 }

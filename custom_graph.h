@@ -13,10 +13,12 @@
 
 class custom_graph {
     std::vector<custom_bitset> graph;
+    std::vector<std::pair<uint64_t, uint64_t>> degree_conversion;
+    std::vector<uint64_t> degree_conversion2;
     uint64_t n_edges = 0;
 
 public:
-    explicit custom_graph(uint64_t size);
+    //explicit custom_graph(uint64_t size);
     explicit custom_graph(const std::string& filename);
 
     void add_edge(uint64_t u, uint64_t v);
@@ -27,20 +29,23 @@ public:
 
     custom_bitset get_neighbor_set(uint64_t vertex);
 
-    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t vertex) const { return { graph[vertex] }; }
-    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t vertex, const custom_bitset& set) const { return { graph[vertex] & set }; }
-    [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t vertex) const { return { ~graph[vertex] }; }
-    [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t vertex, const custom_bitset& set) const { return { ~(graph[vertex] & set) }; }
+    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v) const { return { graph[v] }; }
+    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const custom_bitset& set) const { return { get_neighbor_set(v) & set }; }
+    // we unset v from the anti_neighbor (don't include it
+    [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v) const { auto set = ~graph[v]; set.unset_bit(v); return set; }
+    [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v, const custom_bitset& set) const { return { get_anti_neighbor_set(v) & set }; }
 
-    uint64_t degree() const;
+    [[nodiscard]] uint64_t degree() const;
+
+    std::vector<uint64_t> convert_back_set(const std::vector<uint64_t> &v) const;
 };
 
-inline custom_graph::custom_graph(const uint64_t size) {
+/*inline custom_graph::custom_graph(const uint64_t size) : degree_conversion2(size) {
     graph.reserve(size);
     for (uint64_t i = 0; i < size; ++i) {
         graph.emplace_back(size);
     }
-}
+}*/
 
 // TODO: change assert
 inline custom_graph::custom_graph(const std::string& filename) {
@@ -57,17 +62,48 @@ inline custom_graph::custom_graph(const std::string& filename) {
             std::istringstream(strInput.substr(7)) >> nodes;
 
             graph.reserve(nodes);
+            degree_conversion.reserve(nodes);
+            degree_conversion2.resize(nodes);
             for (uint64_t i = 0; i < nodes; ++i) {
                 graph.emplace_back(nodes);
+                degree_conversion.emplace_back(0, i);
             }
         }
         else if (strInput[0] == 'e') {
             uint64_t node1, node2;
             std::istringstream(strInput.substr(2)) >> node1 >> node2;
 
-            add_edge(node1-1, node2-1);
+            degree_conversion[node1-1].first++;
+            degree_conversion[node2-1].first++;
         }
     }
+
+    std::ranges::sort(degree_conversion, ranges::greater());
+    /*for (int i = 0; i < degree_conversion.size(); i++) {
+        std::cout << degree_conversion[i].first << " " << degree_conversion[i].second << "  ";
+    }
+    std::cout << std::endl;*/
+
+    for (int i = 0; i < degree_conversion.size(); i++) {
+        degree_conversion2[degree_conversion[i].second] = i;
+    }
+
+    std::ifstream inf2(filename);
+    while (std::getline(inf2, strInput)) {
+        if (strInput[0] == 'e') {
+            uint64_t node1, node2;
+            std::istringstream(strInput.substr(2)) >> node1 >> node2;
+
+            node1 = degree_conversion2[node1 - 1];
+            node2 = degree_conversion2[node2 - 1];
+
+            add_edge(node1, node2);
+        }
+    }
+    /*for (auto bits : graph) {
+        std::cout << bits << std::endl;
+    }
+    std::cout << std::endl;*/
 }
 
 inline void custom_graph::add_edge(const uint64_t u, const uint64_t v) {
@@ -96,4 +132,16 @@ inline uint64_t custom_graph::degree() const {
         degree = max(degree, edge.degree());
 
     return degree;
+}
+
+// convert list to original naming scheme, changed because of initial ordering (based on non-increasing degree)
+inline std::vector<uint64_t> custom_graph::convert_back_set(const std::vector<uint64_t> &v) const {
+    std::vector<uint64_t> set;
+    set.reserve(v.size());
+
+    for (const auto vertex : v) {
+        set.push_back(degree_conversion[vertex].second);
+    }
+
+    return set;
 }
