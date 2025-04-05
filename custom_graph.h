@@ -27,17 +27,18 @@ public:
     [[nodiscard]] uint64_t size() const { return graph.size(); }
     [[nodiscard]] uint64_t get_n_edges() const { return n_edges; }
 
-    custom_bitset get_neighbor_set(uint64_t vertex);
-
     [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v) const { return { graph[v] }; }
     [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const custom_bitset& set) const { return { get_neighbor_set(v) & set }; }
-    // we unset v from the anti_neighbor (don't include it
-    [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v) const { auto set = ~graph[v]; set.unset_bit(v); return set; }
+    // we unset v from the anti_neighbor (don't include it)
+    // I think that it doesn't matter anyway
+    [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v) const { return ~graph[v]; }
     [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v, const custom_bitset& set) const { return { get_anti_neighbor_set(v) & set }; }
 
     [[nodiscard]] uint64_t degree() const;
 
     std::vector<uint64_t> convert_back_set(const std::vector<uint64_t> &v) const;
+
+    std::vector<uint64_t> convert_back_set(custom_bitset &bb) const;
 };
 
 /*inline custom_graph::custom_graph(const uint64_t size) : degree_conversion2(size) {
@@ -141,6 +142,19 @@ inline std::vector<uint64_t> custom_graph::convert_back_set(const std::vector<ui
 
     for (const auto vertex : v) {
         set.push_back(degree_conversion[vertex].second);
+    }
+
+    return set;
+}
+
+inline std::vector<uint64_t> custom_graph::convert_back_set(custom_bitset &bb) const {
+    std::vector<uint64_t> set;
+    set.reserve(bb.size());
+
+    auto vertex = bb.first_bit();
+    while (vertex != bb.size()) {
+        set.push_back(degree_conversion[vertex].second);
+        vertex = bb.next_bit();
     }
 
     return set;

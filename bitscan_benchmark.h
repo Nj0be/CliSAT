@@ -150,6 +150,44 @@ void bitscan_benchmark1() {
     std::cout << a << std::endl;
 }
 
+
+void popcount_benchmark() {
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+    std::vector<uint64_t> numbers(500000000);
+    std::ranges::generate(numbers, randll);
+
+
+    std::cout << "PopCount:" << std::endl;
+    uint64_t a = 0;
+
+    begin = std::chrono::steady_clock::now();
+    for (auto number : numbers) {
+        a += std::popcount(number);
+    }
+    end = std::chrono::steady_clock::now();
+    std::cout << "std::popcount = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    begin = std::chrono::steady_clock::now();
+    for (auto number : numbers) {
+        a += __popcount(number);
+    }
+    end = std::chrono::steady_clock::now();
+    std::cout << "__popcount = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    begin = std::chrono::steady_clock::now();
+    for (auto number : numbers) {
+        a += __builtin_popcountll(number);
+    }
+    end = std::chrono::steady_clock::now();
+    std::cout << "__builtin_popcountll = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    std::cout << a << std::endl;
+}
+
 void bit_scan_forward_benchmark() {
     std::cout << "Benchmark bit scan forward" << std::endl;
     std::srand(static_cast<unsigned>(std::time(nullptr)));
