@@ -4,8 +4,9 @@
 
 #include <iostream>
 //#include "graph/graph.h"
+#include "BBMCR.h"
 #include "bitscan_benchmark.h"
-#include "CliSAT.h"
+#include "BB_Max_Clique.h"
 #include "custom_bitset.h"
 #include "custom_graph.h"
 
@@ -40,17 +41,28 @@ int main() {
     auto end = std::chrono::steady_clock::now();
     std::vector<uint64_t> result;
 
-    BB_Max_Clique_cl bb(filename); //34
+    const custom_graph g(filename); //34
+
+    /*BB_Max_Clique_cl bb(filename); //34
     begin = std::chrono::steady_clock::now();
     result = bb.run();
     end = std::chrono::steady_clock::now();
-    std::cout << "BB_Max_Clique class = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+    std::cout << "BB_Max_Clique class = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
 
-    custom_graph g(filename); //34
     begin = std::chrono::steady_clock::now();
     result = run_BB_Max_Clique(g);
     end = std::chrono::steady_clock::now();
-    std::cout << "BB_Max_Clique fun = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+    std::cout << "BB_Max_Clique rec = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    /*begin = std::chrono::steady_clock::now();
+    result = BB_Max_Clique_iter(g);
+    end = std::chrono::steady_clock::now();
+    std::cout << "BB_Max_Clique iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
+
+    begin = std::chrono::steady_clock::now();
+    result = run_BBMCR(g);
+    end = std::chrono::steady_clock::now();
+    std::cout << "BB_Max_Clique iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     for (auto v : result) {
         std::cout << v+1 << " ";

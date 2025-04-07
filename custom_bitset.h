@@ -7,7 +7,8 @@
 #include <cstdint>
 #include <vector>
 #include <immintrin.h> //__bsrd, __bsrq, etc
-#include <tr2/dynamic_bitset>
+#include <cassert>
+#include <algorithm>
 
 /*TODO:
  * Destructive scans
@@ -17,9 +18,9 @@
 class custom_bitset {
     const uint64_t _size;
     std::vector<uint64_t> bits;
-    std::vector<uint64_t>::iterator current_block;
+    std::vector<uint64_t>::iterator current_block = bits.begin();
     // uint64_t faster than other types
-    uint64_t current_bit;
+    uint64_t current_bit = 0;
 
     static uint8_t bit_scan_forward(const uint64_t x) { return __builtin_ctzll(x); }
     static uint8_t bit_scan_reverse(const uint64_t x) { return __bsrq(x); }
@@ -49,10 +50,11 @@ public:
     explicit operator std::vector<uint64_t>();
 
     // TODO: not SAFE!
-    void set_bit(const uint64_t pos) { bits[get_block(pos)] |= (1ULL << get_block_bit(pos)); }
-    void set_block_bit(const std::vector<uint64_t>::iterator &block, const uint64_t &bit) { *block |= (1ULL << bit); }
+    void set_bit(const uint64_t pos) { bits[get_block(pos)] |= 1ULL << get_block_bit(pos); }
+    static void set_block_bit(const std::vector<uint64_t>::iterator &block, const uint64_t &bit) { *block |= 1ULL << bit; }
     void unset_bit(const uint64_t pos) { bits[get_block(pos)] &= ~(1ULL << get_block_bit(pos)); }
-    void unset_block_bit(const std::vector<uint64_t>::iterator &block, const uint64_t &bit) { *block &= ~(1ULL << bit); }
+    static void unset_block_bit(const std::vector<uint64_t>::iterator &block, const uint64_t &bit) { *block &= ~(1ULL << bit); }
+    // we move bit to first position and we mask everything that it isn't on position 1 to 0
     [[nodiscard]] bool get_bit(const uint64_t pos) const { return bits[get_block(pos)] >> get_block_bit(pos) & 1; }
 
     uint64_t first_bit();
@@ -134,7 +136,7 @@ inline custom_bitset::custom_bitset(uint64_t size, const bool default_value): _s
 }
 
 // TODO: change assert
-inline custom_bitset::custom_bitset(const std::vector<uint64_t> &v): _size((assert(v.size()), *ranges::max_element(v) + 1)), bits((_size-1)/64 + 1) {
+inline custom_bitset::custom_bitset(const std::vector<uint64_t> &v): _size((assert(v.size()), *std::ranges::max_element(v) + 1)), bits((_size-1)/64 + 1) {
     for (const auto pos: v) {
         set_bit(pos);
     }
@@ -143,28 +145,28 @@ inline custom_bitset::custom_bitset(const std::vector<uint64_t> &v): _size((asse
 inline custom_bitset::custom_bitset(const custom_bitset &other): _size(other._size), bits(other.bits) {}
 
 inline custom_bitset custom_bitset::operator&(const custom_bitset &other) const {
-    auto bb = custom_bitset(*this);
+    auto bb(*this);
     bb &= other;
 
     return bb;
 }
 
 inline custom_bitset custom_bitset::operator|(const custom_bitset &other) const {
-    auto bb = custom_bitset(*this);
+    auto bb(*this);
     bb |= other;
 
     return bb;
 }
 
 inline custom_bitset custom_bitset::operator~() const {
-    auto bb = custom_bitset(*this);
+    auto bb(*this);
     bb.negate();
 
     return bb;
 }
 
 inline custom_bitset custom_bitset::operator-(const custom_bitset &other) const {
-    auto bb = custom_bitset(*this);
+    auto bb(*this);
     bb -= other;
 
     return bb;
@@ -174,6 +176,7 @@ inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
     bits = other.bits;
     //current_block = other.current_block;
     //current_bit = other.current_bit;
+
     return *this;
 }
 
@@ -201,7 +204,7 @@ inline custom_bitset& custom_bitset::operator|=(const custom_bitset &other) {
 }
 
 inline custom_bitset& custom_bitset::operator-=(const custom_bitset &other) {
-    const auto min_length = min(size(), other.size());
+    const auto min_length = std::min(size(), other.size());
     const auto min_block = (min_length-1)/64 + 1;
 
     // equivalent to *this &= ~other; but faster
@@ -213,14 +216,14 @@ inline custom_bitset& custom_bitset::operator-=(const custom_bitset &other) {
 }
 
 inline custom_bitset::operator bool() const {
-    for (auto word:bits) {
+    for (const auto word:bits) {
         if (word) return true;
     }
 
     return false;
 }
 
-inline custom_bitset::operator vector<unsigned long>() {
+inline custom_bitset::operator std::vector<unsigned long>() {
     const auto orig_block = current_block;
     const auto orig_bit = current_bit;
 

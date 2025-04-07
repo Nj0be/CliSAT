@@ -5,9 +5,10 @@
 #pragma once
 
 #include <fstream>
-#include <iostream>
 #include <string>
 #include "custom_bitset.h"
+#include <sstream>
+#include <ranges>
 
 // TODO: calculate graph degree
 
@@ -79,7 +80,7 @@ inline custom_graph::custom_graph(const std::string& filename) {
         }
     }
 
-    std::ranges::sort(degree_conversion, ranges::greater());
+    std::ranges::sort(degree_conversion, std::ranges::greater());
     /*for (int i = 0; i < degree_conversion.size(); i++) {
         std::cout << degree_conversion[i].first << " " << degree_conversion[i].second << "  ";
     }
@@ -130,7 +131,7 @@ inline uint64_t custom_graph::degree() const {
     uint64_t degree = 0;
 
     for (auto edge: graph)
-        degree = max(degree, edge.degree());
+        degree = std::max(degree, edge.degree());
 
     return degree;
 }
