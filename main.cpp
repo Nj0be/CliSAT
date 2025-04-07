@@ -32,19 +32,24 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-2.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C125.9.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/example.txt";
-    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/dsjc1000.5.clq";
+    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_44.clq";
 
-    /*BB_Max_Clique_cl bb(filename); //34
     auto begin = std::chrono::steady_clock::now();
-    //auto result = run_BB_Max_Clique(g);
-    auto result = bb.run();
     auto end = std::chrono::steady_clock::now();
-    std::cout << "BB_Max_Clique class = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
+    std::vector<uint64_t> result;
 
-    const custom_graph g(filename); //34
-    auto begin = std::chrono::steady_clock::now();
-    auto result = run_BB_Max_Clique(g);
-    auto end = std::chrono::steady_clock::now();
+    BB_Max_Clique_cl bb(filename); //34
+    begin = std::chrono::steady_clock::now();
+    result = bb.run();
+    end = std::chrono::steady_clock::now();
+    std::cout << "BB_Max_Clique class = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    custom_graph g(filename); //34
+    begin = std::chrono::steady_clock::now();
+    result = run_BB_Max_Clique(g);
+    end = std::chrono::steady_clock::now();
     std::cout << "BB_Max_Clique fun = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     for (auto v : result) {

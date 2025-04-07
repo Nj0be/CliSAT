@@ -8,26 +8,22 @@
 #include "custom_bitset.h"
 #include "custom_graph.h"
 
-// TODO: k_min should be calculated (in BBMaxClique)
-// TODO: Ubb has different order than g... bitwise operation can't be done -> I don't think
-// TODO: Ck is a list or a bitset??
-
-// ok
-
 // TODO: k_min can be negative! int and not uint. It causes bugs
-inline void BBColor(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>& Ul, std::vector<uint64_t>& C, const int64_t k_min=0) {
+inline void BBColor(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>& Ul, std::vector<uint64_t>& C, const int64_t k_min=1) {
     // TODO: K should start from 1 and not from 0!
+    custom_bitset Qbb(g.size());
     for (auto k = 1; Ubb; ++k) {
-        custom_bitset Qbb(Ubb);
         // TODO: read in reverse?? It gives wrong results otherwise
+        Qbb = Ubb;
         // no way, it's too slow in reverse
-        auto v = Qbb.first_bit_destructive();
+        auto v = Qbb.first_bit();
         while (v != Qbb.size()) {
-            // this or Ubb -= Ck ?
-            Ubb.unset_bit(v);
-
             // al piu' posso togliere, quindi non serve iniziare di nuovo un'altra scansione
-            Qbb &= g.get_anti_neighbor_set(v);
+            Qbb -= g.get_neighbor_set(v);
+
+            // THIS
+            //Qbb.unset_bit(v);
+            //Ubb.unset_bit(v);
 
             if (k >= k_min) {
                 C[v] = k;
@@ -35,12 +31,15 @@ inline void BBColor(const custom_graph& g, custom_bitset Ubb, std::vector<uint64
             }
 
             //get next vertex
-            v = Qbb.next_bit_destructive();
+            v = Qbb.next_bit();
         }
+
+        // OR THAT
+        Ubb -= Qbb;
     }
 }
 
-inline void BB_Max_Clique(const custom_graph& g, custom_bitset& Ubb, std::vector<uint64_t>& Ul, std::vector<uint64_t>& C, custom_bitset& S, custom_bitset& S_max) {
+inline void BB_Max_Clique(const custom_graph& g, custom_bitset& Ubb, std::vector<uint64_t>& Ul, const std::vector<uint64_t>& C, custom_bitset& S, custom_bitset& S_max) {
     while (!Ul.empty()) {
         const auto v = Ul.back();
         Ul.pop_back();
@@ -57,7 +56,7 @@ inline void BB_Max_Clique(const custom_graph& g, custom_bitset& Ubb, std::vector
                 // TODO: improve C1 creation performance
                 std::vector<uint64_t> C1(g.size());
                 std::vector<uint64_t> Ul1;
-                Ul1.reserve(g.size());
+                // Ul1.reserve(g.size()); // harms performance
                 int64_t k_min = S_max.n_set_bits() - S.n_set_bits() + 1;
                 BBColor(g, candidates, Ul1, C1, k_min);
                 //BBColor(g, candidates, Ul1, C, k_min);
@@ -76,7 +75,7 @@ inline void BB_Max_Clique(const custom_graph& g, custom_bitset& Ubb, std::vector
     }
 }
 
-inline std::vector<uint64_t> run_BB_Max_Clique(const custom_graph& g) {
+inline std::vector<uint64_t> run_BB_Max_Clique(custom_graph& g) {
     // initialize Ubb
     custom_bitset Ubb(g.size(), 1);
 
@@ -105,61 +104,60 @@ class BB_Max_Clique_cl {
     custom_bitset S;
     custom_bitset S_max;
     custom_bitset Qbb;
-    std::vector<uint64_t> C;
-    custom_bitset Ubb;
+    std::vector<custom_bitset> Ubb;
+    std::vector<std::vector<uint64_t>> C;
 
 
-    void iter_BBColor(custom_bitset Ubb, std::vector<uint64_t>& Ul, const int64_t k_min=0) {
-
-        for (auto k = 0; Ubb; ++k) {
+    void iter_BBColor(custom_bitset Ubb, std::vector<uint64_t>& Ul, const uint64_t depth=0, const int64_t k_min=1) {
+        for (auto k = 1; Ubb; ++k) {
             Qbb = Ubb;
 
-            auto v = Qbb.first_bit_destructive();
+            auto v = Qbb.first_bit();
             while (v != Qbb.size()) {
                 // this or Ubb -= Ck ?
                 Ubb.unset_bit(v);
 
-                Qbb &= g.get_anti_neighbor_set(v);
+                Qbb -= g.get_neighbor_set(v);
 
                 if (k >= k_min) {
-                    C[v] = k;
+                    C[depth][v] = k;
                     Ul.push_back(v);
                 }
 
                 //get next vertex
-                v = Qbb.next_bit_destructive();
+                v = Qbb.next_bit();
             }
+            Ubb -= Qbb;
         }
     }
 
-    void iter_BB_Max_Clique(custom_bitset &Ubb, std::vector<uint64_t> &Ul) {
-        // branching set
-
+    void iter_BB_Max_Clique(std::vector<uint64_t> &Ul, const uint64_t depth=0) {
         while (!Ul.empty()) {
             const auto v = Ul.back();
             Ul.pop_back();
-            Ubb.unset_bit(v);
+            Ubb[depth].unset_bit(v);
 
-            if (S.n_set_bits() + C[v] > S_max.n_set_bits()) {
+            if (S.n_set_bits() + C[depth][v] > S_max.n_set_bits()) {
                 S.set_bit(v);
                 // TODO: optimize candidates calculation?
-                auto candidates = Ubb & g.get_neighbor_set(v);
-                if (candidates) {
+                if (Ubb.size() <= depth+1) Ubb.push_back(custom_bitset(g.size()));
+                Ubb[depth+1] = Ubb[depth] & g.get_neighbor_set(v);
+                if (Ubb[depth+1]) {
                     // TODO: C or C1? Maybe C works because BBColor touches only the candidates that are not used by this iteration
-                    //std::vector<uint64_t> C1(g.size());
+                    if (C.size() <= depth+1) C.push_back(std::vector<uint64_t>(g.size()));
                     std::vector<uint64_t> Ul1;
                     Ul1.reserve(g.size());
-                    int64_t k_min = S_max.n_set_bits() - S.n_set_bits() + 1;
+                    const int64_t k_min = S_max.n_set_bits() - S.n_set_bits() + 1;
                     //BBColor(g, candidates, Ul1, C1, k_min);
-                    iter_BBColor(candidates, Ul1, k_min);
+                    iter_BBColor(Ubb[depth+1], Ul1, depth+1, k_min);
                     // TODO: order candidates based on coloring
                     //BB_Max_Clique(g, candidates, Ul1, C1, S, S_max);
-                    iter_BB_Max_Clique(candidates, Ul1);
+                    iter_BB_Max_Clique(Ul1, depth+1);
                 } else if (S.n_set_bits() > S_max.n_set_bits()) {
                     // to save resources we simply swap the two
                     // TODO: optimize assignment
                     S_max = S;
-                    //std::cout << S_max.n_set_bits() << std::endl;
+                    std::cout << S_max.n_set_bits() << std::endl;
                 }
 
                 S.unset_bit(v);
@@ -168,7 +166,10 @@ class BB_Max_Clique_cl {
     }
 
 public:
-    explicit BB_Max_Clique_cl(std::string filename) : g(filename), S(g.size()), S_max(g.size()), Qbb(g.size()), C(g.size()), Ubb(g.size(), 1) {}
+    explicit BB_Max_Clique_cl(const std::string &filename) : g(filename), S(g.size()), S_max(g.size()), Qbb(g.size()) {
+        C.emplace_back(g.size());
+        Ubb.emplace_back(g.size(), 1);
+    }
 
     std::vector<uint64_t> run() {
         // initialize Ul
@@ -176,9 +177,9 @@ public:
         // pre-allocate list size
         Ul.reserve(g.size());
 
-        iter_BBColor(Ubb, Ul);
+        iter_BBColor(Ubb[0], Ul);
 
-        iter_BB_Max_Clique(Ubb, Ul);
+        iter_BB_Max_Clique(Ul);
 
         return g.convert_back_set(S_max);
     }

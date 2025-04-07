@@ -27,8 +27,8 @@ public:
     [[nodiscard]] uint64_t size() const { return graph.size(); }
     [[nodiscard]] uint64_t get_n_edges() const { return n_edges; }
 
-    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v) const { return { graph[v] }; }
-    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const custom_bitset& set) const { return { get_neighbor_set(v) & set }; }
+    [[nodiscard]] const custom_bitset& get_neighbor_set(const uint64_t v) const { return { graph[v] }; }
+    [[nodiscard]] const custom_bitset& get_neighbor_set(const uint64_t v, const custom_bitset& set) const { return { get_neighbor_set(v) & set }; }
     // we unset v from the anti_neighbor (don't include it)
     // I think that it doesn't matter anyway
     [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v) const { return ~graph[v]; }
