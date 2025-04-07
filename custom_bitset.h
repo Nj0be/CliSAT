@@ -57,6 +57,8 @@ public:
     // we move bit to first position and we mask everything that it isn't on position 1 to 0
     [[nodiscard]] bool get_bit(const uint64_t pos) const { return bits[get_block(pos)] >> get_block_bit(pos) & 1; }
 
+    void unset_all();
+
     uint64_t first_bit();
     uint64_t first_bit_destructive();
     uint64_t next_bit();
@@ -216,6 +218,7 @@ inline custom_bitset& custom_bitset::operator-=(const custom_bitset &other) {
 }
 
 inline custom_bitset::operator bool() const {
+    //std::ranges::any_of(bits, [&](auto const& word){ return word; });
     for (const auto word:bits) {
         if (word) return true;
     }
@@ -239,6 +242,12 @@ inline custom_bitset::operator std::vector<unsigned long>() {
     current_bit = orig_bit;
 
     return list;
+}
+
+inline void custom_bitset::unset_all() {
+    for (auto &word : bits) {
+        word = 0;
+    }
 }
 
 inline uint64_t custom_bitset::first_bit() {

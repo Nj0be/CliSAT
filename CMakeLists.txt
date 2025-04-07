@@ -9,7 +9,7 @@ add_executable(CliSAT main.cpp
         bitscan_benchmark.h
         custom_bitset.h
         custom_graph.h
-        BB_Max_Clique.h
+        BBMC.h
         BBMCR.h
 )
 
