@@ -31,25 +31,27 @@ inline void BB_Color(const custom_graph& g, custom_bitset Ubb, std::vector<uint6
     }
 }
 
-inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<uint64_t>& Ul, const std::vector<uint64_t>& C, custom_bitset& S, custom_bitset& S_max) {
-    while (!Ul.empty()) {
-        const auto v = Ul.back();
-        Ul.pop_back();
+inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vector<uint64_t>>& Ul, std::vector<std::vector<uint64_t>>& C, custom_bitset& S, custom_bitset& S_max, const uint64_t depth=0) {
+    while (!Ul[depth].empty()) {
+        const auto v = Ul[depth].back();
+        Ul[depth].pop_back();
 
         Ubb.unset_bit(v);
 
-        if (S.n_set_bits() + C[v] >= S_max.n_set_bits()) {
+        const auto S_bits = S.n_set_bits() + 1;
+        const auto S_max_bits = S_max.n_set_bits();
+
+        if (S_bits + C[depth][v] > S_max_bits) {
             S.set_bit(v);
 
             if (auto candidates = Ubb & g.get_neighbor_set(v)) {
-                std::vector<uint64_t> C1(g.size());
-                std::vector<uint64_t> Ul1;
-                const int64_t k_min = S_max.n_set_bits() - S.n_set_bits();
+                Ul[depth+1].clear();
+                const int64_t k_min = S_max_bits - S_bits;
 
-                BB_Color(g, candidates, Ul1, C1, k_min);
+                BB_Color(g, candidates, Ul[depth+1], C[depth+1], k_min);
 
-                BBMC(g, candidates, Ul1, C1, S, S_max);
-            } else if (S.n_set_bits() > S_max.n_set_bits()) { // if there are no more candidates (leaf) check if we obtained a max clique
+                BBMC(g, candidates, Ul, C, S, S_max, depth+1);
+            } else if (S_bits > S_max_bits) { // if there are no more candidates (leaf) check if we obtained a max clique
                 S_max = S;
                 std::cout << S_max.n_set_bits() << std::endl;
             }
@@ -64,18 +66,16 @@ inline std::vector<uint64_t> run_BBMC(const custom_graph& g) {
     custom_bitset Ubb(g.size(), 1);
 
     // initialize Ul
-    std::vector<uint64_t> Ul;
-    // pre-allocate list size
-    Ul.reserve(g.size());
+    std::vector<std::vector<uint64_t>> Ul(g.size());
 
     // max branching set
     custom_bitset S(g.size());
     custom_bitset S_max(g.size());
 
     // coloring
-    std::vector<uint64_t> C(g.size());
+    std::vector C(g.size(), std::vector<uint64_t>(g.size()));
 
-    BB_Color(g, Ubb, Ul, C);
+    BB_Color(g, Ubb, Ul[0], C[0]);
 
     BBMC(g, Ubb, Ul, C, S, S_max);
 

@@ -37,8 +37,15 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/example.txt";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/dsjc1000.5.clq";
-    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_44.clq";
-    //iauto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_44.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_55.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san1000.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_1.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_2.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_1.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
+    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr400_0.7.clq";
 
     auto begin = std::chrono::steady_clock::now();
     auto end = std::chrono::steady_clock::now();
@@ -52,12 +59,15 @@ int main() {
     end = std::chrono::steady_clock::now();
     std::cout << "BBMC class = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
 
-
     begin = std::chrono::steady_clock::now();
     result = run_BBMC(g);
     end = std::chrono::steady_clock::now();
     std::cout << "BBMC = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
+    /*for (auto v : result) {
+        std::cout << v+1 << " ";
+    }
+    std::cout << std::endl << result.size() << std::endl;*/
 
     /*begin = std::chrono::steady_clock::now();
     result = BB_Max_Clique_iter(g);
@@ -69,10 +79,10 @@ int main() {
     end = std::chrono::steady_clock::now();
     std::cout << "BBMCR = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
-    for (auto v : result) {
+    /*for (auto v : result) {
         std::cout << v+1 << " ";
     }
-    std::cout << std::endl << result.size() << std::endl;
+    std::cout << std::endl << result.size() << std::endl;*/
 
     //bitscan_benchmark1();
     //popcount_benchmark();

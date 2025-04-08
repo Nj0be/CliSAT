@@ -146,14 +146,14 @@ inline custom_bitset::custom_bitset(const std::vector<uint64_t> &v): _size((asse
 
 inline custom_bitset::custom_bitset(const custom_bitset &other): _size(other._size), bits(other.bits) {}
 
-inline custom_bitset custom_bitset::operator&(const custom_bitset &other) const {
+inline custom_bitset custom_bitset::operator&(const custom_bitset& other) const {
     auto bb(*this);
     bb &= other;
 
     return bb;
 }
 
-inline custom_bitset custom_bitset::operator|(const custom_bitset &other) const {
+inline custom_bitset custom_bitset::operator|(const custom_bitset& other) const {
     auto bb(*this);
     bb |= other;
 
