@@ -35,7 +35,7 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-2.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C125.9.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/example.txt";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq";
+    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/dsjc1000.5.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_44.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_55.clq";
@@ -44,23 +44,17 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_2.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_1.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_3.clq";
-    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr400_0.7.clq";
 
     auto begin = std::chrono::steady_clock::now();
     auto end = std::chrono::steady_clock::now();
-    std::vector<uint64_t> result;
+    custom_bitset result(1);
 
-
-    BB_Max_Clique_cl bb(filename); //34
-    /*begin = std::chrono::steady_clock::now();
-    result = bb.run();
-    end = std::chrono::steady_clock::now();
-    std::cout << "BBMC class = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
 
     begin = std::chrono::steady_clock::now();
-    result = run_BBMC(filename);
+    result = run_BBMC_file(filename);
     end = std::chrono::steady_clock::now();
     std::cout << "BBMC = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
@@ -75,7 +69,7 @@ int main() {
     std::cout << "BBMC iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
 
     begin = std::chrono::steady_clock::now();
-    result = run_BBMCR(filename);
+    result = run_BBMCR_file(filename);
     end = std::chrono::steady_clock::now();
     std::cout << "BBMCR = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
