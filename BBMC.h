@@ -61,7 +61,9 @@ inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vec
     }
 }
 
-inline std::vector<uint64_t> run_BBMC(const custom_graph& g) {
+inline std::vector<uint64_t> run_BBMC(const std::string& filename) {
+    const custom_graph g(filename);
+    
     // initialize Ubb
     custom_bitset Ubb(g.size(), 1);
 

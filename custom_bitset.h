@@ -68,7 +68,8 @@ public:
     uint64_t prev_bit();
     uint64_t prev_bit_destructive();
 
-    uint64_t degree();
+    uint64_t degree() const;
+    uint64_t neighbors_degree() const;
 
     void negate();
 
@@ -76,7 +77,7 @@ public:
     // TODO: removing caching seems beneficial. Verify that
     [[nodiscard]] uint64_t n_set_bits() const {
         uint64_t tot = 0;
-        for (auto word : bits) {
+        for (const auto word : bits) {
             tot += std::popcount(word);
         }
 
@@ -405,22 +406,8 @@ inline uint64_t custom_bitset::prev_bit() {
 }
 
 // TODO: optimize (use variable and update?)
-inline uint64_t custom_bitset::degree() {
-    const auto orig_block = current_block;
-    const auto orig_bit = current_bit;
-
-    uint64_t degree = 0;
-
-    auto bit = first_bit();
-    while (bit != size()) {
-        degree++;
-        bit = next_bit();
-    }
-
-    current_block = orig_block;
-    current_bit = orig_bit;
-
-    return degree;
+inline uint64_t custom_bitset::degree() const {
+    return n_set_bits();
 }
 
 inline void custom_bitset::negate() {

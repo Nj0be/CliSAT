@@ -43,15 +43,15 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_1.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_2.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_1.clq";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
-    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_3.clq";
+    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr400_0.7.clq";
 
     auto begin = std::chrono::steady_clock::now();
     auto end = std::chrono::steady_clock::now();
     std::vector<uint64_t> result;
 
-    const custom_graph g(filename); //34
 
     BB_Max_Clique_cl bb(filename); //34
     /*begin = std::chrono::steady_clock::now();
@@ -60,7 +60,7 @@ int main() {
     std::cout << "BBMC class = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
 
     begin = std::chrono::steady_clock::now();
-    result = run_BBMC(g);
+    result = run_BBMC(filename);
     end = std::chrono::steady_clock::now();
     std::cout << "BBMC = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
@@ -75,7 +75,7 @@ int main() {
     std::cout << "BBMC iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
 
     begin = std::chrono::steady_clock::now();
-    result = run_BBMCR(g);
+    result = run_BBMCR(filename);
     end = std::chrono::steady_clock::now();
     std::cout << "BBMCR = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 

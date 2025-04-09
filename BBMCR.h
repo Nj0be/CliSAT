@@ -116,7 +116,9 @@ inline void BBMCR(const custom_graph& g, custom_bitset& Ubb, std::vector<std::ve
     }
 }
 
-inline std::vector<uint64_t> run_BBMCR(const custom_graph& g) {
+inline std::vector<uint64_t> run_BBMCR(const std::string& filename) {
+    const custom_graph g(filename);
+
     // initialize Ubb
     custom_bitset Ubb(g.size(), 1);
 
