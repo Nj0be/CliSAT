@@ -45,6 +45,7 @@ public:
     custom_bitset operator~() const;
     custom_bitset operator-(const custom_bitset& other) const;
     custom_bitset& operator=(const custom_bitset& other);
+    bool operator==(const custom_bitset& other) const;
     custom_bitset& operator&=(const custom_bitset& other);
     custom_bitset& operator|=(const custom_bitset& other);
     custom_bitset& operator-=(const custom_bitset& other);
@@ -192,6 +193,17 @@ inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
     //current_bit = other.current_bit;
 
     return *this;
+}
+
+inline bool custom_bitset::operator==(const custom_bitset &other) const {
+    if (this == &other) return true;
+    if (size() != other.size()) return false;
+
+    for (int i = 0; i < size(); i++) {
+        if (bits[i] != other.bits[i]) return false;
+    }
+
+    return true;
 }
 
 inline custom_bitset& custom_bitset::operator&=(const custom_bitset &other) {
