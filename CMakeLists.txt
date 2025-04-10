@@ -12,7 +12,8 @@ add_executable(CliSAT main.cpp
         BBMC.h
         BBMCR.h
         CliSAT.h
-        BBMC.cpp
+        sorting.h
+        ANTS.h
 )
 
 target_link_libraries(CliSAT graph bitscan utils)

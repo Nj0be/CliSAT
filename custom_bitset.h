@@ -51,7 +51,7 @@ public:
     bool operator[](const uint64_t pos) const { return get_bit(pos); };
     friend std::ostream& operator<<(std::ostream& stream, const custom_bitset& bb);
     explicit operator bool() const;
-    explicit operator std::vector<uint64_t>();
+    explicit operator std::vector<uint64_t>() const;
 
     // TODO: not SAFE!
     void set_bit(const uint64_t pos) { bits[get_block(pos)] |= 1ULL << get_block_bit(pos); }
@@ -234,20 +234,22 @@ inline custom_bitset::operator bool() const {
     return false;
 }
 
-inline custom_bitset::operator std::vector<unsigned long>() {
-    const auto orig_block = current_block;
-    const auto orig_bit = current_bit;
+inline custom_bitset::operator std::vector<unsigned long>() const {
+    auto block = bits.begin();
+    auto block_bit = 0;
 
     std::vector<uint64_t> list;
 
-    auto bit = first_bit();
-    while (bit != size()) {
-        list.push_back(bit);
-        bit = next_bit();
-    }
-
-    current_block = orig_block;
-    current_bit = orig_bit;
+    do {
+        auto masked_number = *block;
+        while (masked_number != 0) {
+            block_bit = bit_scan_forward(masked_number);
+            list.push_back(std::distance(bits.begin(), block)*64 + block_bit);
+            // always shift by one even if we find 0
+            masked_number = *block & (~1ULL << block_bit);
+        }
+        ++block;
+    } while (block != bits.end());
 
     return list;
 }

@@ -5,10 +5,11 @@
 #include <iostream>
 //#include "graph/graph.h"
 #include "BBMCR.h"
-#include "bitscan_benchmark.h"
 #include "BBMC.h"
 #include "custom_bitset.h"
 #include "custom_graph.h"
+#include "sorting.h"
+#include <chrono>
 
 int main() {
     /*
@@ -35,7 +36,8 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-2.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C125.9.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/example.txt";
-    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/example2.txt";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/dsjc1000.5.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_44.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_55.clq";
@@ -44,17 +46,20 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_2.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_1.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_3.clq";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
+    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr400_0.7.clq";
 
     auto begin = std::chrono::steady_clock::now();
     auto end = std::chrono::steady_clock::now();
     custom_bitset result(1);
+    custom_graph g(1);
 
 
     begin = std::chrono::steady_clock::now();
-    result = run_BBMC_file(filename);
+    g = custom_graph(filename);
+    g = g.change_order(MWSI(g, 2));
+    result = run_BBMC(g);
     end = std::chrono::steady_clock::now();
     std::cout << "BBMC = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
@@ -69,7 +74,9 @@ int main() {
     std::cout << "BBMC iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
 
     begin = std::chrono::steady_clock::now();
-    result = run_BBMCR_file(filename);
+    g = custom_graph(filename);
+    g = g.change_order(MWSI(g, 2));
+    result = run_BBMCR(g);
     end = std::chrono::steady_clock::now();
     std::cout << "BBMCR = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 

@@ -137,7 +137,3 @@ inline custom_bitset run_BBMCR(const custom_graph& g, custom_bitset Ubb) {
 inline custom_bitset run_BBMCR(const custom_graph &g) {
     return run_BBMCR(g, custom_bitset(g.size(), 1));
 }
-
-inline custom_bitset run_BBMCR_file(const std::string& filename) {
-    return run_BBMC(custom_graph(filename));
-}

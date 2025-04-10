@@ -7,7 +7,7 @@
 #include <vector>
 #include "custom_bitset.h"
 #include "custom_graph.h"
-
+#include "sorting.h"
 
 
 // TODO: implement
@@ -105,10 +105,108 @@ inline void ISEQ(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>
     }
 }
 
-inline void FindMaxClique(const custom_graph& g, custom_bitset& K_curr, custom_bitset& P, std::vector<uint64_t>& u) {
+// TODO: P pass by reference or not? I don't think so
+// we pass u by copy, not reference!
+inline void FindMaxClique(const custom_graph& G, custom_bitset V, custom_bitset& K, custom_bitset& K_max, uint64_t& lb, custom_bitset P, std::vector<uint64_t> u) {
+    // initialize u -> for pruned vertices, we use the father initialization
 
+    // branching set
+    custom_bitset B = ~P & V;
+    auto bi = B.first_bit();
+    while (bi != B.size()) {
+        // calculate u[bi]
+        // if bi == 0, u[bi] always == 1!
+        if (bi != 0) {
+            uint64_t max_u = 0;
+            custom_bitset preced_neighb_set(bi, 1);
+            preced_neighb_set &= G.get_neighbor_set(bi);
+            auto preced_neighb = preced_neighb_set.first_bit();
+            while (preced_neighb != preced_neighb_set.size()) {
+                max_u = std::max(max_u, u[preced_neighb]);
+                preced_neighb = preced_neighb_set.next_bit();
+            }
+            u[bi] = 1 + max_u;
+        }
+
+        if (u[bi] + K.n_set_bits() <= lb) {
+            P.set_bit(bi);
+            B.unset_bit(bi);
+        } else {
+            V = (P & G.get_neighbor_set(bi));
+            // if needed because empty custom bitset cannot exists
+            if (bi > 0) V |=  G.get_neighbor_set(bi) & B & custom_bitset(bi, 1);
+
+            if (!V) {
+                if (K.n_set_bits() > lb) {
+                    lb = K.n_set_bits();
+                    K_max = K;
+                }
+                return;
+            }
+            // TODO
+            // FiltCOL
+            // FiltSAT
+            // SATCOL
+
+            if (B) {
+                K.set_bit(bi);
+                FindMaxClique(G, V, K, K_max, lb, P, u);
+                K.unset_bit(bi);
+            }
+        }
+        u[bi] = std::min(u[bi], lb - K.n_set_bits());
+
+        bi = B.next_bit();
+    }
 }
 
-inline std::vector<uint64_t> CliSAT(const custom_graph& g) {
+inline custom_bitset CliSAT(const custom_graph& g) {
+    auto [ordering, k] = NEW_SORT(g);
+    auto ordered_g = g.change_order(ordering);
 
+    // TODO: ANTS
+    // K_max = FindClique(V), lb <- |K|    ->     ANTS Tabu search
+    custom_bitset K_max(1);
+    uint64_t lb = K_max.n_set_bits();
+
+    // TODO: make a function to handle u!
+    std::vector<uint64_t> u(ordered_g.size());
+    // first |k_max| values bounded by |K_max| (==lb)
+    u[0] = 1;
+    for (uint64_t i = 1; i < lb; i++) {
+        uint64_t max_u = 0;
+        custom_bitset preced_neighb_set(i, 1);
+        preced_neighb_set &= ordered_g.get_neighbor_set(i);
+        auto preced_neighb = preced_neighb_set.first_bit();
+        while (preced_neighb != preced_neighb_set.size()) {
+            max_u = std::max(max_u, u[preced_neighb]);
+            preced_neighb = preced_neighb_set.next_bit();
+        }
+        u[i] = std::min(1 + max_u, lb);
+    }
+    // remaining values bounded by k
+    for (uint64_t i = lb; i < ordered_g.size(); i++) {
+        uint64_t max_u = 0;
+        custom_bitset preced_neighb_set(i, 1);
+        preced_neighb_set &= ordered_g.get_neighbor_set(i);
+        auto preced_neighb = preced_neighb_set.first_bit();
+        while (preced_neighb != preced_neighb_set.size()) {
+            max_u = std::max(max_u, u[preced_neighb]);
+            preced_neighb = preced_neighb_set.next_bit();
+        }
+        u[i] = std::min(1 + max_u, k);
+    }
+
+
+    for (uint64_t i = K_max.n_set_bits() + 1; i < g.size(); ++i) {
+        custom_bitset V(i, 1);
+        V &= ordered_g.get_neighbor_set(i);
+        // K_max initial or updated?
+        custom_bitset P(K_max.n_set_bits()+1, 1);
+        custom_bitset K = custom_bitset(ordered_g.size());
+        K.set_bit(i);
+        FindMaxClique(ordered_g, V, K, K_max, lb, P, u);
+    }
+
+    return g.convert_back_set(K_max);
 }
