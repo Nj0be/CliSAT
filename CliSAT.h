@@ -5,6 +5,8 @@
 #pragma once
 
 #include <vector>
+
+#include "AMTS.h"
 #include "custom_bitset.h"
 #include "custom_graph.h"
 #include "sorting.h"
@@ -26,6 +28,7 @@ inline void FiltSAL() {
 }
 
 
+/*
 inline bool BB_ReCol(const custom_graph& g, const uint64_t v, std::vector<custom_bitset>& C_sets, const int64_t k_min) {
     static custom_bitset inters(g.size());
 
@@ -104,6 +107,7 @@ inline void ISEQ(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>
         ++k;
     }
 }
+*/
 
 // TODO: P pass by reference or not? I don't think so
 // we pass u by copy, not reference!
@@ -165,8 +169,7 @@ inline custom_bitset CliSAT(const custom_graph& g) {
     auto ordered_g = g.change_order(ordering);
 
     // TODO: AMTS
-    // K_max = FindClique(V), lb <- |K|    ->     ANTS Tabu search
-    custom_bitset K_max(1);
+    auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     ANTS Tabu search
     uint64_t lb = K_max.n_set_bits();
 
     // TODO: make a function to handle u!

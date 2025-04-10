@@ -11,6 +11,8 @@
 #include "sorting.h"
 #include <chrono>
 
+#include "CliSAT.h"
+
 int main() {
     /*
     ugraph g(100); //creates an empty (undirected) graph with 100 vertices
@@ -49,6 +51,8 @@ int main() {
     auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr400_0.7.clq";
+
+    CliSAT(custom_graph(filename));
 
     auto begin = std::chrono::steady_clock::now();
     auto end = std::chrono::steady_clock::now();

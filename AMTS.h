@@ -18,7 +18,7 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
     // TODO: move random generator out and pass it to everything
     std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
     std::uniform_real_distribution<> real_dist(0, 1);
-    std::uniform_int_distribution<> int_dist(0, UINT32_MAX);
+    std::uniform_int_distribution<> int_dist(0, INT32_MAX);
 
     // TODO: instead of generate everything every loop, we can update the values
     while (I < L) {
@@ -60,20 +60,20 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
             }
         }
 
-        uint64_t u = 0;
-        uint64_t v = 0;
-        uint64_t delta = 0;
+        int64_t u = 0;
+        int64_t v = 0;
+        int64_t delta = 0;
 
         if (!T.empty()) {
-            std::tie(u, v) = T[int_dist(rng) & T.size()];
+            std::tie(u, v) = T[int_dist(rng) % T.size()];
             delta = d[v] - d[u];
         } else {
             // if no better solution is found, we need to blacklist nodes in the tabu_list
             do {
-                u = A[int_dist(rng) & A.size()];
+                u = A[int_dist(rng) % A.size()];
             } while (tabu_list[u] <= I);
             do {
-                v = B[int_dist(rng) & B.size()];
+                v = B[int_dist(rng) % B.size()];
             } while (tabu_list[v] <= I);
             delta = d[v] - d[u] - 1;
         }
@@ -88,16 +88,21 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
                 auto rand_num = int_dist(rng) % S.n_set_bits();
 
                 // select u at random from S
-                u = S.first_bit();
+                auto new_u = S.first_bit();
                 for (uint64_t i = 1; i < rand_num; i++) {
-                    u = S.next_bit();
+                    new_u = S.next_bit();
                 }
 
                 // select v from V\S such that d[v] < integer part of k*p
-                v = S_neg.first_bit();
-                while (v != S_neg.size()) {
-                    if (d[v] < static_cast<uint64_t>(k*g.get_density())) break;
-                    v = S_neg.next_bit();
+                auto new_v = S_neg.first_bit();
+                while (new_v != S_neg.size()) {
+                    // TODO: doesn't work (doesn't always find a v)
+                    if (d[new_v] < static_cast<uint64_t>(k*g.get_density())) break;
+                    new_v = S_neg.next_bit();
+                }
+                if (new_v != S_neg.size()) {
+                    u = new_u;
+                    v = new_v;
                 }
             }
         }
@@ -137,15 +142,36 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
     return {S_max, false};
 }
 
-inline custom_bitset AMTS(const custom_graph& g, const uint64_t k, const uint64_t L, const uint64_t Iter_max) {
+inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t k, const uint64_t L, const uint64_t Iter_max) {
     std::vector<uint64_t> swap_mem(g.size());
     custom_bitset S(g.size());
-    custom_bitset S_max(g.size());
+
+    // construct initial Solution
+    for (int i = 0; i < k; i++) {
+        auto S_neg = ~S;
+        uint64_t OutMaxEdge = 0;
+
+        auto v = S_neg.first_bit();
+        auto selected_v = v;
+        while (v != S_neg.size()) {
+            auto v_edges = (g.get_neighbor_set(v) & S).n_set_bits();
+            if (v_edges > OutMaxEdge) {
+                OutMaxEdge = v_edges;
+                selected_v = v;
+            }
+
+            v = S_neg.next_bit();
+        }
+
+        S.set_bit(selected_v);
+    }
+
+    custom_bitset S_max(S);
     uint64_t Iter = 0;
     while (Iter < Iter_max) {
-        auto bool legal_k_clique = false;
-        std::tie(S_max, legal_k_clique) = TS(g, swap_mem, S, k, L, Iter);
-        if (legal_k_clique) return S_max;
+        bool is_legal_k_clique = false;
+        std::tie(S_max, is_legal_k_clique) = TS(g, swap_mem, S, k, L, Iter);
+        if (is_legal_k_clique) return {S_max, true};
 
         //else
         S.unset_all();
@@ -176,13 +202,27 @@ inline custom_bitset AMTS(const custom_graph& g, const uint64_t k, const uint64_
 
             S.set_bit(*v_min);
         }
+        if (*std::min(swap_mem.begin(), swap_mem.end()) > k) {
+            std::ranges::fill(swap_mem, 0);
+        }
     }
 
-    if (*std::min(swap_mem.begin(), swap_mem.end()) > k) {
-        std::ranges::fill(swap_mem, 0);
-    }
+    return { S_max, false };
 }
 
 inline custom_bitset run_AMTS(const custom_graph& g) {
-
+    // TODO: get complement for p < 0.5
+    uint64_t Iter_Max = 100000000;
+    custom_bitset S_max(g.size());
+    custom_bitset S(g.size());
+    for (int k = 1; k < g.size(); k++) {
+        uint64_t L = g.size() * k;
+        // if brock or san L = 4 * k;
+        bool is_legal_k_clique = false;
+        std::tie(S, is_legal_k_clique) = AMTS(g, k, L, Iter_Max);
+        if (!is_legal_k_clique) return S;
+        std::cout << S << std::endl;
+        S = S_max;
+    }
+    return S_max;
 }
