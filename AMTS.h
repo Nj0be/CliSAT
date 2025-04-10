@@ -9,8 +9,9 @@
 #include "custom_bitset.h"
 #include "custom_graph.h"
 
-inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint64_t>& swap_mem, custom_bitset S, const uint64_t k, const uint64_t L, uint64_t& Iter) {
-    // TODO: implement tabu list
+inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint64_t>& swap_mem, custom_bitset S, const uint64_t k, const uint64_t L, uint64_t& Iter, int64_t residue_time) {
+    auto last = std::chrono::steady_clock::now();
+
     uint64_t I = 0; // iterations
     custom_bitset S_max = S;
     std::vector<uint64_t> tabu_list(g.size());
@@ -22,6 +23,11 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
 
     // TODO: instead of generate everything every loop, we can update the values
     while (I < L) {
+        auto now = std::chrono::steady_clock::now();
+        residue_time -= std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+        last = std::chrono::steady_clock::now();
+
+        if (residue_time <= 0) break;
         uint64_t old_S_edges = 0;
         custom_bitset S_neg = ~S;
         std::vector<uint64_t> A;
@@ -142,7 +148,8 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
     return {S_max, false};
 }
 
-inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t k, const uint64_t L, const uint64_t Iter_max) {
+inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t k, const uint64_t L, const uint64_t Iter_max, int64_t residue_time) {
+    auto last = std::chrono::steady_clock::now();
     std::vector<uint64_t> swap_mem(g.size());
     custom_bitset S(g.size());
 
@@ -169,8 +176,14 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
     custom_bitset S_max(S);
     uint64_t Iter = 0;
     while (Iter < Iter_max) {
+        auto now = std::chrono::steady_clock::now();
+        residue_time -= std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+        last = std::chrono::steady_clock::now();
+
+        if (residue_time <= 0) break;
+
         bool is_legal_k_clique = false;
-        std::tie(S_max, is_legal_k_clique) = TS(g, swap_mem, S, k, L, Iter);
+        std::tie(S_max, is_legal_k_clique) = TS(g, swap_mem, S, k, L, Iter, residue_time);
         if (is_legal_k_clique) return {S_max, true};
 
         //else
@@ -210,19 +223,25 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
     return { S_max, false };
 }
 
-inline custom_bitset run_AMTS(const custom_graph& g) {
+inline custom_bitset run_AMTS(const custom_graph& g, int64_t residue_time=50) {
+    auto last = std::chrono::steady_clock::now();
     // TODO: get complement for p < 0.5
     uint64_t Iter_Max = 100000000;
     custom_bitset S_max(g.size());
     custom_bitset S(g.size());
     for (int k = 1; k < g.size(); k++) {
+        auto now = std::chrono::steady_clock::now();
+        residue_time -= std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+        last = std::chrono::steady_clock::now();
+
+        if (residue_time <= 0) break;
+
         uint64_t L = g.size() * k;
         // if brock or san L = 4 * k;
         bool is_legal_k_clique = false;
-        std::tie(S, is_legal_k_clique) = AMTS(g, k, L, Iter_Max);
+        std::tie(S, is_legal_k_clique) = AMTS(g, k, L, Iter_Max, residue_time);
         if (!is_legal_k_clique) return S;
-        std::cout << S << std::endl;
-        S = S_max;
+        S_max = S;
     }
     return S_max;
 }
