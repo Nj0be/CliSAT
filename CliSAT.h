@@ -164,7 +164,7 @@ inline custom_bitset CliSAT(const custom_graph& g) {
     auto [ordering, k] = NEW_SORT(g);
     auto ordered_g = g.change_order(ordering);
 
-    // TODO: ANTS
+    // TODO: AMTS
     // K_max = FindClique(V), lb <- |K|    ->     ANTS Tabu search
     custom_bitset K_max(1);
     uint64_t lb = K_max.n_set_bits();

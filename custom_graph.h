@@ -39,6 +39,7 @@ public:
     [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v, const custom_bitset& set) const { return { get_anti_neighbor_set(v) & set }; }
 
     [[nodiscard]] uint64_t degree() const;
+    [[nodiscard]] uint64_t vertex_degree(const uint64_t v) const;
     [[nodiscard]] float get_density() const { return static_cast<float>(2*get_n_edges())/(size()*(size()-1)); }
 
     [[nodiscard]] std::vector<uint64_t> convert_back_set(const std::vector<uint64_t> &v) const;
@@ -48,6 +49,9 @@ public:
     [[nodiscard]] custom_graph get_complement() const;
 
     [[nodiscard]] custom_graph change_order(const std::vector<uint64_t>& order) const;
+
+    [[nodiscard]] uint64_t get_subgraph_edges(custom_bitset &subset) const;
+    [[nodiscard]] std::vector<uint64_t> get_subgraph_vertices_degree(custom_bitset &subset) const;
 };
 
 /*inline custom_graph::custom_graph(const uint64_t size) : degree_conversion2(size) {
@@ -118,6 +122,10 @@ inline uint64_t custom_graph::degree() const {
     return degree;
 }
 
+inline uint64_t custom_graph::vertex_degree(const uint64_t v) const {
+    return graph[v].n_set_bits();
+}
+
 // convert list to original naming scheme, changed because of initial ordering (based on non-increasing degree)
 inline std::vector<uint64_t> custom_graph::convert_back_set(const std::vector<uint64_t> &v) const {
     std::vector<uint64_t> set;
@@ -172,4 +180,24 @@ inline custom_graph custom_graph::change_order(const std::vector<uint64_t> &orde
     }
 
     return new_g;
+}
+
+inline uint64_t custom_graph::get_subgraph_edges(custom_bitset &subset) const {
+    uint64_t edges = 0;
+    auto v = subset.first_bit();
+    while (v != subset.size()) {
+        edges += (get_neighbor_set(v) & subset).n_set_bits(); // we count double in this way, because the adjacency matrix is full
+        v = subset.next_bit();
+    }
+    return edges/2;
+}
+
+inline std::vector<uint64_t> custom_graph::get_subgraph_vertices_degree(custom_bitset &subset) const {
+    std::vector<uint64_t> d(subset.size());
+    auto v = subset.first_bit();
+    while (v != subset.size()) {
+        d[v] = vertex_degree(v);
+        v = subset.next_bit();
+    }
+    return d;
 }
