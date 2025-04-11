@@ -79,6 +79,7 @@ inline custom_graph::custom_graph(const std::string& filename) {
 
             graph.reserve(nodes);
             order_conversion.resize(nodes);
+            std::iota(order_conversion.begin(), order_conversion.end(), 0);
             for (uint64_t i = 0; i < nodes; ++i) {
                 graph.emplace_back(nodes);
             }
@@ -168,16 +169,20 @@ inline custom_graph custom_graph::get_complement() const {
 
 inline custom_graph custom_graph::change_order(const std::vector<uint64_t> &order) const {
     custom_graph new_g(size());
+    new_g.order_conversion = order;
+
+    std::vector<uint64_t> conversion_helper(size());
     for (uint64_t i = 0; i < graph.size(); i++) {
-        new_g.order_conversion[order[i]] = i;
+        conversion_helper[order[i]] = i;
     }
 
     for (uint64_t i = 0; i < size(); i++) {
-        auto current_vertex = new_g.order_conversion[i];
+        const auto current_vertex = conversion_helper[i];
         std::vector<uint64_t> set = static_cast<std::vector<uint64_t>>(graph[i]);
-        for (auto& v : set) v = new_g.order_conversion[v];
+        for (auto& v : set) v = conversion_helper[v];
         new_g.graph[current_vertex] = custom_bitset(set);
     }
+
 
     return new_g;
 }

@@ -9,7 +9,7 @@
 #include "custom_graph.h"
 
 // k_min can be negative! int and not uint. It causes bugs
-void BB_Color(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>& Ul, std::vector<uint64_t>& C, const int64_t k_min=0) {
+inline void BB_Color(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>& Ul, std::vector<uint64_t>& C, const int64_t k_min=0) {
     static custom_bitset Qbb(g.size());
     for (int64_t k = 0; Ubb; ++k) {
         Qbb = Ubb;
@@ -31,7 +31,7 @@ void BB_Color(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>& U
     }
 }
 
-void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vector<uint64_t>>& Ul, std::vector<std::vector<uint64_t>>& C, custom_bitset& S, custom_bitset& S_max, const uint64_t depth=0) {
+inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vector<uint64_t>>& Ul, std::vector<std::vector<uint64_t>>& C, custom_bitset& S, custom_bitset& S_max, const uint64_t depth=0) {
     while (!Ul[depth].empty()) {
         const auto v = Ul[depth].back();
         Ul[depth].pop_back();
@@ -53,7 +53,7 @@ void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vector<uin
                 BBMC(g, candidates, Ul, C, S, S_max, depth+1);
             } else if (S_bits > S_max_bits) { // if there are no more candidates (leaf) check if we obtained a max clique
                 S_max = S;
-                std::cout << S_max.n_set_bits() << std::endl;
+                //std::cout << S_max.n_set_bits() << std::endl;
             }
 
             S.unset_bit(v);
@@ -61,7 +61,7 @@ void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vector<uin
     }
 }
 
-custom_bitset run_BBMC(const custom_graph &g, custom_bitset Ubb) {
+inline custom_bitset run_BBMC(const custom_graph &g, custom_bitset Ubb) {
     // initialize Ul
     std::vector<std::vector<uint64_t>> Ul(g.size());
 
@@ -79,6 +79,6 @@ custom_bitset run_BBMC(const custom_graph &g, custom_bitset Ubb) {
     return g.convert_back_set(S_max);
 }
 
-custom_bitset run_BBMC(const custom_graph &g) {
-    return run_BBMC(g, custom_bitset(g.size(), 1));
+inline custom_bitset run_BBMC(const custom_graph &g) {
+    return run_BBMC(g, custom_bitset(g.size(), true));
 }

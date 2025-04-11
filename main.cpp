@@ -22,7 +22,7 @@ int main() {
     */
 
     //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-1.clq"); //12
-    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-2.clq"); //22
+    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-2.clq"); //24
     //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/csplib/aim_A/aim-100-1-6-unsat-3.clq"); //151
     //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/csplib/aim_A/aim-100-1-6-sat-1.clq"); //154
     //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/example.txt"); //4
@@ -39,7 +39,7 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C125.9.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/example.txt";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/example2.txt";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq";
+    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/dsjc1000.5.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_44.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_55.clq";
@@ -48,29 +48,25 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_2.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_1.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_3.clq";
-    auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr400_0.7.clq";
 
-    CliSAT(custom_graph(filename));
 
     auto begin = std::chrono::steady_clock::now();
     auto end = std::chrono::steady_clock::now();
-    custom_bitset result(1);
-    custom_graph g(1);
-
 
     begin = std::chrono::steady_clock::now();
-    g = custom_graph(filename);
-    g = g.change_order(MWSI(g, 2));
-    result = run_BBMC(g);
+    std::cout << CliSAT(custom_graph(filename)) << std::endl;
+    end = std::chrono::steady_clock::now();
+    std::cout << "CliSAT = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    begin = std::chrono::steady_clock::now();
+    const custom_graph g1(filename);
+    auto g2 = g1.change_order(NEW_SORT(g1, 2).first);
+    std::cout << run_BBMC(g2) << std::endl;
     end = std::chrono::steady_clock::now();
     std::cout << "BBMC = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
-
-    /*for (auto v : result) {
-        std::cout << v+1 << " ";
-    }
-    std::cout << std::endl << result.size() << std::endl;*/
 
     /*begin = std::chrono::steady_clock::now();
     result = BB_Max_Clique_iter(g);
@@ -78,9 +74,9 @@ int main() {
     std::cout << "BBMC iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
 
     begin = std::chrono::steady_clock::now();
-    g = custom_graph(filename);
-    g = g.change_order(MWSI(g, 2));
-    result = run_BBMCR(g);
+    const custom_graph g3(filename);
+    auto g4 = g3.change_order(NEW_SORT(g3, 2).first);
+    std::cout << run_BBMCR(g4) << std::endl;
     end = std::chrono::steady_clock::now();
     std::cout << "BBMCR = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 

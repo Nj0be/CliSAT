@@ -135,5 +135,5 @@ inline custom_bitset run_BBMCR(const custom_graph& g, custom_bitset Ubb) {
 }
 
 inline custom_bitset run_BBMCR(const custom_graph &g) {
-    return run_BBMCR(g, custom_bitset(g.size(), 1));
+    return run_BBMCR(g, custom_bitset(g.size(), true));
 }

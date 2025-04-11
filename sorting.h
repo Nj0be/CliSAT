@@ -117,12 +117,17 @@ inline std::pair<std::vector<uint64_t>, uint64_t> COLOUR_SORT(const custom_graph
 
     std::vector<uint64_t> Ocolor;
     uint64_t k = 0;
-    custom_bitset W(g.size(), 1);
+    custom_bitset W(g.size(), true);
 
     while (W) {
         // TODO: USE CliSAT
         auto U = run_BBMC(g_complement, W);
         std::vector<uint64_t> U_vec = static_cast<std::vector<uint64_t>>(U);
+
+        // sort by non-increasing order
+        std::ranges::sort(U_vec.begin(), U_vec.end(), [&g](const uint64_t a, const uint64_t b) {
+            return g.vertex_degree(a) > g.vertex_degree(b);
+        });
         Ocolor.insert(Ocolor.end(), U_vec.begin(), U_vec.end());
         //U_vec.insert(U_vec.end(), Ocolor.begin(), Ocolor.end());
         //Ocolor = U_vec;
@@ -133,7 +138,7 @@ inline std::pair<std::vector<uint64_t>, uint64_t> COLOUR_SORT(const custom_graph
     return {Ocolor, k};
 }
 
-inline uint64_t SEQ(const custom_graph& g, custom_bitset Ubb) {
+inline uint64_t ISEQ(const custom_graph& g, custom_bitset Ubb) {
     custom_bitset Qbb(Ubb.size());
     int64_t k = 0;
     for (k = 0; Ubb; ++k) {
@@ -153,18 +158,20 @@ inline uint64_t SEQ(const custom_graph& g, custom_bitset Ubb) {
 }
 
 // TODO: NEW_SORT with COLOUR_SORT can be extremely slow compared to MWSI
+// Maybe it isn't implemented well
 inline std::pair<std::vector<uint64_t>, uint64_t> NEW_SORT(const custom_graph &g, const uint64_t p=3) {
     auto Odeg = MWSI(g, p);
     auto [Ocolor, k] = COLOUR_SORT(g);
 
+    return {Odeg, k};
     if (g.get_density() <= 0.7) return {Odeg, k};
 
     uint64_t color_max = 0;
     const auto ordered_graph = g.change_order(Odeg);
     for (uint64_t i = 1; i < g.size(); i++) {
-        custom_bitset Ubb(i, 1);
+        custom_bitset Ubb(i, true);
         Ubb &= g.get_neighbor_set(i);
-        color_max = std::max(color_max, SEQ(g, Ubb));
+        color_max = std::max(color_max, ISEQ(g, Ubb));
     }
 
     uint64_t u = 1 + color_max;
