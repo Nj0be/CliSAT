@@ -32,9 +32,9 @@ class custom_bitset {
     [[nodiscard]] uint64_t _next_bit(uint64_t pos) const; // used only to print
 
 public:
-    explicit custom_bitset(int64_t size);
-    explicit custom_bitset(int64_t size, bool default_value);
-    explicit custom_bitset(int64_t size, uint64_t set_first_n_bits);
+    explicit custom_bitset(uint64_t size);
+    explicit custom_bitset(uint64_t size, bool default_value);
+    explicit custom_bitset(uint64_t size, uint64_t set_first_n_bits);
     explicit custom_bitset(const std::vector<uint64_t>& v);
 
     custom_bitset(const std::vector<uint64_t> &v, uint64_t size);
@@ -136,16 +136,16 @@ inline std::ostream& operator<<(std::ostream &stream, const custom_bitset &bb) {
 }
 
 // TODO: is assert good enough?
-inline custom_bitset::custom_bitset(const int64_t size): custom_bitset(size, false) {}
+inline custom_bitset::custom_bitset(const uint64_t size): custom_bitset(size, false) {}
 
 // we set everything to 1 or to 0
-inline custom_bitset::custom_bitset(const int64_t size, const bool default_value): _size(size), bits(((size-1)/64) + 1, default_value*~0ULL) {
+inline custom_bitset::custom_bitset(const uint64_t size, const bool default_value): _size(size), bits(((size-1)/64) + 1, default_value*~0ULL) {
     // unset last part of last block (if there is one)
     if (_size%64) bits.back() &= ~(~0ULL << (_size%64));
 }
 
 // NOT SAFE! size >= set_first_n_bits
-inline custom_bitset::custom_bitset(const int64_t size, const uint64_t set_first_n_bits): _size(size), bits(((size-1)/64) + 1) {
+inline custom_bitset::custom_bitset(const uint64_t size, const uint64_t set_first_n_bits): _size(size), bits(((size-1)/64) + 1) {
     const auto n_block = (set_first_n_bits-1)/64;
     const auto n_bit = set_first_n_bits%64;
     for (uint64_t i = 0; i <= n_block; i++) {

@@ -5,7 +5,6 @@
 #pragma once
 
 #include <vector>
-#include <iostream>
 #include "custom_graph.h"
 
 // k_min can be negative! int and not uint. It causes bugs

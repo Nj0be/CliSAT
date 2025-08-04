@@ -20,8 +20,8 @@ class custom_graph {
 
 public:
     //explicit custom_graph(uint64_t size);
-    inline custom_graph(const std::string& filename);
-    explicit custom_graph(const uint64_t size);
+    inline explicit custom_graph(const std::string& filename);
+    explicit custom_graph(uint64_t size);
 
     custom_bitset& operator[](const uint64_t pos) { return graph[pos]; };
 
@@ -39,8 +39,8 @@ public:
     [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v, const custom_bitset& set) const { return { get_anti_neighbor_set(v) & set }; }
 
     [[nodiscard]] uint64_t degree() const;
-    [[nodiscard]] uint64_t vertex_degree(const uint64_t v) const;
-    [[nodiscard]] float get_density() const { return static_cast<float>(2*get_n_edges())/(size()*(size()-1)); }
+    [[nodiscard]] uint64_t vertex_degree(uint64_t v) const;
+    [[nodiscard]] float get_density() const;
 
     [[nodiscard]] std::vector<uint64_t> convert_back_set(const std::vector<uint64_t> &v) const;
 
@@ -125,6 +125,11 @@ inline uint64_t custom_graph::degree() const {
 
 inline uint64_t custom_graph::vertex_degree(const uint64_t v) const {
     return graph[v].n_set_bits();
+}
+
+inline float custom_graph::get_density() const {
+    return 2.0f * static_cast<float>(get_n_edges()) /
+           (static_cast<float>(size()) * static_cast<float>(size() - 1));
 }
 
 // convert list to original naming scheme, changed because of initial ordering (based on non-increasing degree)

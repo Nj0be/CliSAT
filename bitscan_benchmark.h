@@ -9,7 +9,6 @@
 #include <vector>
 #include <immintrin.h>
 #include <algorithm>
-#include <bitset>
 #include <bitscan/bitscan.h>
 #include <graph/graph.h>
 #include "custom_bitset.h"

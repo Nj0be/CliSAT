@@ -1,5 +1,5 @@
 //
-// Created by benia on 08/04/25.
+// Created by Beniamino Vagnarelli on 08/04/25.
 //
 
 #pragma once
@@ -27,10 +27,10 @@ inline void FiltSAL() {
 
 }
 
-inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const int64_t k_max) {
+inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const uint64_t k_max) {
     custom_bitset pruned(g.size());
     custom_bitset Qbb(Ubb.size());
-    int64_t k = 0;
+    uint64_t k = 0;
     for (k = 0; k < k_max; ++k) {
         Qbb = Ubb;
         auto v = Qbb.first_bit();
@@ -52,13 +52,23 @@ inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const
 
 // TODO: P pass by reference or not? I don't think so
 // we pass u by copy, not reference!
-inline void FindMaxClique(const custom_graph& G, custom_bitset& K, custom_bitset& K_max, uint64_t& lb, const custom_bitset& V, custom_bitset &P, custom_bitset &B, std::vector<uint64_t> u) {
+inline void FindMaxClique(
+    const custom_graph& G,  // graph
+    custom_bitset& K,       // current branch
+    custom_bitset& K_max,   // max branch
+    uint64_t& lb,           // lower bound
+    const custom_bitset& V, // vertices set
+    custom_bitset &P,       // pruned set
+    custom_bitset &B,       // branching set
+    std::vector<uint64_t> u // incremental upper bounds
+) {
     // initialize u -> for pruned vertices, we use the father initialization
 
     // branching set
     //custom_bitset B = V - P;
     auto bi = B.first_bit();
     while (bi != B.size()) {
+
         // calculate u[bi]
         // if bi == 0, u[bi] always == 1!
         custom_bitset preced_neighb_set(bi, true);
@@ -71,6 +81,7 @@ inline void FindMaxClique(const custom_graph& G, custom_bitset& K, custom_bitset
             preced_neighb = preced_neighb_set.next_bit();
         }
         u[bi] = 1 + max_u;
+
 
         if (u[bi] + K.n_set_bits() <= lb) {
             P.set_bit(bi);
@@ -146,6 +157,7 @@ inline custom_bitset CliSAT(const custom_graph& g) {
     }
 
     for (uint64_t i = K_max.n_set_bits(); i < ordered_g.size(); ++i) {
+        std::cout << "i: " << i << std::endl;
         custom_bitset V(i, true);
         V &= ordered_g.get_neighbor_set(i);
         // K_max initial or updated?
