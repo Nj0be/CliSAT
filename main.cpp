@@ -10,6 +10,7 @@
 #include "sorting.h"
 #include <chrono>
 
+#include "bitscan_benchmark.h"
 #include "CliSAT.h"
 
 int main() {
@@ -60,6 +61,7 @@ int main() {
     end = std::chrono::steady_clock::now();
     std::cout << "CliSAT = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
+    /*
     begin = std::chrono::steady_clock::now();
     const custom_graph g1(filename);
     auto g2 = g1.change_order(NEW_SORT(g1, 2).first);
@@ -70,7 +72,7 @@ int main() {
     /*begin = std::chrono::steady_clock::now();
     result = BB_Max_Clique_iter(g);
     end = std::chrono::steady_clock::now();
-    std::cout << "BBMC iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;*/
+    std::cout << "BBMC iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;#1#
 
     begin = std::chrono::steady_clock::now();
     const custom_graph g3(filename);
@@ -78,6 +80,7 @@ int main() {
     std::cout << run_BBMCR(g4) << std::endl;
     end = std::chrono::steady_clock::now();
     std::cout << "BBMCR = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+    */
 
     /*for (auto v : result) {
         std::cout << v+1 << " ";

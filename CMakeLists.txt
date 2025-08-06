@@ -13,6 +13,7 @@ add_executable(CliSAT main.cpp
         BBMCR.h
         CliSAT.h
         sorting.h
+        coloring.h
         AMTS.h
 )
 

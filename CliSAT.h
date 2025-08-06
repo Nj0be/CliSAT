@@ -33,14 +33,11 @@ inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const
     uint64_t k = 0;
     for (k = 0; k < k_max; ++k) {
         Qbb = Ubb;
-        auto v = Qbb.first_bit();
-
-        while (v != Qbb.size()) {
-            // al piu' posso togliere, quindi non serve iniziare di nuovo un'altra scansione
-            Qbb -= g.get_neighbor_set(v);
-
-            //get next vertex
-            v = Qbb.next_bit();
+        for (BitCursor cursor = Qbb.first_bit();
+             cursor.getPos() != Qbb.size();
+             cursor = Qbb.next_bit(cursor)) {
+            // at most we can remove vertices, so we don't need to start a new scan
+            Qbb -= g.get_neighbor_set(cursor.getPos());
         }
         // add vertices to pruned
         pruned |= Qbb;
@@ -49,6 +46,33 @@ inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const
     return pruned;
 }
 
+inline bool UnitPropagation(
+    const custom_graph& G,
+    const custom_bitset& Pc,    // pruned set that satisfy the condition: |K|+UP(Pc) <= lb (the greatest clique of K union P can't be greater than the lower bound)
+    const custom_bitset& B      // branching sets used to enlarge the pruned set
+) {
+    return false;
+    //ISEQ_sets
+}
+
+
+// Page 8 (143) Li et al. (2018a, 2017), section 5.2.1
+// return a set B of branching vertices
+inline custom_bitset FilterByColiring(
+    const custom_graph& G,      // Ordered graph
+    custom_bitset& P,          // Candidate set {p1, p2, ..., p|P|}
+    const uint64_t r          // lower bound (largest clique found so far)
+) {
+    custom_bitset B(P.size());  // B, a set of branching vertices obtained from P
+    std::vector<custom_bitset> IS;  // set of independent sets
+
+    for (BitCursor cursor = P.last_bit_destructive();
+         cursor.getPos() != P.size();
+         cursor = P.next_bit_destructive(cursor)) {
+        // Implementation goes here
+    }
+    return B;
+}
 
 // TODO: P pass by reference or not? I don't think so
 // we pass u by copy, not reference!
@@ -62,12 +86,10 @@ inline void FindMaxClique(
     custom_bitset &B,       // branching set
     std::vector<uint64_t> u // incremental upper bounds
 ) {
-    // initialize u -> for pruned vertices, we use the father initialization
-
-    // branching set
-    //custom_bitset B = V - P;
-    auto bi = B.first_bit();
-    while (bi != B.size()) {
+    for (BitCursor cursor = B.first_bit();
+         cursor.getPos() != B.size();
+         cursor = B.next_bit(cursor)) {
+        auto bi = cursor.getPos();
 
         // calculate u[bi]
         // if bi == 0, u[bi] always == 1!
@@ -75,10 +97,10 @@ inline void FindMaxClique(
         preced_neighb_set &= G.get_neighbor_set(bi, V);
 
         uint64_t max_u = 0;
-        auto preced_neighb = preced_neighb_set.first_bit();
-        while (preced_neighb != preced_neighb_set.size()) {
-            max_u = std::max(max_u, u[preced_neighb]);
-            preced_neighb = preced_neighb_set.next_bit();
+        for (BitCursor neighb_cursor = preced_neighb_set.first_bit();
+             neighb_cursor.getPos() != preced_neighb_set.size();
+             neighb_cursor = preced_neighb_set.next_bit(neighb_cursor)) {
+            max_u = std::max(max_u, u[neighb_cursor.getPos()]);
         }
         u[bi] = 1 + max_u;
 
@@ -117,7 +139,6 @@ inline void FindMaxClique(
         // TODO: here or above?
 
         u[bi] = std::min(u[bi], lb - K.n_set_bits());
-        bi = B.next_bit();
     }
 }
 
@@ -128,7 +149,6 @@ inline custom_bitset CliSAT(const custom_graph& g) {
     auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     ANTS Tabu search
     uint64_t lb = K_max.n_set_bits();
 
-    // TODO: make a function to handle u!
     std::vector<uint64_t> u(ordered_g.size());
     // first |k_max| values bounded by |K_max| (==lb)
     u[0] = 1;
@@ -136,22 +156,25 @@ inline custom_bitset CliSAT(const custom_graph& g) {
         uint64_t max_u = 0;
         custom_bitset preced_neighb_set(i, true);
         preced_neighb_set &= ordered_g.get_neighbor_set(i);
-        auto preced_neighb = preced_neighb_set.first_bit();
-        while (preced_neighb != preced_neighb_set.size()) {
-            max_u = std::max(max_u, u[preced_neighb]);
-            preced_neighb = preced_neighb_set.next_bit();
+
+        for (BitCursor cursor = preced_neighb_set.first_bit();
+             cursor.getPos() != preced_neighb_set.size();
+             cursor = preced_neighb_set.next_bit(cursor)) {
+            max_u = std::max(max_u, u[cursor.getPos()]);
         }
         u[i] = std::min(1 + max_u, lb);
     }
+
     // remaining values bounded by k
     for (uint64_t i = lb; i < ordered_g.size(); i++) {
         uint64_t max_u = 0;
         custom_bitset preced_neighb_set(i, true);
         preced_neighb_set &= ordered_g.get_neighbor_set(i);
-        auto preced_neighb = preced_neighb_set.first_bit();
-        while (preced_neighb != preced_neighb_set.size()) {
-            max_u = std::max(max_u, u[preced_neighb]);
-            preced_neighb = preced_neighb_set.next_bit();
+
+        for (BitCursor cursor = preced_neighb_set.first_bit();
+             cursor.getPos() != preced_neighb_set.size();
+             cursor = preced_neighb_set.next_bit(cursor)) {
+            max_u = std::max(max_u, u[cursor.getPos()]);
         }
         u[i] = std::min(1 + max_u, k);
     }
@@ -160,14 +183,15 @@ inline custom_bitset CliSAT(const custom_graph& g) {
         std::cout << "i: " << i << std::endl;
         custom_bitset V(i, true);
         V &= ordered_g.get_neighbor_set(i);
-        // K_max initial or updated?
 
         // first lb vertices of V
         custom_bitset P(ordered_g.size());
-        auto v = V.first_bit();
-        while (v != V.size() && P.n_set_bits() < lb) {
-            P.set_bit(v);
-            v = V.next_bit();
+        uint64_t count = 0;
+        for (BitCursor cursor = V.first_bit();
+             cursor.getPos() != V.size() && count < lb;
+             cursor = V.next_bit(cursor)) {
+            P.set_bit(cursor.getPos());
+            count++;
         }
 
         auto B = V - P;

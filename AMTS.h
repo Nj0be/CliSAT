@@ -88,8 +88,6 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
         }
 
         if (delta <= 0) {
-            // probabilistic diversifying move selection rule
-            // with
             uint64_t l = k*(k-1)/2 - old_S_edges;
             const double p = std::min(static_cast<double>((l + 2)/g.size()), 0.1);
             const double random = real_dist(rng);
@@ -97,21 +95,20 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
                 auto rand_num = int_dist(rng) % S.n_set_bits();
 
                 // select u at random from S
-                auto new_u = S.first_bit();
+                BitCursor new_u = S.first_bit();
                 for (uint64_t i = 1; i < rand_num; i++) {
-                    new_u = S.next_bit();
+                    new_u = S.next_bit(new_u);
                 }
 
                 // select v from V\S such that d[v] < integer part of k*p
-                auto new_v = S_neg.first_bit();
-                while (new_v != S_neg.size()) {
-                    // TODO: doesn't work (doesn't always find a v)
-                    if (d[new_v] < static_cast<uint64_t>(k*g.get_density())) break;
-                    new_v = S_neg.next_bit();
+                BitCursor new_v = S_neg.first_bit();
+                while (new_v.getPos() != S_neg.size()) {
+                    if (d[new_v.getPos()] < static_cast<uint64_t>(k*g.get_density())) break;
+                    new_v = S_neg.next_bit(new_v);
                 }
-                if (new_v != S_neg.size()) {
-                    u = new_u;
-                    v = new_v;
+                if (new_v.getPos() != S_neg.size()) {
+                    u = new_u.getPos();
+                    v = new_v.getPos();
                 }
             }
         }
@@ -160,19 +157,19 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
         auto S_neg = ~S;
         uint64_t OutMaxEdge = 0;
 
-        auto v = S_neg.first_bit();
-        auto selected_v = v;
-        while (v != S_neg.size()) {
-            auto v_edges = (g.get_neighbor_set(v) & S).n_set_bits();
+        BitCursor v = S_neg.first_bit();
+        BitCursor selected_v = v;
+        while (v.getPos() != S_neg.size()) {
+            auto v_edges = (g.get_neighbor_set(v.getPos()) & S).n_set_bits();
             if (v_edges > OutMaxEdge) {
                 OutMaxEdge = v_edges;
                 selected_v = v;
             }
 
-            v = S_neg.next_bit();
+            v = S_neg.next_bit(v);
         }
 
-        S.set_bit(selected_v);
+        S.set_bit(selected_v.getPos());
     }
 
     custom_bitset S_max(S);
@@ -192,24 +189,25 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
         // TODO: can improve?
         for (uint64_t i = 1; i < k; i++) {
             auto S_neg = ~S;
-            std::vector<uint64_t> candidates(g.size());
+            std::vector<uint64_t> candidates;
             uint64_t OutMaxEdge = 0;
 
-            auto v = S_neg.first_bit();
-            while (v != S_neg.size()) {
-                auto v_edges = (g.get_neighbor_set(v) & S).n_set_bits();
+            BitCursor v = S_neg.first_bit();
+            while (v.getPos() != S_neg.size()) {
+                auto v_edges = (g.get_neighbor_set(v.getPos()) & S).n_set_bits();
                 if (v_edges > OutMaxEdge) {
                     OutMaxEdge = v_edges;
                     candidates.clear();
                 }
-                candidates.push_back(v);
+                candidates.push_back(v.getPos());
 
-                v = S_neg.next_bit();
+                v = S_neg.next_bit(v);
             }
 
-            auto v_min = std::ranges::min_element(candidates.begin(), candidates.end(), [&swap_mem](const uint64_t a, const uint64_t b) {
-                return swap_mem[a] < swap_mem[b];
-            });
+            auto v_min = std::ranges::min_element(candidates.begin(), candidates.end(),
+                [&swap_mem](const uint64_t a, const uint64_t b) {
+                    return swap_mem[a] < swap_mem[b];
+                });
 
             S.set_bit(*v_min);
         }
@@ -218,7 +216,7 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
         }
     }
 
-    return { S_max, false };
+    return {S_max, false};
 }
 
 inline custom_bitset run_AMTS(const custom_graph& g, int64_t run_time=50) {

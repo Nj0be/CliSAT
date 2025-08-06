@@ -16,12 +16,19 @@
  * Refactor first_bit-next_bit and last_bit-prev_bit (counter-intuitive and error-prone)
  */
 
+struct BitCursor {
+    int64_t block_index;     // current block index
+    uint64_t bit;       // bit position inside block
+
+    // Absolute position of bit
+    [[nodiscard]] uint64_t getPos() const {
+        return block_index * 64 + bit;
+    }
+};
+
 class custom_bitset {
     const uint64_t _size;
     std::vector<uint64_t> bits;
-    std::vector<uint64_t>::iterator current_block = bits.begin();
-    // uint64_t faster than other types
-    uint64_t current_bit = 0;
 
     static uint8_t bit_scan_forward(const uint64_t x) { return __builtin_ctzll(x); }
     static uint8_t bit_scan_reverse(const uint64_t x) { return __bsrq(x); }
@@ -32,9 +39,10 @@ class custom_bitset {
     [[nodiscard]] uint64_t _next_bit(uint64_t pos) const; // used only to print
 
 public:
-    explicit custom_bitset(uint64_t size);
-    explicit custom_bitset(uint64_t size, bool default_value);
-    explicit custom_bitset(uint64_t size, uint64_t set_first_n_bits);
+    // TODO: We need signed int otherwise it will crash
+    explicit custom_bitset(int64_t size);
+    explicit custom_bitset(int64_t size, bool default_value);
+    explicit custom_bitset(int64_t size, uint64_t set_first_n_bits);
     explicit custom_bitset(const std::vector<uint64_t>& v);
 
     custom_bitset(const std::vector<uint64_t> &v, uint64_t size);
@@ -60,19 +68,20 @@ public:
     static void set_block_bit(const std::vector<uint64_t>::iterator &block, const uint64_t &bit) { *block |= 1ULL << bit; }
     void unset_bit(const uint64_t pos) { bits[get_block(pos)] &= ~(1ULL << get_block_bit(pos)); }
     static void unset_block_bit(const std::vector<uint64_t>::iterator &block, const uint64_t &bit) { *block &= ~(1ULL << bit); }
+    void unset_block_bit(const BitCursor& cursor) { bits[cursor.block_index] &= ~(1ULL << cursor.bit); }
     // we move bit to first position and we mask everything that it isn't on position 1 to 0
     [[nodiscard]] bool get_bit(const uint64_t pos) const { return bits[get_block(pos)] >> get_block_bit(pos) & 1; }
 
     void unset_all();
 
-    uint64_t first_bit();
-    uint64_t first_bit_destructive();
-    uint64_t next_bit();
-    uint64_t next_bit_destructive();
-    uint64_t last_bit();
-    uint64_t last_bit_destructive();
-    uint64_t prev_bit();
-    uint64_t prev_bit_destructive();
+    BitCursor first_bit() const;
+    BitCursor first_bit_destructive();
+    BitCursor next_bit(const BitCursor& current_cursor) const;
+    BitCursor next_bit_destructive(const BitCursor& current_cursor);
+    BitCursor last_bit() const;
+    BitCursor last_bit_destructive();
+    BitCursor prev_bit(const BitCursor& current_cursor) const;
+    BitCursor prev_bit_destructive(const BitCursor& current_cursor);
 
     uint64_t degree() const;
     uint64_t neighbors_degree() const;
@@ -136,16 +145,16 @@ inline std::ostream& operator<<(std::ostream &stream, const custom_bitset &bb) {
 }
 
 // TODO: is assert good enough?
-inline custom_bitset::custom_bitset(const uint64_t size): custom_bitset(size, false) {}
+inline custom_bitset::custom_bitset(const int64_t size): custom_bitset(size, false) {}
 
 // we set everything to 1 or to 0
-inline custom_bitset::custom_bitset(const uint64_t size, const bool default_value): _size(size), bits(((size-1)/64) + 1, default_value*~0ULL) {
+inline custom_bitset::custom_bitset(const int64_t size, const bool default_value): _size(size), bits(((size-1)/64) + 1, default_value*~0ULL) {
     // unset last part of last block (if there is one)
     if (_size%64) bits.back() &= ~(~0ULL << (_size%64));
 }
 
 // NOT SAFE! size >= set_first_n_bits
-inline custom_bitset::custom_bitset(const uint64_t size, const uint64_t set_first_n_bits): _size(size), bits(((size-1)/64) + 1) {
+inline custom_bitset::custom_bitset(const int64_t size, const uint64_t set_first_n_bits): _size(size), bits(((size-1)/64) + 1) {
     const auto n_block = (set_first_n_bits-1)/64;
     const auto n_bit = set_first_n_bits%64;
     for (uint64_t i = 0; i <= n_block; i++) {
@@ -214,8 +223,6 @@ inline custom_bitset custom_bitset::operator-(const custom_bitset &other) const 
 
 inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
     bits = other.bits;
-    //current_block = other.current_block;
-    //current_bit = other.current_bit;
 
     return *this;
 }
@@ -224,7 +231,7 @@ inline bool custom_bitset::operator==(const custom_bitset &other) const {
     if (this == &other) return true;
     if (size() != other.size()) return false;
 
-    for (uint64_t i = 0; i < size(); i++) {
+    for (uint64_t i = 0; i < bits.size(); i++) {
         if (bits[i] != other.bits[i]) return false;
     }
 
@@ -297,158 +304,124 @@ inline void custom_bitset::unset_all() {
     }
 }
 
-inline uint64_t custom_bitset::first_bit() {
-    current_block = bits.begin();
-    current_bit = 0;
+inline BitCursor custom_bitset::first_bit() const {
+    BitCursor cursor(0, 0);
 
     do {
-        if (*current_block != 0) {
-            current_bit = bit_scan_forward(*current_block);
+        if (bits[cursor.block_index] != 0) {
+            cursor.bit = bit_scan_forward(bits[cursor.block_index]);
             // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), current_block)*64 + current_bit;
+            return cursor;
             // it's equivalent but not any faster
             //return std::distance(bits.begin(), last_block) << 6 | last_bit;
         }
-        ++current_block;
-    } while (current_block != bits.end());
+        ++cursor.block_index;
+    } while (cursor.block_index < bits.size());
 
     // probably the latter is better, but in a loop it doesn't make a difference
-    return _size;
+    return BitCursor(_size/64, _size%64);
     //return UINT64_MAX;
 }
 
-inline uint64_t custom_bitset::first_bit_destructive() {
-    current_block = bits.begin();
-    current_bit = 0;
-
-    do {
-        if (*current_block != 0) {
-            current_bit = bit_scan_forward(*current_block);
-            unset_block_bit(current_block, current_bit);
-            // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), current_block)*64 + current_bit;
-            // it's equivalent but not any faster
-            //return std::distance(bits.begin(), last_block) << 6 | last_bit;
-        }
-        ++current_block;
-    } while (current_block != bits.end());
-
-    // probably the latter is better, but in a loop it doesn't make a difference
-    return _size;
-    //return UINT64_MAX;
+inline BitCursor custom_bitset::first_bit_destructive() {
+    BitCursor cursor = first_bit();
+    if (cursor.getPos() != _size) unset_block_bit(cursor);
+    return cursor;
 }
 
 // bug: not returning the first bit if set ...
 // we use first_bit to get the first bit, and we start from there...
-inline uint64_t custom_bitset::next_bit() {
+inline BitCursor custom_bitset::next_bit(const BitCursor& current_cursor) const {
+    BitCursor cursor = current_cursor;
+
     // shift by 64 doesn't work!! undefined behaviour
     // ~1ULL is all 1's except for the lowest one, aka already shifted by one
     // the resulting shift is all 1's shifted by last_bit+1
-    uint64_t masked_number = *current_block & (~1ULL << current_bit);
+    uint64_t masked_number = bits[cursor.block_index] & (~1ULL << cursor.bit);
 
-    do {
-        if (masked_number != 0) {
-            current_bit = bit_scan_forward(masked_number);
+    if (masked_number != 0) {
+        cursor.bit = bit_scan_forward(masked_number);
+        return cursor;
+    }
+
+    while (++cursor.block_index < bits.size()) {
+        if (bits[cursor.block_index] != 0) {
+            cursor.bit = bit_scan_forward(bits[cursor.block_index]);
             // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), current_block)*64 + current_bit;
+            return cursor;
             // it's equivalent but not any faster
             //return std::distance(bits.begin(), last_block) << 6 | last_bit;
         }
-        masked_number = *(++current_block);
-    } while (current_block != bits.end());
+    }
 
     // probably the latter is better, but in a loop it doesn't make a difference
-    return _size;
+    return BitCursor(_size/64, _size%64);
     //return UINT64_MAX;
 }
 
-inline uint64_t custom_bitset::next_bit_destructive() {
-// shift by 64 doesn't work!! undefined behaviour
-    // ~1ULL is all 1's except for the lowest one, aka already shifted by one
-    // the resulting shift is all 1's shifted by last_bit+1
-    uint64_t masked_number = *current_block & (~1ULL << current_bit);
+inline BitCursor custom_bitset::next_bit_destructive(const BitCursor& current_cursor) {
+    BitCursor cursor = next_bit(current_cursor);
+    if (cursor.getPos() != _size) unset_block_bit(cursor);
+    return cursor;
+}
+
+inline BitCursor custom_bitset::last_bit() const {
+    BitCursor cursor(bits.size() - 1, (_size-1)%64);
 
     do {
-        if (masked_number != 0) {
-            current_bit = bit_scan_forward(masked_number);
-            unset_block_bit(current_block, current_bit);
+        if (bits[cursor.block_index] != 0) {
+            cursor.bit = bit_scan_reverse(bits[cursor.block_index]);
             // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), current_block)*64 + current_bit;
+            return cursor;
             // it's equivalent but not any faster
             //return std::distance(bits.begin(), last_block) << 6 | last_bit;
         }
-        masked_number = *(++current_block);
-    } while (current_block != bits.end());
+        --cursor.block_index;
+    } while (cursor.block_index >= 0);
 
     // probably the latter is better, but in a loop it doesn't make a difference
-    return _size;
+    return BitCursor(_size/64, _size%64);
     //return UINT64_MAX;
 }
 
-inline uint64_t custom_bitset::last_bit() {
-    current_block = bits.end()-1;
-    current_bit = (_size-1)%64;
-
-    do {
-        if (*current_block != 0) {
-            current_bit = bit_scan_reverse(*current_block);
-            // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), current_block)*64 + current_bit;
-            // it's equivalent but not any faster
-            //return std::distance(bits.begin(), last_block) << 6 | last_bit;
-        }
-        --current_block;
-    } while (current_block != bits.begin()-1);
-
-    // probably the latter is better, but in a loop it doesn't make a difference
-    return _size;
-    //return UINT64_MAX;
+inline BitCursor custom_bitset::last_bit_destructive() {
+    BitCursor cursor = last_bit();
+    if (cursor.getPos() != _size) unset_block_bit(cursor);
+    return cursor;
 }
 
-inline uint64_t custom_bitset::last_bit_destructive() {
-    current_block = bits.end()-1;
-    current_bit = (_size-1)%64;
+inline BitCursor custom_bitset::prev_bit(const BitCursor& current_cursor) const {
+    BitCursor cursor = current_cursor;
 
-    do {
-        if (*current_block != 0) {
-            current_bit = bit_scan_reverse(*current_block);
-            unset_block_bit(current_block, current_bit);
-            // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), current_block)*64 + current_bit;
-            // it's equivalent but not any faster
-            //return std::distance(bits.begin(), last_block) << 6 | last_bit;
-        }
-        --current_block;
-    } while (current_block != bits.begin()-1);
-
-    // probably the latter is better, but in a loop it doesn't make a difference
-    return _size;
-    //return UINT64_MAX;
-}
-
-inline uint64_t custom_bitset::prev_bit() {
     // shift by 64 doesn't work!! undefined behaviour
     // ~1ULL is all 1's except for the lowest one, aka already shifted by one
     // the resulting shift is all 1's shifted by last_bit+1
-    uint64_t masked_number = *current_block & ~(~0ULL << current_bit);
+    uint64_t masked_number = bits[cursor.block_index] & ~(~0ULL << cursor.bit);
 
-    //std::cout << masked_number << " " << std::distance(current_block, bits.rend()) << " " << current_bit << std::endl;
-    //std::cout << std::bitset<SIZEOF_WORD>(masked_number).to_string() << " " << std::distance(current_block, bits.rend()) << " " << current_bit << std::endl;
+    if (masked_number != 0) {
+        cursor.bit = bit_scan_reverse(masked_number);
+        return cursor;
+    }
 
-    do {
-        if (masked_number != 0) {
-            current_bit = bit_scan_reverse(masked_number);
+    while (--cursor.block_index > 0) {
+        if (bits[cursor.block_index] != 0) {
+            cursor.bit = bit_scan_reverse(bits[cursor.block_index]);
             // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), current_block)*64 + current_bit;
+            return cursor;
             // it's equivalent but not any faster
             //return std::distance(bits.begin(), last_block) << 6 | last_bit;
         }
-        masked_number = *(--current_block);
-    } while (current_block != bits.begin()-1);
+    }
 
     // probably the latter is better, but in a loop it doesn't make a difference
-    return _size;
+    return BitCursor(_size/64, _size%64);
     //return UINT64_MAX;
+}
+
+inline BitCursor custom_bitset::prev_bit_destructive(const BitCursor& current_cursor) {
+    BitCursor cursor = prev_bit(current_cursor);
+    if (cursor.getPos() != _size) unset_block_bit(cursor);
+    return cursor;
 }
 
 // TODO: optimize (use variable and update?)
@@ -468,3 +441,4 @@ inline void custom_bitset::swap(custom_bitset &other) noexcept {
     *this = other;
     other = tmp;
 }
+
