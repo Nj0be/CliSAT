@@ -30,6 +30,7 @@ public:
 
     [[nodiscard]] const custom_bitset& get_neighbor_set(const uint64_t v) const { return graph[v]; }
     [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const custom_bitset& set) const { return get_neighbor_set(v) & set; }
+    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const custom_bitset& set, const uint64_t size) const { return get_neighbor_set(v, set).resize(size); }
     [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v) const { return ~graph[v]; }
     [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v, const custom_bitset& set) const { return get_anti_neighbor_set(v) & set; }
 
@@ -122,9 +123,7 @@ inline std::vector<uint64_t> custom_graph::convert_back_set(const std::vector<ui
 
 inline custom_bitset custom_graph::convert_back_set(const custom_bitset &bb) const {
     custom_bitset set(bb.size());
-    for (BitCursor cursor = bb.first_bit();
-        cursor.getPos() != bb.size();
-        cursor = bb.next_bit(cursor)) {
+    for (BitCursor cursor = bb.first_bit(); cursor.getPos() != bb.size(); cursor = bb.next_bit(cursor)) {
         set.set_bit(order_conversion[cursor.getPos()]);
     }
     return set;
@@ -164,9 +163,7 @@ inline custom_graph custom_graph::change_order(const std::vector<uint64_t> &orde
 
 inline uint64_t custom_graph::get_subgraph_edges(const custom_bitset &subset) const {
     uint64_t edges = 0;
-    for (BitCursor cursor = subset.first_bit();
-         cursor.getPos() != subset.size();
-         cursor = subset.next_bit(cursor)) {
+    for (BitCursor cursor = subset.first_bit(); cursor.getPos() != subset.size(); cursor = subset.next_bit(cursor)) {
         edges += (get_neighbor_set(cursor.getPos()) & subset).n_set_bits();
     }
     return edges/2;
@@ -174,9 +171,7 @@ inline uint64_t custom_graph::get_subgraph_edges(const custom_bitset &subset) co
 
 inline std::vector<uint64_t> custom_graph::get_subgraph_vertices_degree(const custom_bitset &subset) const {
     std::vector<uint64_t> d(subset.size());
-    for (BitCursor cursor = subset.first_bit();
-         cursor.getPos() != subset.size();
-         cursor = subset.next_bit(cursor)) {
+    for (BitCursor cursor = subset.first_bit(); cursor.getPos() != subset.size(); cursor = subset.next_bit(cursor)) {
         d[cursor.getPos()] = vertex_degree(cursor.getPos());
     }
     return d;

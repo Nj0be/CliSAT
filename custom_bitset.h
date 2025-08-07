@@ -17,17 +17,22 @@
  */
 
 struct BitCursor {
+private:
     int64_t block_index;     // current block index
     uint64_t bit;       // bit position inside block
 
+public:
+    BitCursor(int64_t block_index, uint64_t bit): block_index(block_index), bit(bit) {}
     // Absolute position of bit
     [[nodiscard]] uint64_t getPos() const {
         return block_index * 64 + bit;
     }
+
+    friend class custom_bitset;
 };
 
 class custom_bitset {
-    const uint64_t _size;
+    uint64_t _size;
     std::vector<uint64_t> bits;
 
     static uint8_t bit_scan_forward(const uint64_t x) { return __builtin_ctzll(x); }
@@ -36,13 +41,22 @@ class custom_bitset {
     static uint64_t get_block(const uint64_t pos) { return pos/64; };
     static uint64_t get_block_bit(const uint64_t pos) { return pos%64; };
 
-    [[nodiscard]] uint64_t _next_bit(uint64_t pos) const; // used only to print
+    // Used to allocate at least one block regardless of size
+    static uint64_t blocks_needed(uint64_t size) {
+        return (size + 63) / 64 | (size == 0);
+    }
+
+    // it's necessary because even if size it's 0, we still have a block inside bits vector
+    static uint64_t get_last_block(uint64_t size) {
+        return ((size + 63) / 64) - (size != 0);
+    }
 
 public:
     // TODO: We need signed int otherwise it will crash
-    explicit custom_bitset(int64_t size);
-    explicit custom_bitset(int64_t size, bool default_value);
-    explicit custom_bitset(int64_t size, uint64_t set_first_n_bits);
+    explicit custom_bitset(uint64_t size);
+    explicit custom_bitset(uint64_t size, bool default_value);
+    explicit custom_bitset(uint64_t size, uint64_t set_first_n_bits);
+    explicit custom_bitset(const custom_bitset& other, uint64_t size);
     explicit custom_bitset(const std::vector<uint64_t>& v);
 
     custom_bitset(const std::vector<uint64_t> &v, uint64_t size);
@@ -100,44 +114,26 @@ public:
     }
 
     void swap(custom_bitset& other) noexcept;
+
+    custom_bitset& resize(const uint64_t new_size) {
+        if (_size == new_size) return *this;
+        _size = new_size;
+        bits.resize(blocks_needed(_size));
+        bits[get_last_block(_size)] &= ~(~0ULL << (_size%64));
+        return *this;
+    }
 };
-
-inline uint64_t custom_bitset::_next_bit(const uint64_t pos) const {
-    auto block = bits.begin() + get_block(pos);
-    auto block_bit = get_block_bit(pos);
-
-    if (pos == _size) block = bits.begin();
-    // shift by 64 doesn't work!! undefined behaviour
-    // ~1ULL is all 1's except for the lowest one, aka already shifted by one
-    // the resulting shift is all 1's shifted by last_bit+1
-    uint64_t masked_number = *block & ((pos == _size) ? ~0ULL : (~1ULL << block_bit));
-
-    do {
-        if (masked_number != 0) {
-            block_bit = bit_scan_forward(masked_number);
-            // returns the index of the current block + the current bit
-            return std::distance(bits.begin(), block)*64 + block_bit;
-            // it's equivalent but not any faster
-            //return std::distance(bits.begin(), last_block) << 6 | last_bit;
-        }
-        masked_number = *(++block);
-    } while (block != bits.end());
-
-    // probably the latter is better, but in a loop it doesn't make a difference
-    return _size;
-    //return UINT64_MAX;
-}
 
 inline std::ostream& operator<<(std::ostream &stream, const custom_bitset &bb) {
     uint64_t tot = 0;
     std::string tmp = "[";
 
-    auto bit = bb._next_bit(bb.size());
+    auto cursor = bb.first_bit();
 
-    while (bit != bb.size()) {
-        tmp += std::format("{} ", bit);
+    while (cursor.getPos() != bb.size()) {
+        tmp += std::format("{} ", cursor.getPos());
         tot++;
-        bit = bb._next_bit(bit);
+        cursor = bb.next_bit(cursor);
     }
     tmp += std::format("({})]", tot);
 
@@ -145,16 +141,18 @@ inline std::ostream& operator<<(std::ostream &stream, const custom_bitset &bb) {
 }
 
 // TODO: is assert good enough?
-inline custom_bitset::custom_bitset(const int64_t size): custom_bitset(size, false) {}
+inline custom_bitset::custom_bitset(const uint64_t size): custom_bitset(size, false) {}
 
 // we set everything to 1 or to 0
-inline custom_bitset::custom_bitset(const int64_t size, const bool default_value): _size(size), bits(((size-1)/64) + 1, default_value*~0ULL) {
+// bits should always be allocated to avoid crashes on bitwise operations
+inline custom_bitset::custom_bitset(const uint64_t size, const bool default_value): _size(size), bits(blocks_needed(size), default_value*~0ULL) {
     // unset last part of last block (if there is one)
     if (_size%64) bits.back() &= ~(~0ULL << (_size%64));
 }
 
 // NOT SAFE! size >= set_first_n_bits
-inline custom_bitset::custom_bitset(const int64_t size, const uint64_t set_first_n_bits): _size(size), bits(((size-1)/64) + 1) {
+// bits should always be allocated to avoid crashes on bitwise operations
+inline custom_bitset::custom_bitset(const uint64_t size, const uint64_t set_first_n_bits): _size(size), bits(blocks_needed(size)) {
     const auto n_block = (set_first_n_bits-1)/64;
     const auto n_bit = set_first_n_bits%64;
     for (uint64_t i = 0; i <= n_block; i++) {
@@ -163,8 +161,13 @@ inline custom_bitset::custom_bitset(const int64_t size, const uint64_t set_first
     bits[n_block] &= ~(~0ULL << n_bit);
 }
 
+inline custom_bitset::custom_bitset(const custom_bitset& other, uint64_t size): custom_bitset(other) {
+    this->resize(size);
+}
+
 // TODO: change assert
-inline custom_bitset::custom_bitset(const std::vector<uint64_t> &v): _size((assert(v.size()), *std::ranges::max_element(v) + 1)), bits((_size-1)/64 + 1) {
+// bits should always be allocated to avoid crashes on bitwise operations
+inline custom_bitset::custom_bitset(const std::vector<uint64_t> &v): _size((assert(v.size()), *std::ranges::max_element(v) + 1)), bits(std::max((_size + 63)/64, 1UL)) {
     for (const auto pos: v) {
         set_bit(pos);
     }
@@ -180,6 +183,20 @@ inline custom_bitset::custom_bitset(const std::vector<uint64_t> &v, uint64_t siz
 inline custom_bitset::custom_bitset(const custom_bitset &other): _size(other._size), bits(other.bits) {}
 
 inline custom_bitset custom_bitset::operator&(const custom_bitset& other) const {
+    /*
+    custom_bitset bb(std::max(size(), other.size()));
+    for (uint64_t i = 0; i < bits.size(); ++i) {
+        if (i < other.bits.size()) bb.bits[i] = bits[i] & other.bits[i];
+    }
+    return bb;
+    */
+
+    custom_bitset bb(std::max(size(), other.size()));
+    bb.bits = bits;
+    bb &= other;
+    return bb;
+
+    /*
     if (size() >= other.size()) {
         custom_bitset bb(*this);
         bb &= other;
@@ -191,9 +208,24 @@ inline custom_bitset custom_bitset::operator&(const custom_bitset& other) const 
 
         return bb;
     }
+*/
 }
 
 inline custom_bitset custom_bitset::operator|(const custom_bitset& other) const {
+    custom_bitset bb(std::max(size(), other.size()));
+    for (uint64_t i = 0; i < bits.size(); ++i) {
+        if (i < other.bits.size()) bb.bits[i] = bits[i] | other.bits[i];
+    }
+    return bb;
+
+    /*
+    custom_bitset bb(std::max(size(), other.size()));
+    bb.bits = bits;
+    bb |= other;
+    return bb;
+    */
+
+    /*
     if (size() >= other.size()) {
         custom_bitset bb(*this);
         bb |= other;
@@ -205,6 +237,7 @@ inline custom_bitset custom_bitset::operator|(const custom_bitset& other) const 
 
         return bb;
     }
+*/
 }
 
 inline custom_bitset custom_bitset::operator~() const {
@@ -222,7 +255,10 @@ inline custom_bitset custom_bitset::operator-(const custom_bitset &other) const 
 }
 
 inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
+    _size = other.size();
     bits = other.bits;
+    bits.resize(blocks_needed(_size));
+    bits[get_last_block(_size)] &= ~(~0ULL << (_size%64));
 
     return *this;
 }
@@ -240,10 +276,11 @@ inline bool custom_bitset::operator==(const custom_bitset &other) const {
 
 inline custom_bitset& custom_bitset::operator&=(const custom_bitset &other) {
     for (uint64_t i = 0; i < bits.size(); ++i) {
-        if (i >= other.bits.size()) bits[i] = 0;
-        else {
-            bits[i] &= other.bits[i];
-        }
+        if (i < other.bits.size()) bits[i] &= other.bits[i];
+        else bits[i] = 0;
+        // equivalent to:
+        //bits[i] &= ((i < other.bits.size())*~0ULL & other.bits[i]);
+        //bits[i] &= (i < other.bits.size() ? other.bits[i] : 0);
     }
 
     return *this;
@@ -252,6 +289,9 @@ inline custom_bitset& custom_bitset::operator&=(const custom_bitset &other) {
 inline custom_bitset& custom_bitset::operator|=(const custom_bitset &other) {
     for (uint64_t i = 0; i < bits.size(); ++i) {
         if (i < other.bits.size()) bits[i] |= other.bits[i];
+        //equivalent to:
+        //bits[i] |= ((i < other.bits.size())*other.bits[i]);
+        //bits[i] |= (i < other.bits.size() ? other.bits[i] : 0);
     }
 
     return *this;
@@ -307,7 +347,7 @@ inline void custom_bitset::unset_all() {
 inline BitCursor custom_bitset::first_bit() const {
     BitCursor cursor(0, 0);
 
-    do {
+    while (cursor.block_index < bits.size()) {
         if (bits[cursor.block_index] != 0) {
             cursor.bit = bit_scan_forward(bits[cursor.block_index]);
             // returns the index of the current block + the current bit
@@ -316,7 +356,7 @@ inline BitCursor custom_bitset::first_bit() const {
             //return std::distance(bits.begin(), last_block) << 6 | last_bit;
         }
         ++cursor.block_index;
-    } while (cursor.block_index < bits.size());
+    }
 
     // probably the latter is better, but in a loop it doesn't make a difference
     return BitCursor(_size/64, _size%64);
@@ -441,4 +481,3 @@ inline void custom_bitset::swap(custom_bitset &other) noexcept {
     *this = other;
     other = tmp;
 }
-
