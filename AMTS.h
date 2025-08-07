@@ -102,13 +102,13 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
 
                 // select v from V\S such that d[v] < integer part of k*p
                 BitCursor new_v = S_neg.first_bit();
-                while (new_v.getPos() != S_neg.size()) {
-                    if (d[new_v.getPos()] < static_cast<uint64_t>(k*g.get_density())) break;
+                while (new_v.get_pos() != S_neg.size()) {
+                    if (d[new_v.get_pos()] < static_cast<uint64_t>(k*g.get_density())) break;
                     new_v = S_neg.next_bit(new_v);
                 }
-                if (new_v.getPos() != S_neg.size()) {
-                    u = new_u.getPos();
-                    v = new_v.getPos();
+                if (new_v.get_pos() != S_neg.size()) {
+                    u = new_u.get_pos();
+                    v = new_v.get_pos();
                 }
             }
         }
@@ -159,8 +159,8 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
 
         BitCursor v = S_neg.first_bit();
         BitCursor selected_v = v;
-        while (v.getPos() != S_neg.size()) {
-            auto v_edges = (g.get_neighbor_set(v.getPos()) & S).n_set_bits();
+        while (v.get_pos() != S_neg.size()) {
+            auto v_edges = (g.get_neighbor_set(v.get_pos()) & S).n_set_bits();
             if (v_edges > OutMaxEdge) {
                 OutMaxEdge = v_edges;
                 selected_v = v;
@@ -169,7 +169,7 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
             v = S_neg.next_bit(v);
         }
 
-        S.set_bit(selected_v.getPos());
+        S.set_bit(selected_v.get_pos());
     }
 
     custom_bitset S_max(S);
@@ -193,13 +193,13 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
             uint64_t OutMaxEdge = 0;
 
             BitCursor v = S_neg.first_bit();
-            while (v.getPos() != S_neg.size()) {
-                auto v_edges = (g.get_neighbor_set(v.getPos()) & S).n_set_bits();
+            while (v.get_pos() != S_neg.size()) {
+                auto v_edges = (g.get_neighbor_set(v.get_pos()) & S).n_set_bits();
                 if (v_edges > OutMaxEdge) {
                     OutMaxEdge = v_edges;
                     candidates.clear();
                 }
-                candidates.push_back(v.getPos());
+                candidates.push_back(v.get_pos());
 
                 v = S_neg.next_bit(v);
             }

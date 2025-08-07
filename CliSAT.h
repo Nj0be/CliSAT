@@ -33,9 +33,9 @@ inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const
     uint64_t k = 0;
     for (k = 0; k < k_max; ++k) {
         Qbb = Ubb;
-        for (BitCursor cursor = Qbb.first_bit(); cursor.getPos() != Qbb.size(); cursor = Qbb.next_bit(cursor)) {
+        for (BitCursor cursor = Qbb.first_bit(); cursor.get_pos() != Qbb.size(); cursor = Qbb.next_bit(cursor)) {
             // at most we can remove vertices, so we don't need to start a new scan
-            Qbb -= g.get_neighbor_set(cursor.getPos());
+            Qbb -= g.get_neighbor_set(cursor.get_pos());
         }
         // add vertices to pruned
         pruned |= Qbb;
@@ -64,7 +64,7 @@ inline custom_bitset FilterByColoring(
     custom_bitset B(P.size());  // B, a set of branching vertices obtained from P
     std::vector<custom_bitset> IS;  // set of independent sets
 
-    for (BitCursor cursor = P.last_bit_destructive(); cursor.getPos() != P.size(); cursor = P.prev_bit_destructive(cursor)) {
+    for (BitCursor cursor = P.last_bit_destructive(); cursor.get_pos() != P.size(); cursor = P.prev_bit_destructive(cursor)) {
         // Implementation goes here
     }
     return B;
@@ -82,10 +82,10 @@ inline void FindMaxClique(
     custom_bitset &B,       // branching set
     std::vector<uint64_t> u // incremental upper bounds
 ) {
-    for (BitCursor cursor = B.first_bit(); cursor.getPos() != B.size(); cursor = B.next_bit(cursor)) {
-        auto bi = cursor.getPos();
+    for (BitCursor cursor = B.first_bit(); cursor.get_pos() != B.size(); cursor = B.next_bit(cursor)) {
+        const auto bi = cursor.get_pos();
 
-        const custom_bitset bi_preced_neighbor_set(G.get_neighbor_set(bi, V, bi));
+        const custom_bitset bi_preced_neighbor_set = G.get_neighbor_set(bi, V, bi);
 
         // calculate u[bi]
         // if bi == 0, u[bi] always == 1!
@@ -94,9 +94,9 @@ inline void FindMaxClique(
         } else {
             uint64_t max_u = 0;
             for (BitCursor neighb_cursor = bi_preced_neighbor_set.first_bit();
-                 neighb_cursor.getPos() != bi_preced_neighbor_set.size();
+                 neighb_cursor.get_pos() != bi_preced_neighbor_set.size();
                  neighb_cursor = bi_preced_neighbor_set.next_bit(neighb_cursor)) {
-                max_u = std::max(max_u, u[neighb_cursor.getPos()]);
+                max_u = std::max(max_u, u[neighb_cursor.get_pos()]);
                  }
             u[bi] = 1 + max_u;
         }
@@ -141,7 +141,7 @@ inline void FindMaxClique(
 
 inline custom_bitset CliSAT(const custom_graph& g) {
     auto [ordering, k] = NEW_SORT(g);
-    auto ordered_g = g.change_order(ordering);
+    const auto ordered_g = g.change_order(ordering);
 
     auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     ANTS Tabu search
     uint64_t lb = K_max.n_set_bits();
@@ -151,12 +151,12 @@ inline custom_bitset CliSAT(const custom_graph& g) {
     u[0] = 1;
     for (uint64_t i = 1; i < lb; i++) {
         uint64_t max_u = 0;
-        const custom_bitset preced_neighb_set(ordered_g.get_neighbor_set(i), i);
+        const custom_bitset preced_neighb_set = ordered_g.get_neighbor_set(i, i);
 
         for (BitCursor cursor = preced_neighb_set.first_bit();
-             cursor.getPos() != preced_neighb_set.size();
+             cursor.get_pos() != preced_neighb_set.size();
              cursor = preced_neighb_set.next_bit(cursor)) {
-            max_u = std::max(max_u, u[cursor.getPos()]);
+            max_u = std::max(max_u, u[cursor.get_pos()]);
         }
         u[i] = std::min(1 + max_u, lb);
     }
@@ -164,27 +164,25 @@ inline custom_bitset CliSAT(const custom_graph& g) {
     // remaining values bounded by k
     for (uint64_t i = lb; i < ordered_g.size(); i++) {
         uint64_t max_u = 0;
-        const custom_bitset preced_neighb_set(ordered_g.get_neighbor_set(i), i);
+        const custom_bitset preced_neighb_set = ordered_g.get_neighbor_set(i, i);
 
         for (BitCursor cursor = preced_neighb_set.first_bit();
-             cursor.getPos() != preced_neighb_set.size();
+             cursor.get_pos() != preced_neighb_set.size();
              cursor = preced_neighb_set.next_bit(cursor)) {
-            max_u = std::max(max_u, u[cursor.getPos()]);
+            max_u = std::max(max_u, u[cursor.get_pos()]);
         }
         u[i] = std::min(1 + max_u, k);
     }
 
     for (uint64_t i = K_max.n_set_bits(); i < ordered_g.size(); ++i) {
         std::cout << "i: " << i << std::endl;
-        const custom_bitset V(ordered_g.get_neighbor_set(i), i);
+        const custom_bitset V = ordered_g.get_neighbor_set(i , i);
 
         // first lb vertices of V
         custom_bitset P(ordered_g.size());
         uint64_t count = 0;
-        for (BitCursor cursor = V.first_bit();
-             cursor.getPos() != V.size() && count < lb;
-             cursor = V.next_bit(cursor)) {
-            P.set_bit(cursor.getPos());
+        for (BitCursor cursor = V.first_bit(); cursor.get_pos() != V.size() && count < lb; cursor = V.next_bit(cursor)) {
+            P.set_bit(cursor.get_pos());
             count++;
         }
 

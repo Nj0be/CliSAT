@@ -25,4 +25,5 @@ target_include_directories(CliSAT PUBLIC
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=x86-64-v4 -flto")
+# set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=x86-64-v4 -flto")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto")

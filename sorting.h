@@ -22,9 +22,9 @@ inline std::vector<uint64_t> MWS(custom_graph g) {
     }
     for (uint64_t i = 0; i < g.size(); i++) {
         for (BitCursor cursor = g[i].first_bit();
-             cursor.getPos() != g.size();
+             cursor.get_pos() != g.size();
              cursor = g[i].next_bit(cursor)) {
-            neighb_deg[i] += degrees[cursor.getPos()];
+            neighb_deg[i] += degrees[cursor.get_pos()];
         }
     }
 
@@ -33,9 +33,9 @@ inline std::vector<uint64_t> MWS(custom_graph g) {
             auto curr_vert = vertices[j];
             neighb_deg[curr_vert] = 0;
             for (BitCursor cursor = g[curr_vert].first_bit();
-                 cursor.getPos() != g.size();
+                 cursor.get_pos() != g.size();
                  cursor = g[curr_vert].next_bit(cursor)) {
-                neighb_deg[curr_vert] += degrees[cursor.getPos()];
+                neighb_deg[curr_vert] += degrees[cursor.get_pos()];
             }
         }
         auto v_min = std::ranges::min_element(vertices.begin(), vertices.end()-i,
@@ -46,10 +46,10 @@ inline std::vector<uint64_t> MWS(custom_graph g) {
 
         // destructive to clean graph
         for (BitCursor cursor = g[*v_min].first_bit_destructive();
-             cursor.getPos() != g.size();
+             cursor.get_pos() != g.size();
              cursor = g[*v_min].next_bit_destructive(cursor)) {
-            degrees[cursor.getPos()]--;
-            g[cursor.getPos()].unset_bit(*v_min);
+            degrees[cursor.get_pos()]--;
+            g[cursor.get_pos()].unset_bit(*v_min);
         }
         std::iter_swap(v_min, vertices.end()-i);
     }
@@ -72,9 +72,9 @@ inline std::vector<uint64_t> MWSI(custom_graph g, const uint64_t p=3) {
     std::vector degrees_orig = degrees;
     for (uint64_t i = 0; i < g.size(); i++) {
         for (BitCursor cursor = g[i].first_bit();
-             cursor.getPos() != g.size();
+             cursor.get_pos() != g.size();
              cursor = g[i].next_bit(cursor)) {
-            neighb_deg[i] += degrees[cursor.getPos()];
+            neighb_deg[i] += degrees[cursor.get_pos()];
         }
     }
 
@@ -85,9 +85,9 @@ inline std::vector<uint64_t> MWSI(custom_graph g, const uint64_t p=3) {
             auto curr_vert = vertices[j];
             neighb_deg[curr_vert] = 0;
             for (BitCursor cursor = g[curr_vert].first_bit();
-                 cursor.getPos() != g.size();
+                 cursor.get_pos() != g.size();
                  cursor = g[curr_vert].next_bit(cursor)) {
-                neighb_deg[curr_vert] += degrees[cursor.getPos()];
+                neighb_deg[curr_vert] += degrees[cursor.get_pos()];
             }
         }
         auto v_min = std::ranges::min_element(vertices.begin(), vertices.end()-i,
@@ -97,10 +97,10 @@ inline std::vector<uint64_t> MWSI(custom_graph g, const uint64_t p=3) {
             });
 
         for (BitCursor cursor = g[*v_min].first_bit_destructive();
-             cursor.getPos() != g.size();
+             cursor.get_pos() != g.size();
              cursor = g[*v_min].next_bit_destructive(cursor)) {
-            degrees[cursor.getPos()]--;
-            g[cursor.getPos()].unset_bit(*v_min);
+            degrees[cursor.get_pos()]--;
+            g[cursor.get_pos()].unset_bit(*v_min);
         }
         std::iter_swap(v_min, vertices.end()-i);
     }

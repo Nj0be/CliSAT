@@ -229,7 +229,7 @@ void bit_scan_forward_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (BitCursor cursor = s_bb_empty.first_bit();
-         cursor.getPos() != s_bb_empty.size();
+         cursor.get_pos() != s_bb_empty.size();
          cursor = s_bb_empty.next_bit(cursor)) {
         ++acc;
     }
@@ -243,7 +243,7 @@ void bit_scan_forward_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (BitCursor cursor = s_bb_random.first_bit();
-         cursor.getPos() != s_bb_random.size();
+         cursor.get_pos() != s_bb_random.size();
          cursor = s_bb_random.next_bit(cursor)) {
         ++acc;
     }
@@ -257,7 +257,7 @@ void bit_scan_forward_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (BitCursor cursor = s_bb_complete.first_bit();
-         cursor.getPos() != s_bb_complete.size();
+         cursor.get_pos() != s_bb_complete.size();
          cursor = s_bb_complete.next_bit(cursor)) {
         ++acc;
     }
@@ -309,7 +309,7 @@ void bit_scan_forward_destructive_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (BitCursor cursor = s_bb_empty.first_bit_destructive();
-         cursor.getPos() != s_bb_empty.size();
+         cursor.get_pos() != s_bb_empty.size();
          cursor = s_bb_empty.next_bit_destructive(cursor)) {
         ++acc;
     }
@@ -323,7 +323,7 @@ void bit_scan_forward_destructive_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (BitCursor cursor = s_bb_random.first_bit_destructive();
-         cursor.getPos() != s_bb_random.size();
+         cursor.get_pos() != s_bb_random.size();
          cursor = s_bb_random.next_bit_destructive(cursor)) {
         ++acc;
     }
@@ -337,7 +337,7 @@ void bit_scan_forward_destructive_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (BitCursor cursor = s_bb_complete.first_bit_destructive();
-         cursor.getPos() != s_bb_complete.size();
+         cursor.get_pos() != s_bb_complete.size();
          cursor = s_bb_complete.next_bit_destructive(cursor)) {
         ++acc;
     }
@@ -389,7 +389,7 @@ void bit_scan_reverse_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (BitCursor cursor = s_bb_empty.last_bit();
-         cursor.getPos() != s_bb_empty.size();
+         cursor.get_pos() != s_bb_empty.size();
          cursor = s_bb_empty.prev_bit(cursor)) {
         ++acc;
     }
@@ -403,7 +403,7 @@ void bit_scan_reverse_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (BitCursor cursor = s_bb_random.last_bit();
-         cursor.getPos() != s_bb_random.size();
+         cursor.get_pos() != s_bb_random.size();
          cursor = s_bb_random.prev_bit(cursor)) {
         ++acc;
     }
@@ -417,7 +417,7 @@ void bit_scan_reverse_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (BitCursor cursor = s_bb_complete.last_bit();
-         cursor.getPos() != s_bb_complete.size();
+         cursor.get_pos() != s_bb_complete.size();
          cursor = s_bb_complete.prev_bit(cursor)) {
         ++acc;
     }
