@@ -44,30 +44,91 @@ inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const
     return pruned;
 }
 
-inline bool UnitPropagation(
+/**
+ * \brief Inserts the biggest vertices of P into r independent sets.
+ *
+ * Page 8 (143) Li et al. (2018a, 2017), section 5.2.1
+ *
+ * @param G Ordered graph
+ * @param P Candidate set {p1, p2, ..., p|P|} of vertices to be inserted into the independent sets
+ * @param r lower bound (largest clique found so far)
+ * @param VertexUB incremental upper bounds for each vertex
+ * @return a set B of branching vertices that cannot be inserted into any of the r ISs and the r ISs themselves
+ */
+// TODO: initialization of VertexUB
+inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
     const custom_graph& G,
-    const custom_bitset& Pc,    // pruned set that satisfy the condition: |K|+UP(Pc) <= lb (the greatest clique of K union P can't be greater than the lower bound)
-    const custom_bitset& B      // branching sets used to enlarge the pruned set
-) {
-    return false;
-    //ISEQ_sets
-}
-
-
-// Page 8 (143) Li et al. (2018a, 2017), section 5.2.1
-// return a set B of branching vertices
-inline custom_bitset FilterByColoring(
-    const custom_graph& G,      // Ordered graph
-    custom_bitset& P,          // Candidate set {p1, p2, ..., p|P|}
-    const uint64_t r          // lower bound (largest clique found so far)
+    const custom_bitset& P,
+    const uint64_t r,
+    std::vector<uint64_t>& VertexUB
 ) {
     custom_bitset B(P.size());  // B, a set of branching vertices obtained from P
-    std::vector<custom_bitset> IS;  // set of independent sets
+    std::vector<custom_bitset> ISs;  // set of independent sets
 
-    for (BitCursor cursor = P.last_bit_destructive(); cursor.get_pos() != P.size(); cursor = P.prev_bit_destructive(cursor)) {
-        // Implementation goes here
+    // We insert the biggest vertices of P into r ISs (decreasing order)
+    for (BitCursor cursor = P.last_bit(); cursor.get_pos() != P.size(); cursor = P.prev_bit(cursor)) {
+        auto pi = cursor.get_pos(); // current vertex
+        bool inserted = false;
+
+        // If there is an IS in which pi is not adjacent to any vertex, we insert pi into that IS
+        for (auto &is: ISs) {
+            auto common_neighbors = G.get_neighbor_set(pi, is);
+            if (common_neighbors.empty()) {
+                is.set_bit(pi);
+                if (B.empty()) {
+                    VertexUB[pi] = std::min(VertexUB[pi], ISs.size());
+                }
+                inserted = true;
+                break;
+            }
+        }
+        if (inserted) continue; // pi has been inserted into an IS, we can skip it
+
+        if (ISs.size() < r) {
+            // If there is no IS, we create a new one
+            custom_bitset new_is(G.size());
+            new_is.set_bit(pi);
+            ISs.push_back(new_is);
+            if (B.empty()) {
+                VertexUB[pi] = std::min(VertexUB[pi], ISs.size());
+            }
+        } else {
+            // if there is an IS in which pi has only one adjacent vertex u, and u can be inserted into another IS
+            // RECOLOR (RE-NUMBER of MCS)
+            for (uint64_t i = 0; i < ISs.size(); ++i) {
+                auto common_neighbors = G.get_neighbor_set(pi, ISs[i]);
+                auto u_cursor = common_neighbors.first_bit();
+                auto u = u_cursor.get_pos();
+
+                // if there are more than one common neighbor, we can't insert pi into this IS
+                if (common_neighbors.next_bit(u_cursor).get_pos() != common_neighbors.size()) continue;
+
+                // u is the only neighbor of pi in is
+                for (uint64_t j = 0; j < ISs.size(); ++j) {
+                    if (j == i) continue; // skip the current IS
+
+                    auto intersection = G.get_neighbor_set(u, ISs[j]);
+
+                    // if the intersection is not empty, we can't insert u into this IS
+                    if (!intersection.empty()) continue;
+
+                    // we can insert u in this IS, removing u from the previous IS and then insert pi into it
+                    ISs[i].unset_bit(u);
+                    ISs[i].set_bit(pi);
+                    ISs[j].set_bit(u);
+
+                    if (B.empty()) { VertexUB[pi] = std::min(VertexUB[pi], ISs.size()); }
+
+                    inserted = true;
+                    break;
+                }
+                if (inserted) break;
+            }
+            if (!inserted) B.set_bit(pi);
+        }
     }
-    return B;
+
+    return {B, ISs};
 }
 
 // TODO: P pass by reference or not? I don't think so
