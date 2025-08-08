@@ -27,8 +27,7 @@ inline bool BB_ReCol(const custom_graph& g, const uint64_t v, std::vector<custom
             return true;
         }
         // if the intersection between |Ck1 and N(v)| = 1 then we could search another set where to put w (the only vertex adjacent to v)
-        w = inters.next_bit(w);
-        if (w.get_pos() == inters.size()) {  // |set| = 1 -> double swap
+        if (inters.next_bit(w).get_pos() == inters.size()) {  // |set| = 1 -> double swap
             for (int64_t k2 = k1+1; k2 < k_min; ++k2) {
                 inters = C_sets[k2];
                 inters &= g.get_neighbor_set(w.get_pos());

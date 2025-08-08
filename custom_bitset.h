@@ -111,6 +111,7 @@ public:
     }
 
     void swap(custom_bitset& other) noexcept;
+    [[nodiscard]] bool empty() const { return n_set_bits() == 0; }
 
     custom_bitset& resize(const uint64_t new_size) {
         if (_size == new_size) return *this;
