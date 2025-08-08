@@ -33,9 +33,9 @@ inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const
     uint64_t k = 0;
     for (k = 0; k < k_max; ++k) {
         Qbb = Ubb;
-        for (BitCursor cursor = Qbb.first_bit(); cursor.get_pos() != Qbb.size(); cursor = Qbb.next_bit(cursor)) {
-            // at most we can remove vertices, so we don't need to start a new scan
-            Qbb -= g.get_neighbor_set(cursor.get_pos());
+        for (const auto v : Qbb) {
+            // at most, we can remove vertices, so we don't need to start a new scan
+            Qbb -= g.get_neighbor_set(v);
         }
         // add vertices to pruned
         pruned |= Qbb;
@@ -51,11 +51,10 @@ inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const
  *
  * @param G Ordered graph
  * @param P Candidate set {p1, p2, ..., p|P|} of vertices to be inserted into the independent sets
- * @param r lower bound (largest clique found so far)
+ * @param r lower bound related to the largest clique found so far
  * @param VertexUB incremental upper bounds for each vertex
  * @return a set B of branching vertices that cannot be inserted into any of the r ISs and the r ISs themselves
  */
-// TODO: initialization of VertexUB
 inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
     const custom_graph& G,
     const custom_bitset& P,
@@ -131,6 +130,24 @@ inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
     return {B, ISs};
 }
 
+/**
+ *
+ */
+inline custom_bitset IncMaxSat(
+    const custom_graph& G,
+    const custom_bitset& P,
+    // const custom_bitset& A,
+    const custom_bitset& B,
+    std::vector<custom_bitset>& ISs,
+    const uint64_t r,
+    std::vector<uint64_t>& VertexUB
+) {
+    const custom_bitset A = P - B; // A is the set of vertices that can be inserted into the independent sets
+
+    return B;
+    //
+}
+
 // TODO: P pass by reference or not? I don't think so
 // we pass u by copy, not reference!
 inline void FindMaxClique(
@@ -143,9 +160,8 @@ inline void FindMaxClique(
     custom_bitset &B,       // branching set
     std::vector<uint64_t> u // incremental upper bounds
 ) {
-    for (BitCursor cursor = B.first_bit(); cursor.get_pos() != B.size(); cursor = B.next_bit(cursor)) {
-        const auto bi = cursor.get_pos();
-
+    //auto B = V - P; // branching set, vertices not in P
+    for (const auto bi : B) {
         const custom_bitset bi_preced_neighbor_set = G.get_neighbor_set(bi, V, bi);
 
         // calculate u[bi]
@@ -154,10 +170,8 @@ inline void FindMaxClique(
             u[bi] = 1;
         } else {
             uint64_t max_u = 0;
-            for (BitCursor neighb_cursor = bi_preced_neighbor_set.first_bit();
-                 neighb_cursor.get_pos() != bi_preced_neighbor_set.size();
-                 neighb_cursor = bi_preced_neighbor_set.next_bit(neighb_cursor)) {
-                max_u = std::max(max_u, u[neighb_cursor.get_pos()]);
+            for (const auto neighbor : bi_preced_neighbor_set) {
+                max_u = std::max(max_u, u[neighbor]);
                  }
             u[bi] = 1 + max_u;
         }
@@ -165,7 +179,7 @@ inline void FindMaxClique(
 
         if (u[bi] + K.n_set_bits() <= lb) {
             P.set_bit(bi);
-            B.unset_bit(bi);
+            //B.unset_bit(bi);
         } else {
             K.set_bit(bi);
             auto V_new = (P & G.get_neighbor_set(bi)) | (B & bi_preced_neighbor_set);
@@ -183,13 +197,23 @@ inline void FindMaxClique(
             auto P_new = ISEQ_pruned(G, V_new, lb-K.n_set_bits());
             auto B_new = V_new - P_new;
 
+            /*
             // TODO
-            // PMAX-SAT-P-based upper bounds
+            // PMAX-SAT-P-based upper bounds (we improve UP and find new branching nodes)
+            auto [B_new, ISs] = FilterByColoring(G, V_new, lb - K.n_set_bits(), u);
+            if (B_new.empty()) continue;
+
+            B_new = IncMaxSat(G, V_new, B_new, ISs, lb - K.n_set_bits(), u);
+            if (B_new.empty()) continue;
+            */
+
             // FiltCOL
             // FiltSAT
             // SATCOL
 
-            if (B_new) {
+            // if B is not empty
+            if (!B_new.empty()) {
+                // auto P_new = V_new - B_new;
                 FindMaxClique(G, K, K_max, lb, V_new, P_new, B_new, u);
             }
             K.unset_bit(bi);
@@ -214,10 +238,8 @@ inline custom_bitset CliSAT(const custom_graph& g) {
         uint64_t max_u = 0;
         const custom_bitset preced_neighb_set = ordered_g.get_neighbor_set(i, i);
 
-        for (BitCursor cursor = preced_neighb_set.first_bit();
-             cursor.get_pos() != preced_neighb_set.size();
-             cursor = preced_neighb_set.next_bit(cursor)) {
-            max_u = std::max(max_u, u[cursor.get_pos()]);
+        for (const auto neighbor : preced_neighb_set) {
+            max_u = std::max(max_u, u[neighbor]);
         }
         u[i] = std::min(1 + max_u, lb);
     }
@@ -227,10 +249,8 @@ inline custom_bitset CliSAT(const custom_graph& g) {
         uint64_t max_u = 0;
         const custom_bitset preced_neighb_set = ordered_g.get_neighbor_set(i, i);
 
-        for (BitCursor cursor = preced_neighb_set.first_bit();
-             cursor.get_pos() != preced_neighb_set.size();
-             cursor = preced_neighb_set.next_bit(cursor)) {
-            max_u = std::max(max_u, u[cursor.get_pos()]);
+        for (const auto neighbor : preced_neighb_set) {
+            max_u = std::max(max_u, u[neighbor]);
         }
         u[i] = std::min(1 + max_u, k);
     }
@@ -242,9 +262,10 @@ inline custom_bitset CliSAT(const custom_graph& g) {
         // first lb vertices of V
         custom_bitset P(ordered_g.size());
         uint64_t count = 0;
-        for (BitCursor cursor = V.first_bit(); cursor.get_pos() != V.size() && count < lb; cursor = V.next_bit(cursor)) {
-            P.set_bit(cursor.get_pos());
+        for (const auto v : V) {
+            P.set_bit(v);
             count++;
+            if (count == lb) break;
         }
 
         auto B = V - P;

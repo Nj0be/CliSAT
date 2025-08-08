@@ -7,6 +7,7 @@
 #include <fstream>
 #include <numeric>
 #include <string>
+#include <cassert>
 #include "custom_bitset.h"
 #include <sstream>
 #include <ranges>
@@ -124,8 +125,8 @@ inline std::vector<uint64_t> custom_graph::convert_back_set(const std::vector<ui
 
 inline custom_bitset custom_graph::convert_back_set(const custom_bitset &bb) const {
     custom_bitset set(bb.size());
-    for (BitCursor cursor = bb.first_bit(); cursor.get_pos() != bb.size(); cursor = bb.next_bit(cursor)) {
-        set.set_bit(order_conversion[cursor.get_pos()]);
+    for (const auto v : bb) {
+        set.set_bit(order_conversion[v]);
     }
     return set;
 }
@@ -164,17 +165,12 @@ inline custom_graph custom_graph::change_order(const std::vector<uint64_t> &orde
 
 inline uint64_t custom_graph::get_subgraph_edges(const custom_bitset &subset) const {
     uint64_t edges = 0;
-    for (BitCursor cursor = subset.first_bit(); cursor.get_pos() != subset.size(); cursor = subset.next_bit(cursor)) {
-        edges += (get_neighbor_set(cursor.get_pos()) & subset).n_set_bits();
-    }
+    for (const auto v : subset) edges += (get_neighbor_set(v) & subset).n_set_bits();
     return edges/2;
 }
 
 inline std::vector<uint64_t> custom_graph::get_subgraph_vertices_degree(const custom_bitset &subset) const {
     std::vector<uint64_t> d(subset.size());
-    for (BitCursor cursor = subset.first_bit(); cursor.get_pos() != subset.size(); cursor = subset.next_bit(cursor)) {
-        d[cursor.get_pos()] = vertex_degree(cursor.get_pos());
-    }
+    for (const auto v : subset) d[v] = vertex_degree(v);
     return d;
 }
-

@@ -12,10 +12,7 @@ inline void BB_Color(const custom_graph& g, custom_bitset Ubb, std::vector<uint6
     for (int64_t k = 0; Ubb; ++k) {
         Qbb = Ubb;
 
-        for (BitCursor cursor = Qbb.first_bit();
-            cursor.get_pos() != Qbb.size();
-            cursor = Qbb.next_bit(cursor)) {
-            auto v = cursor.get_pos();
+        for (const auto v : Qbb) {
             // at most we can remove vertices, so we don't need to start a new scan
             Qbb -= g.get_neighbor_set(v);
 

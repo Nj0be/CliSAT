@@ -102,11 +102,11 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
 
                 // select v from V\S such that d[v] < integer part of k*p
                 BitCursor new_v = S_neg.first_bit();
-                while (new_v.get_pos() != S_neg.size()) {
+                while (!new_v.is_end()) {
                     if (d[new_v.get_pos()] < static_cast<uint64_t>(k*g.get_density())) break;
                     new_v = S_neg.next_bit(new_v);
                 }
-                if (new_v.get_pos() != S_neg.size()) {
+                if (!new_v.is_end()) {
                     u = new_u.get_pos();
                     v = new_v.get_pos();
                 }
@@ -159,7 +159,7 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
 
         BitCursor v = S_neg.first_bit();
         BitCursor selected_v = v;
-        while (v.get_pos() != S_neg.size()) {
+        while (!v.is_end()) {
             auto v_edges = (g.get_neighbor_set(v.get_pos()) & S).n_set_bits();
             if (v_edges > OutMaxEdge) {
                 OutMaxEdge = v_edges;
@@ -192,16 +192,13 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const uint64_t
             std::vector<uint64_t> candidates;
             uint64_t OutMaxEdge = 0;
 
-            BitCursor v = S_neg.first_bit();
-            while (v.get_pos() != S_neg.size()) {
-                auto v_edges = (g.get_neighbor_set(v.get_pos()) & S).n_set_bits();
+            for (const auto v : S_neg) {
+                auto v_edges = (g.get_neighbor_set(v) & S).n_set_bits();
                 if (v_edges > OutMaxEdge) {
                     OutMaxEdge = v_edges;
                     candidates.clear();
                 }
-                candidates.push_back(v.get_pos());
-
-                v = S_neg.next_bit(v);
+                candidates.push_back(v);
             }
 
             auto v_min = std::ranges::min_element(candidates.begin(), candidates.end(),

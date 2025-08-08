@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <vector>
 #include <immintrin.h> //__bsrd, __bsrq, etc
-#include <cassert>
 #include <algorithm>
 #include <iostream>
 
@@ -19,15 +18,21 @@
 struct BitCursor {
 private:
     uint64_t block_index;     // current block index
-    uint64_t bit;       // bit position inside block
+    uint8_t bit;       // bit position inside block
 
 public:
+    // Define END as a special sentinel value
+    static constexpr uint64_t END_POS = UINT64_MAX;
+
     explicit BitCursor(const uint64_t pos): block_index(pos/64), bit(pos%64) {}
-    BitCursor(const uint64_t block_index, const uint64_t bit): block_index(block_index), bit(bit) {}
-    // Absolute position of bit
-    [[nodiscard]] uint64_t get_pos() const {
-        return block_index * 64 + bit;
-    }
+    BitCursor(const uint64_t block_index, const uint8_t bit): block_index(block_index), bit(bit) {}
+    // Special constructor for end cursor
+    static BitCursor end() { return {END_POS, 0}; }
+
+    bool operator==(const BitCursor& cursor) const = default;
+
+    [[nodiscard]] uint64_t get_pos() const { return block_index * 64 + bit; } // Absolute position of bit
+    [[nodiscard]] bool is_end() const { return block_index == END_POS; }
 
     friend class custom_bitset;
 };
@@ -43,14 +48,10 @@ class custom_bitset {
     static uint64_t get_block_bit(const uint64_t pos) { return pos%64; };
 
     // Used to allocate at least one block regardless of size
-    static uint64_t blocks_needed(const uint64_t size) {
-        return get_block(size + 63) | (size == 0);
-    }
+    static uint64_t blocks_needed(const uint64_t size) { return get_block(size + 63) | (size == 0); }
 
     // it's necessary because even if size it's 0, we still have a block inside bits vector
-    static uint64_t get_last_block(const uint64_t size) {
-        return get_block(size + 63) - (size != 0);
-    }
+    static uint64_t get_last_block(const uint64_t size) { return get_block(size + 63) - (size != 0); }
 
 public:
     explicit custom_bitset(uint64_t size);
@@ -71,6 +72,7 @@ public:
     custom_bitset& operator|=(const custom_bitset& other);
     custom_bitset& operator-=(const custom_bitset& other);
     bool operator[](const uint64_t pos) const { return get_bit(pos); };
+    bool operator[](const BitCursor& cursor) const { return get_bit(cursor); };
     friend std::ostream& operator<<(std::ostream& stream, const custom_bitset& bb);
     explicit operator bool() const;
     explicit operator std::vector<uint64_t>() const;
@@ -79,10 +81,11 @@ public:
     void set_bit(const uint64_t pos) { bits[get_block(pos)] |= 1ULL << get_block_bit(pos); }
     static void set_block_bit(const std::vector<uint64_t>::iterator &block, const uint64_t &bit) { *block |= 1ULL << bit; }
     void unset_bit(const uint64_t pos) { bits[get_block(pos)] &= ~(1ULL << get_block_bit(pos)); }
-    static void unset_block_bit(const std::vector<uint64_t>::iterator &block, const uint64_t &bit) { *block &= ~(1ULL << bit); }
+    static void unset_block_bit(const std::vector<uint64_t>::iterator &block, const uint8_t &bit) { *block &= ~(1ULL << bit); }
     void unset_block_bit(const BitCursor& cursor) { bits[cursor.block_index] &= ~(1ULL << cursor.bit); }
     // we move bit to first position and we mask everything that it isn't on position 1 to 0
     [[nodiscard]] bool get_bit(const uint64_t pos) const { return bits[get_block(pos)] >> get_block_bit(pos) & 1; }
+    [[nodiscard]] bool get_bit(const BitCursor& cursor) const { return bits[cursor.block_index] >> get_block_bit(cursor.bit) & 1; }
 
     void unset_all();
 
@@ -102,37 +105,77 @@ public:
 
     [[nodiscard]] uint64_t size() const { return _size; }
     // TODO: removing caching seems beneficial. Verify that
-    [[nodiscard]] uint64_t n_set_bits() const {
-        uint64_t tot = 0;
-        for (const auto word : bits) {
-            tot += std::popcount(word);
-        }
-
-        return tot;
-    }
+    [[nodiscard]] uint64_t n_set_bits() const;
 
     void swap(custom_bitset& other) noexcept;
     [[nodiscard]] bool empty() const { return n_set_bits() == 0; }
 
-    custom_bitset& resize(const uint64_t new_size) {
-        if (_size == new_size) return *this;
-        _size = new_size;
-        bits.resize(blocks_needed(_size));
-        bits[get_last_block(_size)] &= ~(~0ULL << get_block_bit(_size));
-        return *this;
-    }
+    custom_bitset& resize(uint64_t new_size);
+
+    class iterator {
+        const custom_bitset* bs;
+        BitCursor cursor;
+
+    public:
+        using value_type = uint64_t;
+        using difference_type = std::ptrdiff_t;
+        using iterator_category = std::forward_iterator_tag;
+        using iterator_concept  = std::forward_iterator_tag; // for ranges
+
+        consteval iterator() : bs(nullptr), cursor(0) {} // default ctor
+        iterator(const custom_bitset* bitset, const uint64_t pos) : bs(bitset), cursor(pos) {}
+        iterator(const custom_bitset* bitset, const BitCursor& cursor) : bs(bitset), cursor(cursor) {}
+
+        value_type operator*() const { return cursor.get_pos(); }
+
+        // prefix increment
+        const iterator& operator++() { cursor = bs->next_bit(cursor); return *this; }
+
+        // postfix increment
+        iterator operator++(int) { const iterator tmp = *this; ++(*this); return tmp;}
+
+        bool operator==(const iterator& other) const { return bs == other.bs && cursor == other.cursor; }
+    };
+
+    [[nodiscard]] iterator begin() const { return {this, this->first_bit()}; }
+    [[nodiscard]] iterator end() const { return {this, BitCursor::end()}; }
+
+    class reverse_iterator {
+        const custom_bitset* bs;
+        BitCursor cursor;
+
+    public:
+        using value_type = uint64_t;
+        using difference_type = std::ptrdiff_t;
+        using iterator_category = std::forward_iterator_tag;
+        using iterator_concept  = std::forward_iterator_tag; // for ranges
+
+        reverse_iterator() : bs(nullptr), cursor(0) {} // default ctor
+        reverse_iterator(const custom_bitset* bitset, const uint64_t pos) : bs(bitset), cursor(pos) {}
+        reverse_iterator(const custom_bitset* bitset, const BitCursor& cursor) : bs(bitset), cursor(cursor) {}
+
+        value_type operator*() const { return cursor.get_pos(); }
+
+        // prefix increment
+        const reverse_iterator& operator++() { cursor = bs->prev_bit(cursor); return *this; }
+
+        // postfix increment
+        reverse_iterator operator++(int) { const reverse_iterator tmp = *this; ++(*this); return tmp;}
+
+        bool operator==(const reverse_iterator& other) const { return bs == other.bs && cursor == other.cursor; }
+    };
+
+    [[nodiscard]] reverse_iterator rbegin() const { return {this, this->last_bit()}; }
+    [[nodiscard]] reverse_iterator rend() const { return {this, BitCursor::end()}; }
 };
 
 inline std::ostream& operator<<(std::ostream &stream, const custom_bitset &bb) {
     uint64_t tot = 0;
     std::string tmp = "[";
 
-    auto cursor = bb.first_bit();
-
-    while (cursor.get_pos() != bb.size()) {
-        tmp += std::format("{} ", cursor.get_pos());
+    for (const auto v : bb) {
+        tmp += std::format("{} ", v);
         tot++;
-        cursor = bb.next_bit(cursor);
     }
     tmp += std::format("({})]", tot);
 
@@ -334,7 +377,7 @@ inline void custom_bitset::unset_all() {
 }
 
 inline BitCursor custom_bitset::first_bit() const {
-    BitCursor cursor(0, 0);
+    BitCursor cursor(0);
 
     while (cursor.block_index < bits.size()) {
         if (bits[cursor.block_index] != 0) {
@@ -348,13 +391,13 @@ inline BitCursor custom_bitset::first_bit() const {
     }
 
     // probably the latter is better, but in a loop it doesn't make a difference
-    return BitCursor(_size);
+    return BitCursor::end();
     //return UINT64_MAX;
 }
 
 inline BitCursor custom_bitset::first_bit_destructive() {
     const BitCursor cursor = first_bit();
-    if (cursor.get_pos() != _size) unset_block_bit(cursor);
+    if (!cursor.is_end()) unset_block_bit(cursor);
     return cursor;
 }
 
@@ -383,22 +426,23 @@ inline BitCursor custom_bitset::next_bit(const BitCursor& current_cursor) const 
     }
 
     // probably the latter is better, but in a loop it doesn't make a difference
-    return BitCursor(_size);
+    return BitCursor::end();
     //return UINT64_MAX;
 }
 
 inline BitCursor custom_bitset::next_bit_destructive(const BitCursor& current_cursor) {
     const BitCursor cursor = next_bit(current_cursor);
-    if (cursor.get_pos() != _size) unset_block_bit(cursor);
+    if (!cursor.is_end()) unset_block_bit(cursor);
     return cursor;
 }
 
 inline BitCursor custom_bitset::last_bit() const {
-    BitCursor cursor(bits.size() - 1, get_block_bit(_size-1));
+    if (_size == 0) return BitCursor(_size);
+    BitCursor cursor(_size-1);
 
     do {
         if (bits[cursor.block_index] != 0) {
-            cursor.bit = bit_scan_reverse(bits[cursor.block_index]);
+            cursor.bit= bit_scan_reverse(bits[cursor.block_index]);
             // returns the index of the current block + the current bit
             return cursor;
             // it's equivalent but not any faster
@@ -407,13 +451,13 @@ inline BitCursor custom_bitset::last_bit() const {
     } while (cursor.block_index-- > 0);
 
     // probably the latter is better, but in a loop it doesn't make a difference
-    return BitCursor(_size);
+    return BitCursor::end();
     //return UINT64_MAX;
 }
 
 inline BitCursor custom_bitset::last_bit_destructive() {
     const BitCursor cursor = last_bit();
-    if (cursor.get_pos() != _size) unset_block_bit(cursor);
+    if (!cursor.get_pos()) unset_block_bit(cursor);
     return cursor;
 }
 
@@ -440,13 +484,13 @@ inline BitCursor custom_bitset::prev_bit(const BitCursor& current_cursor) const 
     }
 
     // probably the latter is better, but in a loop it doesn't make a difference
-    return BitCursor(_size);
+    return BitCursor::end();
     //return UINT64_MAX;
 }
 
 inline BitCursor custom_bitset::prev_bit_destructive(const BitCursor& current_cursor) {
     const BitCursor cursor = prev_bit(current_cursor);
-    if (cursor.get_pos() != _size) unset_block_bit(cursor);
+    if (!cursor.is_end()) unset_block_bit(cursor);
     return cursor;
 }
 
@@ -462,8 +506,25 @@ inline void custom_bitset::negate() {
     bits.back() &= ~(~0ULL << (get_block_bit(_size)));
 }
 
+inline uint64_t custom_bitset::n_set_bits() const {
+    uint64_t tot = 0;
+    for (const auto word : bits) {
+        tot += std::popcount(word);
+    }
+
+    return tot;
+}
+
 inline void custom_bitset::swap(custom_bitset &other) noexcept {
     const auto tmp = *this;
     *this = other;
     other = tmp;
+}
+
+inline custom_bitset & custom_bitset::resize(const uint64_t new_size) {
+    if (_size == new_size) return *this;
+    _size = new_size;
+    bits.resize(blocks_needed(_size));
+    bits[get_last_block(_size)] &= ~(~0ULL << get_block_bit(_size));
+    return *this;
 }
