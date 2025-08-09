@@ -15,7 +15,7 @@
 
 int main() {
     /*
-    ugraph g(100); //creates an empty (undirected) graph with 100 vertices
+    ugraph g(100); //creates an none (undirected) graph with 100 vertices
     g.add_edge(0, 1);
     g.add_edge(0, 2);
     g.add_edge(1, 2);

@@ -12,13 +12,11 @@
 inline uint64_t ISEQ(const custom_graph& g, custom_bitset Ubb) {
     custom_bitset Qbb(Ubb.size());
     int64_t k = 0;
-    for (k = 0; Ubb; ++k) {
+    for (k = 0; Ubb.any(); ++k) {
         Qbb = Ubb;
-        for (BitCursor cursor = Qbb.first_bit();
-             cursor.get_pos() != Qbb.size();
-             cursor = Qbb.next_bit(cursor)) {
+        for (const auto v : Qbb) {
             // at most we can remove vertices, so we don't need to start a new scan
-            Qbb -= g.get_neighbor_set(cursor.get_pos());
+            Qbb -= g.get_neighbor_set(v);
         }
         Ubb -= Qbb;
     }
@@ -31,12 +29,10 @@ inline std::vector<custom_bitset> ISEQ_sets(const custom_graph& g, custom_bitset
     std::vector<custom_bitset> independent_sets;
     custom_bitset Qbb(Ubb.size());
 
-    while (Ubb) {
+    while (Ubb.any()) {
         Qbb = Ubb;
-        for (BitCursor cursor = Qbb.first_bit();
-             cursor.get_pos() != Qbb.size();
-             cursor = Qbb.next_bit(cursor)) {
-            Qbb -= g.get_neighbor_set(cursor.get_pos());
+        for (const auto v : Qbb) {
+            Qbb -= g.get_neighbor_set(v);
         }
 
         independent_sets.push_back(Qbb);  // Store the independent set

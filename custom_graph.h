@@ -106,7 +106,7 @@ inline uint64_t custom_graph::degree() const {
 }
 
 inline uint64_t custom_graph::vertex_degree(const uint64_t v) const {
-    return graph[v].n_set_bits();
+    return graph[v].count();
 }
 
 inline float custom_graph::get_density() const {
@@ -165,7 +165,7 @@ inline custom_graph custom_graph::change_order(const std::vector<uint64_t> &orde
 
 inline uint64_t custom_graph::get_subgraph_edges(const custom_bitset &subset) const {
     uint64_t edges = 0;
-    for (const auto v : subset) edges += (get_neighbor_set(v) & subset).n_set_bits();
+    for (const auto v : subset) edges += (get_neighbor_set(v) & subset).count();
     return edges/2;
 }
 

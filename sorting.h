@@ -41,11 +41,11 @@ inline std::vector<uint64_t> MWS(custom_graph g) {
             });
 
         // destructive to clean graph
-        for (BitCursor cursor = g[*v_min].first_bit_destructive();
-             !cursor.is_end();
-             cursor = g[*v_min].next_bit_destructive(cursor)) {
-            degrees[cursor.get_pos()]--;
-            g[cursor.get_pos()].unset_bit(*v_min);
+        for (auto cursor = g[*v_min].pop_front();
+             cursor != g[*v_min].end();
+             cursor = g[*v_min].pop_next(cursor)) {
+            degrees[*cursor]--;
+            g[*cursor].unset_bit(*v_min);
         }
         std::iter_swap(v_min, vertices.end()-i);
     }
@@ -89,11 +89,11 @@ inline std::vector<uint64_t> MWSI(custom_graph g, const uint64_t p=3) {
                 return neighb_deg[a] < neighb_deg[b];
             });
 
-        for (BitCursor cursor = g[*v_min].first_bit_destructive();
-             !cursor.is_end();
-             cursor = g[*v_min].next_bit_destructive(cursor)) {
-            degrees[cursor.get_pos()]--;
-            g[cursor.get_pos()].unset_bit(*v_min);
+        for (auto cursor = g[*v_min].pop_front();
+             cursor != g[*v_min].end();
+             cursor = g[*v_min].pop_next(cursor)) {
+            degrees[*cursor]--;
+            g[*cursor].unset_bit(*v_min);
         }
         std::iter_swap(v_min, vertices.end()-i);
     }
@@ -113,7 +113,7 @@ inline std::pair<std::vector<uint64_t>, uint64_t> COLOUR_SORT(const custom_graph
     uint64_t k = 0;
     custom_bitset W(g.size(), true);
 
-    while (W) {
+    while (W.any()) {
         auto U = run_BBMC(g_complement, W);
         std::vector<uint64_t> U_vec = static_cast<std::vector<uint64_t>>(U);
 

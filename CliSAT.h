@@ -65,16 +65,15 @@ inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
     std::vector<custom_bitset> ISs;  // set of independent sets
 
     // We insert the biggest vertices of P into r ISs (decreasing order)
-    for (BitCursor cursor = P.last_bit(); cursor.get_pos() != P.size(); cursor = P.prev_bit(cursor)) {
-        auto pi = cursor.get_pos(); // current vertex
+    for (const auto pi : std::views::reverse(P)) {
         bool inserted = false;
 
         // If there is an IS in which pi is not adjacent to any vertex, we insert pi into that IS
         for (auto &is: ISs) {
             auto common_neighbors = G.get_neighbor_set(pi, is);
-            if (common_neighbors.empty()) {
+            if (common_neighbors.none()) {
                 is.set_bit(pi);
-                if (B.empty()) {
+                if (B.none()) {
                     VertexUB[pi] = std::min(VertexUB[pi], ISs.size());
                 }
                 inserted = true;
@@ -88,7 +87,7 @@ inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
             custom_bitset new_is(G.size());
             new_is.set_bit(pi);
             ISs.push_back(new_is);
-            if (B.empty()) {
+            if (B.none()) {
                 VertexUB[pi] = std::min(VertexUB[pi], ISs.size());
             }
         } else {
@@ -96,27 +95,26 @@ inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
             // RECOLOR (RE-NUMBER of MCS)
             for (uint64_t i = 0; i < ISs.size(); ++i) {
                 auto common_neighbors = G.get_neighbor_set(pi, ISs[i]);
-                auto u_cursor = common_neighbors.first_bit();
-                auto u = u_cursor.get_pos();
+                auto u = common_neighbors.front();
 
                 // if there are more than one common neighbor, we can't insert pi into this IS
-                if (common_neighbors.next_bit(u_cursor).get_pos() != common_neighbors.size()) continue;
+                if (common_neighbors.next(u) != common_neighbors.end()) continue;
 
                 // u is the only neighbor of pi in is
                 for (uint64_t j = 0; j < ISs.size(); ++j) {
                     if (j == i) continue; // skip the current IS
 
-                    auto intersection = G.get_neighbor_set(u, ISs[j]);
+                    auto intersection = G.get_neighbor_set(*u, ISs[j]);
 
-                    // if the intersection is not empty, we can't insert u into this IS
-                    if (!intersection.empty()) continue;
+                    // if the intersection is not none, we can't insert u into this IS
+                    if (!intersection.none()) continue;
 
                     // we can insert u in this IS, removing u from the previous IS and then insert pi into it
                     ISs[i].unset_bit(u);
                     ISs[i].set_bit(pi);
                     ISs[j].set_bit(u);
 
-                    if (B.empty()) { VertexUB[pi] = std::min(VertexUB[pi], ISs.size()); }
+                    if (B.none()) { VertexUB[pi] = std::min(VertexUB[pi], ISs.size()); }
 
                     inserted = true;
                     break;
@@ -172,47 +170,47 @@ inline void FindMaxClique(
             uint64_t max_u = 0;
             for (const auto neighbor : bi_preced_neighbor_set) {
                 max_u = std::max(max_u, u[neighbor]);
-                 }
+            }
             u[bi] = 1 + max_u;
         }
 
 
-        if (u[bi] + K.n_set_bits() <= lb) {
+        if (u[bi] + K.count() <= lb) {
             P.set_bit(bi);
             //B.unset_bit(bi);
         } else {
             K.set_bit(bi);
             auto V_new = (P & G.get_neighbor_set(bi)) | (B & bi_preced_neighbor_set);
 
-            if (!V_new) {
-                if (K.n_set_bits() > lb) {
-                    lb = K.n_set_bits();
+            if (V_new.none()) {
+                if (K.count() > lb) {
+                    lb = K.count();
                     K_max = K;
-                    std::cout << lb << std::endl;
+                    //std::cout << lb << std::endl;
                 }
                 K.unset_bit(bi);
                 // TODO: continue or return?
                 return;
             }
-            auto P_new = ISEQ_pruned(G, V_new, lb-K.n_set_bits());
+            auto P_new = ISEQ_pruned(G, V_new, lb-K.count());
             auto B_new = V_new - P_new;
 
             /*
             // TODO
             // PMAX-SAT-P-based upper bounds (we improve UP and find new branching nodes)
-            auto [B_new, ISs] = FilterByColoring(G, V_new, lb - K.n_set_bits(), u);
-            if (B_new.empty()) continue;
+            auto [B_new, ISs] = FilterByColoring(G, V_new, lb - K.count(), u);
+            if (B_new.none()) continue;
 
-            B_new = IncMaxSat(G, V_new, B_new, ISs, lb - K.n_set_bits(), u);
-            if (B_new.empty()) continue;
+            B_new = IncMaxSat(G, V_new, B_new, ISs, lb - K.count(), u);
+            if (B_new.none()) continue;
             */
 
             // FiltCOL
             // FiltSAT
             // SATCOL
 
-            // if B is not empty
-            if (!B_new.empty()) {
+            // if B is not none
+            if (!B_new.none()) {
                 // auto P_new = V_new - B_new;
                 FindMaxClique(G, K, K_max, lb, V_new, P_new, B_new, u);
             }
@@ -220,7 +218,7 @@ inline void FindMaxClique(
         }
         // TODO: here or above?
 
-        u[bi] = std::min(u[bi], lb - K.n_set_bits());
+        u[bi] = std::min(u[bi], lb - K.count());
     }
 }
 
@@ -229,7 +227,7 @@ inline custom_bitset CliSAT(const custom_graph& g) {
     const auto ordered_g = g.change_order(ordering);
 
     auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     ANTS Tabu search
-    uint64_t lb = K_max.n_set_bits();
+    uint64_t lb = K_max.count();
 
     std::vector<uint64_t> u(ordered_g.size());
     // first |k_max| values bounded by |K_max| (==lb)
@@ -255,8 +253,8 @@ inline custom_bitset CliSAT(const custom_graph& g) {
         u[i] = std::min(1 + max_u, k);
     }
 
-    for (uint64_t i = K_max.n_set_bits(); i < ordered_g.size(); ++i) {
-        std::cout << "i: " << i << std::endl;
+    for (uint64_t i = K_max.count(); i < ordered_g.size(); ++i) {
+        //std::cout << "i: " << i << std::endl;
         const custom_bitset V = ordered_g.get_neighbor_set(i , i);
 
         // first lb vertices of V

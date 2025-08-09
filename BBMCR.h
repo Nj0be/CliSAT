@@ -18,28 +18,28 @@ inline bool BB_ReCol(const custom_graph& g, const uint64_t v, std::vector<custom
         // less memory copy
         inters = C_sets[k1];
         inters &= g.get_neighbor_set(v);
-        auto w = inters.first_bit();
+        auto w = inters.front();
         // if the intersection between Ck1 and N(v) = 0 then we can put v in Ck1
-        if (w.get_pos() == inters.size()) { // empty set - single swap
+        if (w == inters.end()) { // none set - single swap
             // Ck1 = Ck1 U v
             //C[v] = k1;
             C_sets[k1].set_bit(v);
             return true;
         }
         // if the intersection between |Ck1 and N(v)| = 1 then we could search another set where to put w (the only vertex adjacent to v)
-        if (inters.next_bit(w).get_pos() == inters.size()) {  // |set| = 1 -> double swap
+        if (inters.next(w) == inters.end()) {  // |set| = 1 -> double swap
             for (int64_t k2 = k1+1; k2 < k_min; ++k2) {
                 inters = C_sets[k2];
-                inters &= g.get_neighbor_set(w.get_pos());
+                inters &= g.get_neighbor_set(*w);
                 // if the intersection between Ck2 and N(w) = 0 then we can put w in Ck2 and v in Ck1
-                if (!inters) {
+                if (inters.none()) {
                     // Ck1 = (Ck1 \ w) U v
                     //C[v] = k1;
-                    C_sets[k1].unset_bit(w.get_pos());
+                    C_sets[k1].unset_bit(w);
                     C_sets[k1].set_bit(v);
                     // Ck2 = Ck2 U w
                     //C[w] = k2;
-                    C_sets[k2].set_bit(w.get_pos());
+                    C_sets[k2].set_bit(w);
                     return true;
                 }
             }
@@ -51,21 +51,21 @@ inline bool BB_ReCol(const custom_graph& g, const uint64_t v, std::vector<custom
 inline void BB_ColorR(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>& Ul, std::vector<uint64_t>& C, const int64_t k_min=0) {
     static std::vector C_sets(g.size(), custom_bitset(g.size()));
 
-    for (int64_t k = 0; Ubb;) {
+    for (int64_t k = 0; Ubb.any();) {
         C_sets[k] = Ubb;
-        auto cursor = C_sets[k].first_bit();
+        auto cursor = C_sets[k].front();
 
-        while (cursor.get_pos() != C_sets[k].size()) {
-            C_sets[k] -= g.get_neighbor_set(cursor.get_pos());
+        while (cursor != C_sets[k].end()) {
+            C_sets[k] -= g.get_neighbor_set(*cursor);
 
             //prefetch next vertex to check if the current one is the last
-            const auto next_cursor = C_sets[k].next_bit(cursor);
+            const auto next_cursor = C_sets[k].next(cursor);
 
             if (k >= k_min) {
                 // if v is the last element remaining to color
-                if (next_cursor.get_pos() == C_sets[k].size() && BB_ReCol(g, cursor.get_pos(), C_sets, k_min)) break;
-                C[cursor.get_pos()] = k;
-                Ul.push_back(cursor.get_pos());
+                if (next_cursor == C_sets[k].end() && BB_ReCol(g, *cursor, C_sets, k_min)) break;
+                C[*cursor] = k;
+                Ul.push_back(*cursor);
             }
 
             cursor = next_cursor;
@@ -76,10 +76,10 @@ inline void BB_ColorR(const custom_graph& g, custom_bitset Ubb, std::vector<uint
         // if we recolored v (we didn't run v = next that equals C_sets[k].size()), we remove v from current set
         // indeed v isn't part of current color (has been recolored)
         // Cnew = Cnew \ v
-        if (cursor.get_pos() != C_sets[k].size()) {
-            C_sets[k].unset_bit(cursor.get_pos());
-            // if, after the above operation, C_sets[k] remains empty, we don't increase k
-            if (!C_sets[k]) continue;
+        if (cursor != C_sets[k].end()) {
+            C_sets[k].unset_bit(cursor);
+            // if, after the above operation, C_sets[k] remains none, we don't increase k
+            if (C_sets[k].none()) continue;
         }
         // otherwise we increase as usual
         ++k;
@@ -93,13 +93,14 @@ inline void BBMCR(const custom_graph& g, custom_bitset& Ubb, std::vector<std::ve
 
         Ubb.unset_bit(v);
 
-        const auto S_bits = S.n_set_bits() + 1;
-        const auto S_max_bits = S_max.n_set_bits();
+        const auto S_bits = S.count() + 1;
+        const auto S_max_bits = S_max.count();
 
         if (S_bits + C[depth][v] > S_max_bits) {
             S.set_bit(v);
 
-            if (auto candidates = Ubb & g.get_neighbor_set(v)) {
+            auto candidates = Ubb & g.get_neighbor_set(v);
+            if (candidates.any()) {
                 Ul[depth+1].clear();
                 const int64_t k_min = S_max_bits - S_bits;
 
@@ -108,7 +109,7 @@ inline void BBMCR(const custom_graph& g, custom_bitset& Ubb, std::vector<std::ve
                 BBMCR(g, candidates, Ul, C, S, S_max, depth+1);
             } else if (S_bits > S_max_bits) { // if there are no more candidates (leaf) check if we obtained a max clique
                 S_max = S;
-                std::cout << S_max.n_set_bits() << std::endl;
+                std::cout << S_max.count() << std::endl;
             }
 
             S.unset_bit(v);

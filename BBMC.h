@@ -9,7 +9,7 @@
 
 inline void BB_Color(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>& Ul, std::vector<uint64_t>& C, const int64_t k_min=0) {
     static custom_bitset Qbb(g.size());
-    for (int64_t k = 0; Ubb; ++k) {
+    for (int64_t k = 0; Ubb.any(); ++k) {
         Qbb = Ubb;
 
         for (const auto v : Qbb) {
@@ -34,14 +34,14 @@ inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vec
 
         Ubb.unset_bit(v);
 
-        const auto S_bits = S.n_set_bits() + 1;
-        const auto S_max_bits = S_max.n_set_bits();
+        const auto S_bits = S.count() + 1;
+        const auto S_max_bits = S_max.count();
 
         if (S_bits + C[depth][v] > S_max_bits) {
             S.set_bit(v);
 
             auto candidates = Ubb & g.get_neighbor_set(v);
-            if (candidates) {
+            if (candidates.any()) {
                 Ul[depth+1].clear();
                 const int64_t k_min = S_max_bits - S_bits;
 
