@@ -4,11 +4,8 @@
 
 #pragma once
 
-#include <cstdint>
-#include <vector>
 #include <immintrin.h> //__bsrd, __bsrq, etc
 #include <algorithm>
-#include <iostream>
 
 class custom_bitset {
 public:
@@ -20,8 +17,8 @@ public:
     public:
         using value_type = uint64_t;
         using difference_type = std::ptrdiff_t;
-        using iterator_category = std::bidirectional_iterator_tag;  // changed
-        using iterator_concept  = std::bidirectional_iterator_tag;  // for ranges
+        using iterator_category = std::bidirectional_iterator_tag;
+        using iterator_concept  = std::bidirectional_iterator_tag;
 
         explicit iterator() : bs(nullptr), block(nullptr), bit(0) {}
         iterator(custom_bitset* bitset, const uint64_t pos) : bs(bitset), block(bs->bits.begin() + pos/64), bit(pos%64) {}
@@ -34,15 +31,15 @@ public:
         // prefix increment
         iterator& operator++() { *this = bs->next(*this); return *this; }
         // postfix increment
-        iterator operator++(int) { const iterator tmp = *this; ++(*this); return tmp; }
+        iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
         // prefix decrement
         iterator& operator--() { *this = bs->prev(*this); return *this; }
         // postfix decrement
-        iterator operator--(int) { const iterator tmp = *this; --(*this); return tmp; }
+        iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
         bool operator==(const iterator& other) const { return bs == other.bs && block == other.block && bit == other.bit; }
-        bool operator!=(const iterator& other) const { return !(*this == other); }
+        //bool operator!=(const iterator& other) const { return !(*this == other); }
 
         friend class custom_bitset;
     };
@@ -55,8 +52,8 @@ public:
     public:
         using value_type = uint64_t;
         using difference_type = std::ptrdiff_t;
-        using iterator_category = std::bidirectional_iterator_tag;  // changed
-        using iterator_concept  = std::bidirectional_iterator_tag;  // for ranges
+        using iterator_category = std::bidirectional_iterator_tag;
+        using iterator_concept  = std::bidirectional_iterator_tag;
 
         explicit const_iterator() : bs(nullptr), block(nullptr), bit(0) {}
         const_iterator(const custom_bitset* bitset, const uint64_t pos) : bs(bitset), block(bs->bits.begin() + pos/64), bit(pos%64) {}
@@ -70,15 +67,15 @@ public:
         // prefix increment
         const_iterator& operator++() { *this = bs->next(*this); return *this; }
         // postfix increment
-        const_iterator operator++(int) { const const_iterator tmp = *this; ++(*this); return tmp; }
+        const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
         // prefix decrement
         const_iterator& operator--() { *this = bs->prev(*this); return *this; }
         // postfix decrement
-        const_iterator operator--(int) { const const_iterator tmp = *this; --(*this); return tmp; }
+        const_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
         bool operator==(const const_iterator& other) const { return bs == other.bs && block == other.block && bit == other.bit; }
-        bool operator!=(const const_iterator& other) const { return !(*this == other); }
+        //bool operator!=(const const_iterator& other) const { return !(*this == other); }
 
         friend class custom_bitset;
     };
@@ -113,13 +110,13 @@ private:
     Iter front_impl(const Iter& begin, const Iter& end) const;
 
     template <typename Iter>
-    Iter next_impl(const Iter& curr_iter, const Iter& end) const;
+    Iter next_impl(Iter it, const Iter& end) const;
 
     template <typename Iter>
     Iter back_impl(const Iter& begin, const Iter& end) const;
 
     template <typename Iter>
-    Iter prev_impl(const Iter& curr_iter, const Iter& end) const;
+    Iter prev_impl(Iter it, const Iter& end) const;
 
     [[nodiscard]] iterator first() { return {this, 0}; }
     [[nodiscard]] const_iterator first() const { return {this, 0}; }
@@ -133,13 +130,11 @@ public:
     custom_bitset(const custom_bitset& other, uint64_t size);
     explicit custom_bitset(const std::vector<uint64_t>& v);
     custom_bitset(const std::vector<uint64_t> &v, uint64_t size);
-    custom_bitset(const custom_bitset& other) = default;
 
     custom_bitset operator&(const custom_bitset& other) const;
     custom_bitset operator|(const custom_bitset& other) const;
     custom_bitset operator~() const;
     custom_bitset operator-(const custom_bitset& other) const;
-    custom_bitset& operator=(const custom_bitset& other);
     bool operator==(const custom_bitset& other) const;
     custom_bitset& operator&=(const custom_bitset& other);
     custom_bitset& operator|=(const custom_bitset& other);
@@ -158,25 +153,27 @@ public:
     [[nodiscard]] static bool test(const const_iterator& it) { return *it.block >> get_block_bit(it.bit) & 1; }
     [[nodiscard]] bool test(const uint64_t pos) const { return test({this, pos}); }
 
-    void reset();
-
     [[nodiscard]] iterator front() { return front_impl(first(), end()); };
     [[nodiscard]] const_iterator front() const { return front_impl(first(), end()); }
     iterator pop_front();
-    [[nodiscard]] iterator next(const iterator& curr_iter) { return next_impl(curr_iter, end()); }
-    [[nodiscard]] const_iterator next(const const_iterator& curr_iter) const { return next_impl(curr_iter, end()); }
-    iterator pop_next(const iterator& curr_iter);
+
+    [[nodiscard]] iterator next(const iterator& it) { return next_impl(it, end()); }
+    [[nodiscard]] const_iterator next(const const_iterator& it) const { return next_impl(it, end()); }
+    iterator pop_next(iterator it);
+
     [[nodiscard]] iterator back() { return back_impl(last(), end()); }
     [[nodiscard]] const_iterator back() const { return back_impl(last(), end()); }
     iterator pop_back();
-    [[nodiscard]] iterator prev(const iterator& curr_iter) { return prev_impl(curr_iter, end()); }
-    [[nodiscard]] const_iterator prev(const const_iterator& curr_iter) const { return prev_impl(curr_iter, end()); }
-    iterator pop_prev(const iterator& curr_iter);
+
+    [[nodiscard]] iterator prev(const iterator& it) { return prev_impl(it, end()); }
+    [[nodiscard]] const_iterator prev(const const_iterator& it) const { return prev_impl(it, end()); }
+    iterator pop_prev(iterator it);
 
     [[nodiscard]] uint64_t degree() const { return count(); };
     [[nodiscard]] uint64_t neighbors_degree() const;
 
     void negate();
+    void reset();
 
     [[nodiscard]] uint64_t size() const { return _size; }
     [[nodiscard]] uint64_t count() const;
@@ -311,15 +308,6 @@ inline custom_bitset custom_bitset::operator-(const custom_bitset &other) const 
     return bb;
 }
 
-inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
-    _size = other.size();
-    bits = other.bits;
-    bits.resize(blocks_needed(_size));
-    bits[get_last_block(_size)] &= ~(~0ULL << get_block_bit(_size));
-
-    return *this;
-}
-
 inline bool custom_bitset::operator==(const custom_bitset &other) const {
     if (this == &other) return true;
     if (size() != other.size()) return false;
@@ -368,21 +356,11 @@ inline custom_bitset& custom_bitset::operator-=(const custom_bitset &other) {
 }
 
 inline custom_bitset::operator std::vector<unsigned long>() const {
-    auto block = bits.begin();
-    auto block_bit = 0;
-
     std::vector<uint64_t> list;
 
-    do {
-        auto masked_number = *block;
-        while (masked_number != 0) {
-            block_bit = bit_scan_forward(masked_number);
-            list.push_back(std::distance(bits.begin(), block)*64 + block_bit);
-            // always shift by one even if we find 0
-            masked_number = *block & (~1ULL << block_bit);
-        }
-        ++block;
-    } while (block != bits.end());
+    for (const auto v : *this) {
+        list.push_back(v);
+    }
 
     return list;
 }
@@ -420,9 +398,7 @@ inline custom_bitset::iterator custom_bitset::pop_front() {
 }
 
 template<typename Iter>
-Iter custom_bitset::next_impl(const Iter& curr_iter, const Iter& end) const {
-    auto it = curr_iter;
-
+Iter custom_bitset::next_impl(Iter it, const Iter& end) const {
     // shift by 64 doesn't work!! undefined behaviour
     // ~1ULL is all 1's except for the lowest one, aka already shifted by one
     // the resulting shift is all 1's shifted by back+1
@@ -447,8 +423,8 @@ Iter custom_bitset::next_impl(const Iter& curr_iter, const Iter& end) const {
     //return UINT64_MAX;
 }
 
-inline custom_bitset::iterator custom_bitset::pop_next(const iterator& curr_iter) {
-    const iterator it = next(curr_iter);
+inline custom_bitset::iterator custom_bitset::pop_next(iterator it) {
+    it = next(it);
     if (it != end()) unset_block_bit(it);
     return it;
 }
@@ -479,9 +455,7 @@ inline custom_bitset::iterator custom_bitset::pop_back() {
 }
 
 template<typename Iter>
-Iter custom_bitset::prev_impl(const Iter& curr_iter, const Iter& end) const {
-    auto it = curr_iter;
-
+Iter custom_bitset::prev_impl(Iter it, const Iter& end) const {
     // shift by 64 doesn't work!! undefined behaviour
     // ~1ULL is all 1's except for the lowest one, aka already shifted by one
     // the resulting shift is all 1's shifted by back+1
@@ -506,8 +480,8 @@ Iter custom_bitset::prev_impl(const Iter& curr_iter, const Iter& end) const {
     //return UINT64_MAX;
 }
 
-inline custom_bitset::iterator custom_bitset::pop_prev(const iterator& curr_iter) {
-    const auto it = prev(curr_iter);
+inline custom_bitset::iterator custom_bitset::pop_prev(iterator it) {
+    it = prev(it);
     if (it != end()) unset_block_bit(it);
     return it;
 }
