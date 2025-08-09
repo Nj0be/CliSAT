@@ -21,6 +21,14 @@ public:
     explicit custom_graph(const std::string& filename);
     explicit custom_graph(uint64_t size);
 
+    using iterator = std::vector<custom_bitset>::iterator;
+    using const_iterator = std::vector<custom_bitset>::const_iterator;
+
+    iterator begin() noexcept { return graph.begin(); }
+    iterator end() noexcept { return graph.end(); }
+    [[nodiscard]] const_iterator begin() const noexcept { return graph.begin(); }
+    [[nodiscard]] const_iterator end() const noexcept { return graph.end(); }
+
     custom_bitset& operator[](const uint64_t pos) { return graph[pos]; };
 
     void add_edge(uint64_t u, uint64_t v);
