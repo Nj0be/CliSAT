@@ -658,7 +658,12 @@ inline void custom_bitset::mask_from(const uint64_t threshold) {
 }
 
 inline bool custom_bitset::all() const {
-    return std::ranges::all_of(bits, [](const uint64_t word) { return word == UINT64_MAX; });
+    const auto ref = reference(_size);
+    if (ref.bit == 0) return std::ranges::all_of(bits, [](const uint64_t word) { return word == UINT64_MAX; });
+
+    const bool all = std::ranges::all_of(bits.begin(), bits.end()-1, [](const uint64_t word) { return word == UINT64_MAX; });
+    if (all && ((bits.back() | (~0ULL << ref.bit)) == UINT64_MAX)) return true;
+    return false;
 }
 
 inline bool custom_bitset::any() const {
