@@ -221,6 +221,8 @@ inline custom_bitset run_AMTS(const custom_graph& g, int64_t run_time=50) {
     // TODO: get complement for p < 0.5
     uint64_t Iter_Max = 100000000;
     custom_bitset S_max(g.size());
+    // we start with a single clique
+    S_max.set_bit(0);
     custom_bitset S(g.size());
     for (uint64_t k = 1; k < g.size(); k++) {
         if (std::chrono::steady_clock::now() > max_time) break;
