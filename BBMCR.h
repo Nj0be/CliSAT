@@ -20,14 +20,14 @@ inline bool BB_ReCol(const custom_graph& g, const uint64_t v, std::vector<custom
         inters &= g.get_neighbor_set(v);
         auto w = inters.front();
         // if the intersection between Ck1 and N(v) = 0 then we can put v in Ck1
-        if (w == inters.end()) { // none set - single swap
+        if (w == inters.size()) { // none set - single swap
             // Ck1 = Ck1 U v
             //C[v] = k1;
             C_sets[k1].set_bit(v);
             return true;
         }
         // if the intersection between |Ck1 and N(v)| = 1 then we could search another set where to put w (the only vertex adjacent to v)
-        if (inters.next(w) == inters.end()) {  // |set| = 1 -> double swap
+        if (inters.next(w) == inters.size()) {  // |set| = 1 -> double swap
             for (int64_t k2 = k1+1; k2 < k_min; ++k2) {
                 inters = C_sets[k2];
                 inters &= g.get_neighbor_set(*w);
@@ -55,7 +55,7 @@ inline void BB_ColorR(const custom_graph& g, custom_bitset Ubb, std::vector<uint
         C_sets[k] = Ubb;
         auto cursor = C_sets[k].front();
 
-        while (cursor != C_sets[k].end()) {
+        while (cursor != C_sets[k].size()) {
             C_sets[k] -= g.get_neighbor_set(*cursor);
 
             //prefetch next vertex to check if the current one is the last
@@ -63,7 +63,7 @@ inline void BB_ColorR(const custom_graph& g, custom_bitset Ubb, std::vector<uint
 
             if (k >= k_min) {
                 // if v is the last element remaining to color
-                if (next_cursor == C_sets[k].end() && BB_ReCol(g, *cursor, C_sets, k_min)) break;
+                if (next_cursor == C_sets[k].size() && BB_ReCol(g, *cursor, C_sets, k_min)) break;
                 C[*cursor] = k;
                 Ul.push_back(*cursor);
             }
@@ -76,7 +76,7 @@ inline void BB_ColorR(const custom_graph& g, custom_bitset Ubb, std::vector<uint
         // if we recolored v (we didn't run v = next that equals C_sets[k].size()), we remove v from current set
         // indeed v isn't part of current color (has been recolored)
         // Cnew = Cnew \ v
-        if (cursor != C_sets[k].end()) {
+        if (cursor != C_sets[k].size()) {
             C_sets[k].unset_bit(cursor);
             // if, after the above operation, C_sets[k] remains none, we don't increase k
             if (C_sets[k].none()) continue;

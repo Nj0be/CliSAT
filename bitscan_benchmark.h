@@ -303,7 +303,7 @@ void bit_scan_forward_destructive_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (auto cursor = s_bb_empty.pop_front();
-         cursor != s_bb_empty.end();
+         cursor != s_bb_empty.size();
          cursor = s_bb_empty.pop_next(cursor)) {
         ++acc;
     }
@@ -317,7 +317,7 @@ void bit_scan_forward_destructive_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (auto cursor = s_bb_random.pop_front();
-         cursor != s_bb_random.end();
+         cursor != s_bb_random.size();
          cursor = s_bb_random.pop_next(cursor)) {
         ++acc;
     }
@@ -331,7 +331,7 @@ void bit_scan_forward_destructive_benchmark() {
 
     begin = std::chrono::steady_clock::now();
     for (auto cursor = s_bb_complete.pop_front();
-         cursor != s_bb_complete.end();
+         cursor != s_bb_complete.size();
          cursor = s_bb_complete.pop_next(cursor)) {
         ++acc;
     }

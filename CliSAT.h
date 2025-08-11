@@ -98,7 +98,7 @@ inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
                 auto u = common_neighbors.front();
 
                 // if there are more than one common neighbor, we can't insert pi into this IS
-                if (common_neighbors.next(u) != common_neighbors.end()) continue;
+                if (common_neighbors.next(u) != common_neighbors.size()) continue;
 
                 // u is the only neighbor of pi in is
                 for (uint64_t j = 0; j < ISs.size(); ++j) {

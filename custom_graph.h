@@ -15,11 +15,11 @@
 class custom_graph {
     std::vector<custom_bitset> graph;
     std::vector<uint64_t> order_conversion;
-    uint64_t n_edges = 0;
 
 public:
     explicit custom_graph(const std::string& filename);
     explicit custom_graph(uint64_t size);
+    custom_graph(const custom_graph& g, uint64_t size);
 
     using iterator = std::vector<custom_bitset>::iterator;
     using const_iterator = std::vector<custom_bitset>::const_iterator;
@@ -35,12 +35,20 @@ public:
     void remove_edge(uint64_t u, uint64_t v);
 
     [[nodiscard]] uint64_t size() const { return graph.size(); }
-    [[nodiscard]] uint64_t get_n_edges() const { return n_edges; }
+    [[nodiscard]] uint64_t get_n_edges() const;
 
     [[nodiscard]] const custom_bitset& get_neighbor_set(const uint64_t v) const { return graph[v]; }
     [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const custom_bitset& set) const { return get_neighbor_set(v) & set; }
-    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const uint64_t size) const { return {get_neighbor_set(v), size}; }
-    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const custom_bitset& set, const uint64_t size) const { return get_neighbor_set(v, set).resize(size); }
+    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const uint64_t mask_threshold) const {
+        auto neighbor_set = get_neighbor_set(v);
+        neighbor_set.mask_from(mask_threshold);
+        return neighbor_set;
+    }
+    [[nodiscard]] custom_bitset get_neighbor_set(const uint64_t v, const custom_bitset& set, const uint64_t mask_threshold) const {
+        auto neighbor_set = get_neighbor_set(v, set);
+        neighbor_set.mask_from(mask_threshold);
+        return neighbor_set;
+    }
     [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v) const { return ~graph[v]; }
     [[nodiscard]] custom_bitset get_anti_neighbor_set(const uint64_t v, const custom_bitset& set) const { return get_anti_neighbor_set(v) & set; }
 
@@ -54,6 +62,8 @@ public:
     [[nodiscard]] custom_graph change_order(const std::vector<uint64_t>& order) const;
     [[nodiscard]] uint64_t get_subgraph_edges(const custom_bitset &subset) const;
     [[nodiscard]] std::vector<uint64_t> get_subgraph_vertices_degree(const custom_bitset &subset) const;
+
+    void resize(uint64_t new_size);
 };
 
 inline custom_graph::custom_graph(const std::string& filename) {
@@ -87,14 +97,17 @@ inline custom_graph::custom_graph(const uint64_t size)
     std::iota(order_conversion.begin(), order_conversion.end(), 0);
 }
 
+inline custom_graph::custom_graph(const custom_graph& g, const uint64_t size) {
+    *this = g;
+    resize(size);
+}
+
 // Rest of the implementation follows the same pattern as custom_graph
 inline void custom_graph::add_edge(const uint64_t u, const uint64_t v) {
     if (u >= size() || v >= size() || graph[u][v]) return;
 
     graph[u].set_bit(v);
     graph[v].set_bit(u);
-
-    n_edges++;
 }
 
 inline void custom_graph::remove_edge(const uint64_t u, const uint64_t v) {
@@ -102,8 +115,14 @@ inline void custom_graph::remove_edge(const uint64_t u, const uint64_t v) {
 
     graph[u].unset_bit(v);
     graph[v].unset_bit(u);
+}
 
-    n_edges--;
+inline uint64_t custom_graph::get_n_edges() const {
+    uint64_t n_edges = 0;
+    for (const auto& bitset : graph) {
+        n_edges += bitset.count();
+    }
+    return n_edges / 2; // Each edge is counted twice
 }
 
 inline uint64_t custom_graph::degree() const {
@@ -148,7 +167,6 @@ inline custom_graph custom_graph::get_complement() const {
         complement.graph[i].unset_bit(i);
     }
 
-    complement.n_edges = complement.size()*(complement.size()-1)/2 - get_n_edges();
     return complement;
 }
 
@@ -165,7 +183,7 @@ inline custom_graph custom_graph::change_order(const std::vector<uint64_t> &orde
         const auto current_vertex = conversion_helper[i];
         auto set = static_cast<std::vector<uint64_t>>(graph[i]);
         for (auto& v : set) v = conversion_helper[v];
-        new_g.graph[current_vertex] = custom_bitset(set);
+        new_g.graph[current_vertex] = custom_bitset(set, size());
     }
 
     return new_g;
@@ -181,4 +199,19 @@ inline std::vector<uint64_t> custom_graph::get_subgraph_vertices_degree(const cu
     std::vector<uint64_t> d(subset.size());
     for (const auto v : subset) d[v] = vertex_degree(v);
     return d;
+}
+
+inline void custom_graph::resize(const uint64_t new_size) {
+    if (size() == new_size) return;
+
+    // add new bitsets if the new size is larger than the current size
+    const custom_bitset default_bitset(new_size);
+    graph.resize(new_size, default_bitset);
+
+    // resize each bitset in the graph
+    for (auto& bitset : graph) {
+        bitset.resize(new_size);
+    }
+
+    // TODO: missing order_conversion resizing
 }

@@ -42,7 +42,7 @@ inline std::vector<uint64_t> MWS(custom_graph g) {
 
         // destructive to clean graph
         for (auto cursor = g[*v_min].pop_front();
-             cursor != g[*v_min].end();
+             cursor != g[*v_min].size();
              cursor = g[*v_min].pop_next(cursor)) {
             degrees[*cursor]--;
             g[*cursor].unset_bit(*v_min);
@@ -90,7 +90,7 @@ inline std::vector<uint64_t> MWSI(custom_graph g, const uint64_t p=3) {
             });
 
         for (auto cursor = g[*v_min].pop_front();
-             cursor != g[*v_min].end();
+             cursor != g[*v_min].size();
              cursor = g[*v_min].pop_next(cursor)) {
             degrees[*cursor]--;
             g[*cursor].unset_bit(*v_min);
