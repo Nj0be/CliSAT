@@ -12,12 +12,10 @@
 #include "custom_bitset.h"
 
 class custom_graph {
-    typedef uint64_t block_type;
-    //typedef Allocator allocator_type;
-    typedef std::size_t size_type;
+    typedef custom_bitset::size_type size_type;
 
     std::vector<custom_bitset> graph;
-    std::vector<block_type> order_conversion;
+    std::vector<size_type> order_conversion;
 
 public:
     explicit custom_graph(const std::string& filename);
@@ -57,12 +55,12 @@ public:
     [[nodiscard]] size_type vertex_degree(size_type v) const;
     [[nodiscard]] float get_density() const;
 
-    [[nodiscard]] std::vector<block_type> convert_back_set(const std::vector<block_type> &v) const;
+    [[nodiscard]] std::vector<size_type> convert_back_set(const std::vector<size_type> &v) const;
     [[nodiscard]] custom_bitset convert_back_set(const custom_bitset &bb) const;
     [[nodiscard]] custom_graph get_complement() const;
-    [[nodiscard]] custom_graph change_order(const std::vector<block_type>& order) const;
+    [[nodiscard]] custom_graph change_order(const std::vector<size_type>& order) const;
     [[nodiscard]] size_type get_subgraph_edges(const custom_bitset &subset) const;
-    [[nodiscard]] std::vector<block_type> get_subgraph_vertices_degree(const custom_bitset &subset) const;
+    [[nodiscard]] std::vector<size_type> get_subgraph_vertices_degree(const custom_bitset &subset) const;
 
     void resize(size_type new_size);
 };
@@ -142,8 +140,8 @@ inline float custom_graph::get_density() const {
            (static_cast<float>(size()) * static_cast<float>(size() - 1));
 }
 
-inline std::vector<custom_graph::block_type> custom_graph::convert_back_set(const std::vector<block_type> &v) const {
-    std::vector<block_type> set;
+inline std::vector<custom_graph::size_type> custom_graph::convert_back_set(const std::vector<size_type> &v) const {
+    std::vector<size_type> set;
     set.reserve(v.size());
     for (const auto vertex : v) {
         set.push_back(order_conversion[vertex]);
@@ -171,18 +169,18 @@ inline custom_graph custom_graph::get_complement() const {
     return complement;
 }
 
-inline custom_graph custom_graph::change_order(const std::vector<block_type> &order) const {
+inline custom_graph custom_graph::change_order(const std::vector<size_type> &order) const {
     custom_graph new_g(size());
     new_g.order_conversion = order;
 
-    std::vector<block_type> conversion_helper(size());
+    std::vector<size_type> conversion_helper(size());
     for (size_type i = 0; i < graph.size(); i++) {
         conversion_helper[order[i]] = i;
     }
 
     for (size_type i = 0; i < size(); i++) {
         const auto current_vertex = conversion_helper[i];
-        auto set = static_cast<std::vector<block_type>>(graph[i]);
+        auto set = static_cast<std::vector<size_type>>(graph[i]);
         for (auto& v : set) v = conversion_helper[v];
         new_g.graph[current_vertex] = custom_bitset(set, size());
     }
@@ -196,8 +194,8 @@ inline custom_graph::size_type custom_graph::get_subgraph_edges(const custom_bit
     return edges/2;
 }
 
-inline std::vector<custom_graph::block_type> custom_graph::get_subgraph_vertices_degree(const custom_bitset &subset) const {
-    std::vector<block_type> d(subset.size());
+inline std::vector<custom_graph::size_type> custom_graph::get_subgraph_vertices_degree(const custom_bitset &subset) const {
+    std::vector<size_type> d(subset.size());
     for (const auto v : subset) d[v] = vertex_degree(v);
     return d;
 }
