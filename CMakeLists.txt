@@ -1,26 +1,34 @@
-cmake_minimum_required(VERSION 3.30)
-project(CliSAT)
+cmake_minimum_required(VERSION 3.28)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_subdirectory(BitGraph)
+project(CliSAT LANGUAGES CXX)
 
-add_executable(CliSAT main.cpp
-        bitscan_benchmark.h
-        custom_bitset.h
-        custom_graph.h
-        BBMC.h
-        BBMCR.h
-        CliSAT.h
-        sorting.h
-        coloring.h
-        AMTS.h
+add_executable(CliSAT)
+
+# Add main.cpp as a normal source
+target_sources(CliSAT
+    PRIVATE
+        main.cpp
 )
 
-target_link_libraries(CliSAT graph bitscan utils)
+# Add your modules as a FILE_SET (CMake 3.28+ feature)
+target_sources(CliSAT
+    PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            custom_bitset.ixx
+            custom_graph.ixx
+            AMTS.ixx
+            bitscan_benchmark.ixx
+            BBMC.ixx
+            BBMCR.ixx
+            CliSAT.ixx
+            sorting.ixx
+            coloring.ixx
+)
+
 target_include_directories(CliSAT PUBLIC
-        "${PROJECT_BINARY_DIR}"
-        "${PROJECT_SOURCE_DIR}/BitGraph/src"
+    "${PROJECT_BINARY_DIR}"
 )
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
