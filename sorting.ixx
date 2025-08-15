@@ -51,7 +51,7 @@ inline std::vector<uint64_t> MWS(custom_graph g) {
              cursor != g[*v_min].size();
              cursor = g[*v_min].pop_next(cursor)) {
             degrees[*cursor]--;
-            g[*cursor].unset_bit(*v_min);
+            g[*cursor].reset(*v_min);
         }
         std::iter_swap(v_min, vertices.end()-i);
     }
@@ -99,7 +99,7 @@ inline std::vector<uint64_t> MWSI(custom_graph g, const uint64_t p=3) {
              cursor != g[*v_min].size();
              cursor = g[*v_min].pop_next(cursor)) {
             degrees[*cursor]--;
-            g[*cursor].unset_bit(*v_min);
+            g[*cursor].reset(*v_min);
         }
         std::iter_swap(v_min, vertices.end()-i);
     }

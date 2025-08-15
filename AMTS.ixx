@@ -117,8 +117,8 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
             }
         }
 
-        S.unset_bit(u);
-        S.set_bit(v);
+        S.reset(u);
+        S.set(v);
         swap_mem[u]++;
         swap_mem[v]++;
 
@@ -173,7 +173,7 @@ export inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const u
             v = S_neg.next(v);
         }
 
-        S.set_bit(selected_v);
+        S.set(selected_v);
     }
 
     custom_bitset S_max(S);
@@ -188,7 +188,7 @@ export inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const u
         //else
         S.reset();
         auto least_frequent = std::distance(swap_mem.begin(),std::min(swap_mem.begin(), swap_mem.end()));
-        S.set_bit(least_frequent);
+        S.set(least_frequent);
 
         // TODO: can improve?
         for (uint64_t i = 1; i < k; i++) {
@@ -210,7 +210,7 @@ export inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const u
                     return swap_mem[a] < swap_mem[b];
                 });
 
-            S.set_bit(*v_min);
+            S.set(*v_min);
         }
         if (*std::min(swap_mem.begin(), swap_mem.end()) > k) {
             std::ranges::fill(swap_mem, 0);
@@ -226,7 +226,7 @@ inline custom_bitset run_AMTS(const custom_graph& g, int64_t run_time=50) {
     uint64_t Iter_Max = 100000000;
     custom_bitset S_max(g.size());
     // we start with a single clique
-    S_max.set_bit(0);
+    S_max.set(0);
     custom_bitset S(g.size());
     for (uint64_t k = 1; k < g.size(); k++) {
         if (std::chrono::steady_clock::now() > max_time) break;

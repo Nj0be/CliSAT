@@ -212,13 +212,13 @@ void bit_scan_forward_benchmark() {
 
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
-            bb_random.set_bit(i);
-            c_bb_random.set_bit(i);
-            s_bb_random.set_bit(i);
+            bb_random.set(i);
+            c_bb_random.set(i);
+            s_bb_random.set(i);
         }
-        bb_complete.set_bit(i);
-        c_bb_complete.set_bit(i);
-        s_bb_complete.set_bit(i);
+        bb_complete.set(i);
+        c_bb_complete.set(i);
+        s_bb_complete.set(i);
     }
     bb_empty.init_scan(bbo::NON_DESTRUCTIVE);
     bb_random.init_scan(bbo::NON_DESTRUCTIVE);
@@ -286,13 +286,13 @@ void bit_scan_forward_destructive_benchmark() {
 
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
-            bb_random.set_bit(i);
-            c_bb_random.set_bit(i);
-            s_bb_random.set_bit(i);
+            bb_random.set(i);
+            c_bb_random.set(i);
+            s_bb_random.set(i);
         }
-        bb_complete.set_bit(i);
-        c_bb_complete.set_bit(i);
-        s_bb_complete.set_bit(i);
+        bb_complete.set(i);
+        c_bb_complete.set(i);
+        s_bb_complete.set(i);
     }
     bb_empty.init_scan(bbo::DESTRUCTIVE);
     bb_random.init_scan(bbo::DESTRUCTIVE);
@@ -366,13 +366,13 @@ void bit_scan_reverse_benchmark() {
 
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
-            bb_random.set_bit(i);
-            c_bb_random.set_bit(i);
-            s_bb_random.set_bit(i);
+            bb_random.set(i);
+            c_bb_random.set(i);
+            s_bb_random.set(i);
         }
-        bb_complete.set_bit(i);
-        c_bb_complete.set_bit(i);
-        s_bb_complete.set_bit(i);
+        bb_complete.set(i);
+        c_bb_complete.set(i);
+        s_bb_complete.set(i);
     }
     bb_empty.init_scan(bbo::NON_DESTRUCTIVE_REVERSE);
     bb_random.init_scan(bbo::NON_DESTRUCTIVE_REVERSE);
@@ -437,14 +437,14 @@ void bitwise_and_benchmark() {
     custom_bitset bb32(len);
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
-            bbi1.set_bit(i);
-            bb31.set_bit(i);
+            bbi1.set(i);
+            bb31.set(i);
         }
     }
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
-            bbi2.set_bit(i);
-            bb32.set_bit(i);
+            bbi2.set(i);
+            bb32.set(i);
         }
     }
     // std::cout << bbi;
@@ -477,14 +477,14 @@ void subtraction_benchmark() {
     custom_bitset c_bb2(len);
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
-            bb1.set_bit(i);
-            c_bb1.set_bit(i);
+            bb1.set(i);
+            c_bb1.set(i);
         }
     }
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
-            bb2.set_bit(i);
-            c_bb2.set_bit(i);
+            bb2.set(i);
+            c_bb2.set(i);
         }
     }
     // std::cout << bbi;
@@ -524,13 +524,13 @@ void bitwise_operations_benchmark() {
     // Initialize random and complete bitsets
     for (uint64_t i = 0; i < len; i++) {
         if (rand() % 2) {
-            bb_random1.set_bit(i);
+            bb_random1.set(i);
         }
         if (rand() % 2) {
-            bb_random2.set_bit(i);
+            bb_random2.set(i);
         }
-        bb_complete1.set_bit(i);
-        bb_complete2.set_bit(i);
+        bb_complete1.set(i);
+        bb_complete2.set(i);
     }
 
     // Test AND operations
@@ -709,8 +709,8 @@ void bitwise_operations_variants_benchmark() {
 
     // Initialize random bitsets
     for (uint64_t i = 0; i < len; i++) {
-        if (rand() % 2) bb_random1.set_bit(i);
-        if (rand() % 2) bb_random2.set_bit(i);
+        if (rand() % 2) bb_random1.set(i);
+        if (rand() % 2) bb_random2.set(i);
     }
 
     std::chrono::steady_clock::time_point begin;
@@ -846,10 +846,10 @@ void operator_variants_benchmark() {
 
     // Initialize random bitsets
     for (uint64_t i = 0; i < len1; i++) {
-        if (rand() % 2) bb1.set_bit(i);
+        if (rand() % 2) bb1.set(i);
     }
     for (uint64_t i = 0; i < len2; i++) {
-        if (rand() % 2) bb2.set_bit(i);
+        if (rand() % 2) bb2.set(i);
     }
 
     std::chrono::steady_clock::time_point begin;
@@ -919,24 +919,24 @@ void operator_variants_benchmark() {
 
 /*void test_custom_bitset() {
     auto bb = custom_bitset(128);
-    bb.set_bit(0);
-    bb.set_bit(5);
-    bb.set_bit(10);
-    bb.set_bit(20);
-    bb.set_bit(50);
-    bb.set_bit(64);
-    bb.set_bit(63);
-    bb.set_bit(80);
-    bb.set_bit(127);
+    bb.set(0);
+    bb.set(5);
+    bb.set(10);
+    bb.set(20);
+    bb.set(50);
+    bb.set(64);
+    bb.set(63);
+    bb.set(80);
+    bb.set(127);
     std::cout << bb << std::endl;
     std::cout << (~bb) << std::endl;
 
     auto bb2 = custom_bitset(128);
-    bb2.set_bit(0);
-    bb2.set_bit(10);
-    bb2.set_bit(50);
-    bb2.set_bit(63);
-    bb2.set_bit(127);
+    bb2.set(0);
+    bb2.set(10);
+    bb2.set(50);
+    bb2.set(63);
+    bb2.set(127);
     std::cout << bb - bb2 << std::endl;
 
     uint64_t bit = bb.front();

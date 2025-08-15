@@ -43,11 +43,11 @@ public:
 
     [[nodiscard]] const custom_bitset& get_neighbor_set(const size_type v) const { return graph[v]; }
     [[nodiscard]] custom_bitset get_neighbor_set(const size_type v, const custom_bitset& set) const { return get_neighbor_set(v) & set; }
-    [[nodiscard]] custom_bitset get_neighbor_set(const size_type v, const size_type mask_threshold) const {
-        return custom_bitset::from(get_neighbor_set(v), mask_threshold);
+    [[nodiscard]] custom_bitset get_neighbor_set(const size_type v, const size_type threshold) const {
+        return custom_bitset::before(get_neighbor_set(v), threshold);
     }
-    [[nodiscard]] custom_bitset get_neighbor_set(const size_type v, const custom_bitset& set, const size_type mask_threshold) const {
-        return custom_bitset::from(get_neighbor_set(v, set), mask_threshold);
+    [[nodiscard]] custom_bitset get_neighbor_set(const size_type v, const custom_bitset& set, const size_type threshold) const {
+        return custom_bitset::before(get_neighbor_set(v, set), threshold);
     }
     [[nodiscard]] custom_bitset get_prev_neighbor_set(const size_type v) const { return get_neighbor_set(v, v); }
     [[nodiscard]] custom_bitset get_prev_neighbor_set(const size_type v, const custom_bitset& set) const { return get_prev_neighbor_set(v) & set; }
@@ -108,15 +108,15 @@ inline custom_graph::custom_graph(const custom_graph& g, const size_type size) {
 inline void custom_graph::add_edge(const size_type u, const size_type v) {
     if (u >= size() || v >= size() || graph[u][v]) return;
 
-    graph[u].set_bit(v);
-    graph[v].set_bit(u);
+    graph[u].set(v);
+    graph[v].set(u);
 }
 
 inline void custom_graph::remove_edge(const size_type u, const size_type v) {
     if (u >= size() || v >= size() || !graph[u][v]) return;
 
-    graph[u].unset_bit(v);
-    graph[v].unset_bit(u);
+    graph[u].reset(v);
+    graph[v].reset(u);
 }
 
 inline custom_graph::size_type custom_graph::get_n_edges() const {
@@ -155,7 +155,7 @@ inline std::vector<custom_graph::size_type> custom_graph::convert_back_set(const
 inline custom_bitset custom_graph::convert_back_set(const custom_bitset &bb) const {
     custom_bitset set(bb.size());
     for (const auto v : bb) {
-        set.set_bit(order_conversion[v]);
+        set.set(order_conversion[v]);
     }
     return set;
 }
@@ -165,8 +165,8 @@ inline custom_graph custom_graph::get_complement() const {
     std::iota(complement.order_conversion.begin(), complement.order_conversion.end(), 0);
 
     for (size_type i = 0; i < complement.size(); i++) {
-        complement.graph[i].negate();
-        complement.graph[i].unset_bit(i);
+        complement.graph[i].flip();
+        complement.graph[i].reset(i);
     }
 
     return complement;

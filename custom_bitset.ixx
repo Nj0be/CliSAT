@@ -16,20 +16,22 @@ export module custom_bitset;
 
 export class custom_bitset {
 public:
-    typedef uint64_t block_type;
+    // 32 bit architecture will use uint32_t, 64 bit will use uint64_t
+    typedef uint_fast32_t block_type;
     typedef std::size_t size_type;
+    static constexpr size_type block_size = sizeof(block_type) * 8;
 
     class reference {
         size_type block;     // current block index
-        block_type bit;       // bit position inside block
+        int bit;       // bit position inside block
 
     public:
-        reference(const block_type block, const block_type bit): block(block), bit(bit) {}
-        explicit reference(const size_type pos) : block(pos/64), bit(pos%64) {}
+        reference(const size_type block, const size_type bit): block(block), bit(bit) {}
+        explicit reference(const size_type pos) : block(get_block(pos)), bit(get_block_bit(pos)) {}
 
         bool operator==(const reference& other) const { return block == other.block && bit == other.bit; }
 
-        size_type operator*() const { return block*64 + bit; }
+        size_type operator*() const { return block*block_size + bit; }
         operator size_type() const { return **this; };
 
         friend class custom_bitset;
@@ -45,15 +47,14 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        explicit iterator() : bs(nullptr), ref(0, 0) {}
+        consteval explicit iterator() : bs(nullptr), ref(0, 0) {}
         iterator(custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
         iterator(custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
 
         reference operator*() const { return ref; }
 
         iterator& operator=(const bool value) {
-            if (value) bs->set_bit(ref);
-            else bs->unset_bit(ref);
+            bs->set(value);
             return *this;
         }
 
@@ -86,7 +87,7 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        explicit const_iterator() : bs(nullptr), ref(0, 0) {}
+        consteval explicit const_iterator() : bs(nullptr), ref(0, 0) {}
         const_iterator(const custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
         const_iterator(const custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
         explicit const_iterator(const iterator& it) : bs(it.bs), ref(it.ref) {}
@@ -126,33 +127,35 @@ private:
     size_type _size;
     std::vector<block_type> bits;
 
-    static block_type bit_scan_forward(const block_type x) { return std::countr_zero(x); }
-    static block_type bit_scan_reverse(const block_type x) { return 63 - std::countl_zero(x); }
+    static int bit_scan_forward(const block_type x) { return std::countr_zero(x); }
+    static int bit_scan_reverse(const block_type x) { return block_size-1 - std::countl_zero(x); }
 
-    static block_type get_block(const size_type pos) { return pos/64; };
-    static block_type get_block_bit(const size_type pos) { return pos%64; };
+    static size_type get_block(const size_type pos) { return pos/block_size; };
+    static int get_block_bit(const size_type pos) { return pos%block_size; };
 
     // Used to allocate at least one block regardless of size
-    static block_type blocks_needed(const size_type size) { return get_block(size + 63) | (size == 0); }
+    static size_type blocks_needed(const size_type size) { return get_block(size + block_size-1) | (size == 0); }
 
     // it's necessary because even if size it's 0, we still have a block inside bits vector
-    static block_type get_last_block(const size_type size) { return get_block(size + 63) - (size != 0); }
+    static size_type get_last_block(const size_type size) { return get_block(size + block_size-1) - (size != 0); }
 
 public:
+    custom_bitset() : custom_bitset(0) {}
     explicit custom_bitset(size_type size);
     custom_bitset(size_type size, bool default_value);
     custom_bitset(const custom_bitset& other, size_type size);
-    custom_bitset(const std::initializer_list<block_type> &v);
-    custom_bitset(const std::vector<block_type> &v, size_type size);
+    custom_bitset(const std::initializer_list<block_type>& v);
+    custom_bitset(const std::vector<block_type>& v, size_type size);
 
-    static custom_bitset before(const custom_bitset& src, const reference& threshold);
-    static custom_bitset before(const custom_bitset& src, size_type threshold);
-    static custom_bitset until(const custom_bitset& src, const reference& threshold);
-    static custom_bitset until(const custom_bitset& src, size_type threshold);
-    static custom_bitset after(const custom_bitset& src, const reference& threshold);
-    static custom_bitset after(const custom_bitset& src, size_type threshold);
-    static custom_bitset from(const custom_bitset& src, const reference& threshold);
-    static custom_bitset from(const custom_bitset& src, size_type threshold);
+    static custom_bitset before(const custom_bitset& src, const reference& ref);
+    static custom_bitset before(const custom_bitset& src, size_type pos);
+    static custom_bitset until(const custom_bitset& src, const reference& ref);
+    static custom_bitset until(const custom_bitset& src, size_type pos);
+    static custom_bitset after(const custom_bitset& src, const reference& ref);
+    static custom_bitset after(const custom_bitset& src, size_type pos);
+    static custom_bitset from(const custom_bitset& src, const reference& ref);
+    static custom_bitset from(const custom_bitset& src, size_type pos);
+    static custom_bitset complement(const custom_bitset& src);
 
     custom_bitset operator~() const;
     bool operator==(const custom_bitset& other) const;
@@ -171,12 +174,16 @@ public:
     friend std::ostream& operator<<(std::ostream& stream, const custom_bitset& bb);
     explicit operator std::vector<block_type>() const;
 
-    void set_bit(const reference& ref) { bits[ref.block] |= 1ULL << ref.bit; }
-    void set_bit(const size_type pos) { set_bit(reference(pos)); }
-    void unset_bit(const reference& ref) { bits[ref.block] &= ~(1ULL << ref.bit); }
-    void unset_bit(const size_type pos) { unset_bit(reference(pos)); }
+    void set(const reference& ref) { bits[ref.block] |= block_type{1} << ref.bit; }
+    void set(const size_type pos) { set(reference(pos)); }
+    void set(const reference& ref, bool value);
+    void set(const size_type pos, const bool value) { set(reference(pos), value); }
+    void reset(const reference& ref) { bits[ref.block] &= ~(block_type{1} << ref.bit); }
+    void reset(const size_type pos) { reset(reference(pos)); }
+    void flip(const reference& ref);
+    void flip(const size_type pos) { flip(reference(pos)); }
     // we move bit to first position and we mask everything that it isn't on position 1 to 0
-    [[nodiscard]] bool test(const reference& ref) const { return bits[ref.block] >> ref.bit & 1; }
+    [[nodiscard]] bool test(const reference& ref) const { return bits[ref.block] & (block_type{1} << ref.bit); }
     [[nodiscard]] bool test(const size_type pos) const { return test(reference(pos)); }
 
     [[nodiscard]] reference front() const;
@@ -192,9 +199,8 @@ public:
     reference pop_prev(reference ref);
 
     [[nodiscard]] size_type degree() const { return count(); };
-    [[nodiscard]] size_type neighbors_degree() const;
 
-    void negate();
+    void flip();
     void reset();
 
     [[nodiscard]] size_type size() const { return _size; }
@@ -208,14 +214,14 @@ public:
 
     void resize(size_type new_size);
 
-    void mask_before(const reference& threshold);
-    void mask_before(size_type threshold);
-    void mask_until(const reference& threshold);
-    void mask_until(size_type threshold);
-    void mask_after(const reference& threshold);
-    void mask_after(size_type threshold);
-    void mask_from(const reference& threshold);
-    void mask_from(size_type threshold);
+    void clear_before(const reference& ref);
+    void clear_before(size_type pos);
+    void clear_until(const reference& ref);
+    void clear_until(size_type pos);
+    void clear_after(const reference& ref);
+    void clear_after(size_type pos);
+    void clear_from(const reference& ref);
+    void clear_from(size_type pos);
 };
 
 template <>
@@ -241,9 +247,9 @@ inline std::ostream& operator<<(std::ostream &stream, const custom_bitset &bb) {
 inline custom_bitset::custom_bitset(const size_type size): _size(size), bits(blocks_needed(size)) {}
 
 // we set everything to 1 or to 0
-inline custom_bitset::custom_bitset(const size_type size, const bool default_value): _size(size), bits(blocks_needed(size), default_value*~0ULL) {
+inline custom_bitset::custom_bitset(const size_type size, const bool default_value): _size(size), bits(blocks_needed(size), default_value*~block_type{0}) {
     // unset last part of last block (if there is one)
-    if (get_block_bit(_size)) bits.back() &= ~(~0ULL << get_block_bit(_size));
+    if (get_block_bit(_size)) bits.back() &= ~(~block_type{0} << get_block_bit(_size));
 }
 
 inline custom_bitset::custom_bitset(const custom_bitset& other, const size_type size): custom_bitset(other) {
@@ -252,54 +258,61 @@ inline custom_bitset::custom_bitset(const custom_bitset& other, const size_type 
 
 inline custom_bitset::custom_bitset(const std::initializer_list<block_type> &v): _size(*std::ranges::max_element(v) + 1), bits(blocks_needed(_size)) {
     for (const auto pos: v) {
-        set_bit(pos);
+        set(pos);
     }
 }
 
 inline custom_bitset::custom_bitset(const std::vector<block_type> &v, const size_type size): _size(size), bits(blocks_needed(size)) {
     for (const auto pos: v) {
-        set_bit(pos);
+        set(pos);
     }
 }
 
-inline custom_bitset custom_bitset::before(const custom_bitset &src, const reference &threshold) {
+inline custom_bitset custom_bitset::before(const custom_bitset &src, const reference &ref) {
     custom_bitset result(src);
-    result.mask_before(threshold);
+    result.clear_from(ref);
     return result;
 }
 
-inline custom_bitset custom_bitset::before(const custom_bitset &src, const size_type threshold) {
-    return before(src, reference(threshold));
+inline custom_bitset custom_bitset::before(const custom_bitset &src, const size_type pos) {
+    return before(src, reference(pos));
 }
 
-inline custom_bitset custom_bitset::until(const custom_bitset &src, const reference &threshold) {
+inline custom_bitset custom_bitset::until(const custom_bitset &src, const reference &ref) {
     custom_bitset result(src);
-    result.mask_until(threshold);
+    result.clear_after(ref);
     return result;
 }
 
-inline custom_bitset custom_bitset::until(const custom_bitset &src, const size_type threshold) {
-    return until(src, reference(threshold));
+inline custom_bitset custom_bitset::until(const custom_bitset &src, const size_type pos) {
+    return until(src, reference(pos));
 }
 
-inline custom_bitset custom_bitset::after(const custom_bitset &src, const reference &threshold) {
+inline custom_bitset custom_bitset::after(const custom_bitset &src, const reference &ref) {
     custom_bitset result(src);
-    result.mask_after(threshold);
+    result.clear_until(ref);
     return result;
 }
 
-inline custom_bitset custom_bitset::after(const custom_bitset &src, const size_type threshold) {
-    return after(src, reference(threshold));
+inline custom_bitset custom_bitset::after(const custom_bitset &src, const size_type pos) {
+    return after(src, reference(pos));
 }
 
-inline custom_bitset custom_bitset::from(const custom_bitset &src, const reference &threshold) {
+inline custom_bitset custom_bitset::from(const custom_bitset &src, const reference &ref) {
     custom_bitset result(src);
-    result.mask_from(threshold);
+    result.clear_before(ref);
     return result;
 }
 
-inline custom_bitset custom_bitset::from(const custom_bitset &src, const size_type threshold) {
-    return from(src, reference(threshold));
+inline custom_bitset custom_bitset::from(const custom_bitset &src, const size_type pos) {
+    return from(src, reference(pos));
+}
+
+inline custom_bitset custom_bitset::complement(const custom_bitset& src) {
+    auto bb(src);
+    bb.flip();
+
+    return bb;
 }
 
 inline custom_bitset custom_bitset::operator&(const custom_bitset& other) const {
@@ -345,10 +358,7 @@ inline custom_bitset custom_bitset::operator-(const custom_bitset& other) const 
 }
 
 inline custom_bitset custom_bitset::operator~() const {
-    auto bb(*this);
-    bb.negate();
-
-    return bb;
+    return custom_bitset::complement(*this);
 }
 
 inline bool custom_bitset::operator==(const custom_bitset &other) const {
@@ -400,7 +410,7 @@ inline custom_bitset& custom_bitset::operator-=(const custom_bitset &other) {
     return *this;
 }
 
-inline custom_bitset::operator std::vector<unsigned long>() const {
+inline custom_bitset::operator std::vector<block_type>() const {
     std::vector<block_type> list;
     list.reserve(count());
 
@@ -411,10 +421,18 @@ inline custom_bitset::operator std::vector<unsigned long>() const {
     return list;
 }
 
+void custom_bitset::set(const reference &ref, const bool value) {
+    if (value) set(ref);
+    else reset(ref);
+}
+
 inline void custom_bitset::reset() {
-    for (auto &word : bits) {
-        word = 0;
-    }
+    std::ranges::fill(bits, 0);
+}
+
+void custom_bitset::flip(const reference &ref) {
+    if (test(ref)) reset(ref);
+    else set(ref);
 }
 
 inline custom_bitset::reference custom_bitset::front() const {
@@ -430,7 +448,7 @@ inline custom_bitset::reference custom_bitset::front() const {
 
 inline custom_bitset::reference custom_bitset::pop_front() {
     const auto ref = front();
-    if (ref != size()) unset_bit(ref);
+    if (ref != size()) reset(ref);
     return ref;
 }
 
@@ -438,7 +456,7 @@ inline custom_bitset::reference custom_bitset::next(reference ref) const {
     // shift by 64 doesn't work!! undefined behaviour
     // ~1ULL is all 1's except for the lowest one, aka already shifted by one
     // the resulting shift is all 1's shifted by back+1
-    const auto masked_number = bits[ref.block] & (~1ULL << ref.bit);
+    const auto masked_number = bits[ref.block] & (~block_type{1} << ref.bit);
     if (masked_number != 0) {
         ref.bit = bit_scan_forward(masked_number);
         return ref;
@@ -456,31 +474,29 @@ inline custom_bitset::reference custom_bitset::next(reference ref) const {
 
 inline custom_bitset::reference custom_bitset::pop_next(reference ref) {
     ref = next(ref);
-    if (ref != size()) unset_bit(ref);
+    if (ref != size()) reset(ref);
     return ref;
 }
 
 inline custom_bitset::reference custom_bitset::back() const {
-    reference ref(_size-1);
-
-    do {
+    for (reference ref(_size-1); ref.block-- > 0;) {
         if (bits[ref.block] != 0) {
             ref.bit= bit_scan_reverse(bits[ref.block]);
             return ref;
         }
-    } while (ref.block-- > 0);
+    }
 
     return reference(_size);
 }
 
 inline custom_bitset::reference custom_bitset::pop_back() {
     const auto ref = back();
-    if (ref != size()) unset_bit(ref);
+    if (ref != size()) reset(ref);
     return ref;
 }
 
 inline custom_bitset::reference custom_bitset::prev(reference ref) const {
-    const auto masked_number = bits[ref.block] & ~(~0ULL << ref.bit);
+    const auto masked_number = bits[ref.block] & ~(~block_type{0} << ref.bit);
     if (masked_number != 0) {
         ref.bit = bit_scan_reverse(masked_number);
         return ref;
@@ -498,15 +514,13 @@ inline custom_bitset::reference custom_bitset::prev(reference ref) const {
 
 inline custom_bitset::reference custom_bitset::pop_prev(reference ref) {
     ref = prev(ref);
-    if (ref != size()) unset_bit(ref);
+    if (ref != size()) reset(ref);
     return ref;
 }
 
-inline void custom_bitset::negate() {
-    for (size_type i = 0; i < bits.size() - 1; ++i) {
-        bits[i] = ~bits[i];
-    }
-    bits.back() &= ~(~0ULL << get_block_bit(_size));
+inline void custom_bitset::flip() {
+    std::ranges::transform(bits.begin(), bits.end(), bits.begin(), std::bit_not<>{});
+    bits.back() &= ~(~block_type{0} << get_block_bit(_size));
 }
 
 inline custom_bitset::size_type custom_bitset::count() const {
@@ -525,41 +539,41 @@ inline void custom_bitset::resize(const size_type new_size) {
     if (_size == new_size) return;
     _size = new_size;
     bits.resize(blocks_needed(_size));
-    bits[get_last_block(_size)] &= ~(~0ULL << get_block_bit(_size));
+    bits[get_last_block(_size)] &= ~(~block_type{0} << get_block_bit(_size));
 }
 
-inline void custom_bitset::mask_before(const reference& threshold) {
-    std::ranges::fill_n(bits.begin(), threshold.block, 0);
-    bits[threshold.block] &= (~0ULL << threshold.bit);
+inline void custom_bitset::clear_before(const reference& ref) {
+    std::ranges::fill_n(bits.begin(), ref.block, 0);
+    bits[ref.block] &= (~block_type{0} << ref.bit);
 }
 
-inline void custom_bitset::mask_before(const size_type threshold) {
-    mask_before(reference(threshold));
+inline void custom_bitset::clear_before(const size_type pos) {
+    clear_before(reference(pos));
 }
 
-inline void custom_bitset::mask_until(const reference& threshold) {
-    mask_before(reference(threshold + 1));
+inline void custom_bitset::clear_until(const reference& ref) {
+    clear_before(reference(ref + 1));
 }
 
-inline void custom_bitset::mask_until(const size_type threshold) {
-    mask_before(reference(threshold + 1));
+inline void custom_bitset::clear_until(const size_type pos) {
+    clear_before(reference(pos + 1));
 }
 
-inline void custom_bitset::mask_after(const reference& threshold) {
-    mask_from(reference(threshold + 1));
+inline void custom_bitset::clear_after(const reference& ref) {
+    clear_from(reference(ref + 1));
 }
 
-inline void custom_bitset::mask_after(const size_type threshold) {
-    mask_from(reference(threshold + 1));
+inline void custom_bitset::clear_after(const size_type pos) {
+    clear_from(reference(pos + 1));
 }
 
-inline void custom_bitset::mask_from(const reference& threshold) {
-    bits[threshold.block] &= ~(~0ULL << threshold.bit);
-    std::ranges::fill(bits.begin() + threshold.block + 1, bits.end()-1, 0);
+inline void custom_bitset::clear_from(const reference& ref) {
+    bits[ref.block] &= ~(~block_type{0} << ref.bit);
+    std::ranges::fill(bits.begin() + ref.block + 1, bits.end()-1, 0);
 }
 
-inline void custom_bitset::mask_from(const size_type threshold) {
-    mask_from(reference(threshold));
+inline void custom_bitset::clear_from(const size_type pos) {
+    clear_from(reference(pos));
 }
 
 inline bool custom_bitset::all() const {
@@ -567,7 +581,7 @@ inline bool custom_bitset::all() const {
     if (ref.bit == 0) return std::ranges::all_of(bits, [](const auto word) { return word == UINT64_MAX; });
 
     const bool all = std::ranges::all_of(bits.begin(), bits.end()-1, [](const auto word) { return word == UINT64_MAX; });
-    if (all && ((bits.back() | (~0ULL << ref.bit)) == UINT64_MAX)) return true;
+    if (all && ((bits.back() | (~block_type{0} << ref.bit)) == UINT64_MAX)) return true;
     return false;
 }
 

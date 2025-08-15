@@ -117,7 +117,7 @@ inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
         for (auto &is: ISs) {
             if (G.get_neighbor_set(pi, is).any()) continue;
 
-            is.set_bit(pi);
+            is.set(pi);
             inserted = true;
 
             if (B.none()) VertexUB[pi] = std::min(VertexUB[pi], ISs.size());
@@ -129,7 +129,7 @@ inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
         if (ISs.size() < r) {
             // If there is no IS, we create a new one
             custom_bitset new_is(G.size());
-            new_is.set_bit(pi);
+            new_is.set(pi);
             ISs.push_back(new_is);
 
             // TODO: fix
@@ -160,9 +160,9 @@ inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
                 if (G.get_neighbor_set(u, ISs[j]).any()) continue; // u is adjacent to some vertex in ISs[j]
 
                 // we can insert u in this IS, removing u from the previous IS and then insert pi into it
-                ISs[i].unset_bit(u);
-                ISs[i].set_bit(pi);
-                ISs[j].set_bit(u);
+                ISs[i].reset(u);
+                ISs[i].set(pi);
+                ISs[j].set(u);
                 inserted = true;
 
                 if (B.none()) { VertexUB[pi] = std::min(VertexUB[pi], ISs.size()); }
@@ -172,7 +172,7 @@ inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
             if (inserted) break;
         }
 
-        if (!inserted) B.set_bit(pi);
+        if (!inserted) B.set(pi);
     }
 
     return {B, ISs};
@@ -198,7 +198,7 @@ inline custom_bitset FilterByColoring2(
         for (uint64_t i = 0; i < ISs_size; ++i) {
             if (G.get_neighbor_set(pi, ISs[i]).any()) continue;
 
-            ISs[i].set_bit(pi);
+            ISs[i].set(pi);
             inserted = true;
 
             if (B.none()) VertexUB[pi] = std::min(VertexUB[pi], ISs_size);
@@ -210,7 +210,7 @@ inline custom_bitset FilterByColoring2(
         if (ISs_size < r) {
             // If there is no IS, we create a new one
             custom_bitset new_is(G.size());
-            new_is.set_bit(pi);
+            new_is.set(pi);
             ISs[ISs_size] = new_is;
             ISs_size++;
 
@@ -242,9 +242,9 @@ inline custom_bitset FilterByColoring2(
                 if (G.get_neighbor_set(u, ISs[j]).any()) continue; // u is adjacent to some vertex in ISs[j]
 
                 // we can insert u in this IS, removing u from the previous IS and then insert pi into it
-                ISs[i].unset_bit(u);
-                ISs[i].set_bit(pi);
-                ISs[j].set_bit(u);
+                ISs[i].reset(u);
+                ISs[i].set(pi);
+                ISs[j].set(u);
                 inserted = true;
 
                 if (B.none()) { VertexUB[pi] = std::min(VertexUB[pi], ISs_size); }
@@ -254,7 +254,7 @@ inline custom_bitset FilterByColoring2(
             if (inserted) break;
         }
 
-        if (!inserted) B.set_bit(pi);
+        if (!inserted) B.set(pi);
     }
 
     return B;
@@ -278,7 +278,7 @@ inline custom_bitset IncMaxSat(
 
     for (const auto ui : B) {
         auto unit_is = custom_bitset(G.size());
-        unit_is.set_bit(ui); // we create a unit independent set with the current vertex ui
+        unit_is.set(ui); // we create a unit independent set with the current vertex ui
 
         std::vector<std::pair<custom_bitset::reference, uint64_t>> S;
 
@@ -289,7 +289,7 @@ inline custom_bitset IncMaxSat(
         while (!S.empty()) {
             const auto [u, u_is] = S.back();
             S.pop_back();
-            already_visited.set_bit(u);
+            already_visited.set(u);
             // insert current node to the culprit_ISs
             culprit_ISs.insert(u_is);
 
@@ -330,7 +330,7 @@ inline custom_bitset IncMaxSat(
                         G.add_edge(old_size + offset, v);
                     }
                 }
-                ISs[is].set_bit(old_size + offset); // add the new vertex to the is
+                ISs[is].set(old_size + offset); // add the new vertex to the is
                 ++offset;
             }
 
@@ -355,7 +355,7 @@ inline custom_bitset IncMaxSat(
 
     // { p | p in P and p <= ui }
     custom_bitset B_ret = V;
-    B_ret.mask_before(last_ui);
+    B_ret.clear_before(last_ui);
 
     return B_ret;
 }
@@ -383,7 +383,7 @@ inline custom_bitset IncMaxSat(
         bool conflict_found = false;
 
         auto unit_is = custom_bitset(G.size());
-        unit_is.set_bit(ui); // we create a unit independent set with the current vertex ui
+        unit_is.set(ui); // we create a unit independent set with the current vertex ui
 
         std::vector<std::pair<custom_bitset::reference, uint64_t>> S;
 
@@ -408,10 +408,10 @@ inline custom_bitset IncMaxSat(
             // insert current node to the culprit_ISs
             // TODO: necessary?
             culprit_ISs.emplace(u_is);
-            //ISs[u_is].unset_bit(u);
+            //ISs[u_is].reset(u);
 
             auto neighbor_set = G.get_neighbor_set(u);
-            //neighbor_set.set_bit(u);
+            //neighbor_set.set(u);
 
             // useless to iterate over r+1 that contains only u;
             for (uint64_t i = 0; i < r; ++i) {
@@ -429,13 +429,13 @@ inline custom_bitset IncMaxSat(
                 if (di == D.size()) { // empty IS, conflict detected
                     culprit_ISs.emplace(i); // we have derived an empty independent set
                     conflict_found = true;
-                    B.unset_bit(ui);
+                    B.reset(ui);
                     count++;
                     //return B;
                     break;
                 }
                 if (!already_visited[di] && D.next(di) == D.size()) { // Unit IS
-                    already_visited.set_bit(di);
+                    already_visited.set(di);
                     S.emplace_back(di, i);
                 }
             }
@@ -477,7 +477,7 @@ inline custom_bitset IncMaxSat(
                     G.add_edge(last_node, v);
                 }
 
-                ISs[is].set_bit(last_node); // add the new vertex to the is
+                ISs[is].set(last_node); // add the new vertex to the is
                 ++last_node;
             }
 
@@ -517,7 +517,7 @@ inline void FindMaxClique(
     //static std::vector<custom_bitset> ISs(G.size(), custom_bitset(G.size()*2));
 
     for (const auto bi : B) {
-        K.set_bit(bi);
+        K.set(bi);
 
         // calculate u[bi]
         // if bi == 0, u[bi] always == 1!
@@ -531,9 +531,9 @@ inline void FindMaxClique(
 
         // if we can't improve, we prune the current branch
         if (u[bi] + K.count() <= lb) {
-            B.unset_bit(bi);
+            B.reset(bi);
         } else {
-            auto V_new = (V - custom_bitset::after(B, bi)) & G.get_neighbor_set(bi);
+            auto V_new = (V - custom_bitset::until(B, bi)) & G.get_neighbor_set(bi);
 
             // if we are in a leaf
             if (V_new.none()) {
@@ -545,13 +545,13 @@ inline void FindMaxClique(
                     //std::cout << lb << std::endl;
                 }
 
-                K.unset_bit(bi);
+                K.reset(bi);
                 return;
             }
 
             auto B_new = ISEQ_branching(G, V_new, lb - K.count());
             if (B_new.none()) {
-                K.unset_bit(bi);
+                K.reset(bi);
                 continue;
             }
             //B_new = IncMaxSat(G, V_new, B_new, ISs, lb - K.count(), u);
@@ -570,7 +570,7 @@ inline void FindMaxClique(
         }
 
         u[bi] = std::min(u[bi], lb - K.count());
-        K.unset_bit(bi);
+        K.reset(bi);
     }
 }
 
@@ -609,19 +609,19 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
     for (uint64_t i = K_max.count(); i < ordered_g.size(); ++i) {
         //std::cout << "i: " << i << std::endl;
         custom_bitset V = ordered_g.get_prev_neighbor_set(i);
-        V.set_bit(i);
+        V.set(i);
 
         // first lb vertices of V
         custom_bitset B(V);
         uint64_t count = 0;
         for (const auto v : V) {
-            B.unset_bit(v);
+            B.reset(v);
             count++;
             if (count == lb) break;
         }
 
         custom_bitset K(ordered_g.size());
-        K.set_bit(i);
+        K.set(i);
 
         FindMaxClique(ordered_g, K, K_max, lb, V, B, u);
         u[i] = lb;

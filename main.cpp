@@ -2,22 +2,11 @@
 // Created by Beniamino Vagnarelli on 31/03/25.
 //
 
-/*
-#include "BBMCR.h"
-#include "BBMC.h"
-#include "custom_bitset.h"
-#include "custom_graph.h"
-#include "sorting.h"
-#include "bitscan_benchmark.h"
-*/
-
-
 #include <iostream>
 #include <chrono>
 
 import CliSAT;
 import custom_graph;
-
 
 int main() {
     /*

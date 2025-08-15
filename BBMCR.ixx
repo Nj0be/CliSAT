@@ -28,7 +28,7 @@ inline bool BB_ReCol(const custom_graph& g, const uint64_t v, std::vector<custom
         if (w == inters.size()) { // none set - single swap
             // Ck1 = Ck1 U v
             //C[v] = k1;
-            C_sets[k1].set_bit(v);
+            C_sets[k1].set(v);
             return true;
         }
         // if the intersection between |Ck1 and N(v)| = 1 then we could search another set where to put w (the only vertex adjacent to v)
@@ -40,11 +40,11 @@ inline bool BB_ReCol(const custom_graph& g, const uint64_t v, std::vector<custom
                 if (inters.none()) {
                     // Ck1 = (Ck1 \ w) U v
                     //C[v] = k1;
-                    C_sets[k1].unset_bit(w);
-                    C_sets[k1].set_bit(v);
+                    C_sets[k1].reset(w);
+                    C_sets[k1].set(v);
                     // Ck2 = Ck2 U w
                     //C[w] = k2;
-                    C_sets[k2].set_bit(w);
+                    C_sets[k2].set(w);
                     return true;
                 }
             }
@@ -82,7 +82,7 @@ inline void BB_ColorR(const custom_graph& g, custom_bitset Ubb, std::vector<uint
         // indeed v isn't part of current color (has been recolored)
         // Cnew = Cnew \ v
         if (cursor != C_sets[k].size()) {
-            C_sets[k].unset_bit(cursor);
+            C_sets[k].reset(cursor);
             // if, after the above operation, C_sets[k] remains none, we don't increase k
             if (C_sets[k].none()) continue;
         }
@@ -96,13 +96,13 @@ inline void BBMCR(const custom_graph& g, custom_bitset& Ubb, std::vector<std::ve
         const auto v = Ul[depth].back();
         Ul[depth].pop_back();
 
-        Ubb.unset_bit(v);
+        Ubb.reset(v);
 
         const auto S_bits = S.count() + 1;
         const auto S_max_bits = S_max.count();
 
         if (S_bits + C[depth][v] > S_max_bits) {
-            S.set_bit(v);
+            S.set(v);
 
             auto candidates = Ubb & g.get_neighbor_set(v);
             if (candidates.any()) {
@@ -117,7 +117,7 @@ inline void BBMCR(const custom_graph& g, custom_bitset& Ubb, std::vector<std::ve
                 std::cout << S_max.count() << std::endl;
             }
 
-            S.unset_bit(v);
+            S.reset(v);
         }
     }
 }

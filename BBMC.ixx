@@ -37,13 +37,13 @@ inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vec
         const auto v = Ul[depth].back();
         Ul[depth].pop_back();
 
-        Ubb.unset_bit(v);
+        Ubb.reset(v);
 
         const auto S_bits = S.count() + 1;
         const auto S_max_bits = S_max.count();
 
         if (S_bits + C[depth][v] > S_max_bits) {
-            S.set_bit(v);
+            S.set(v);
 
             auto candidates = Ubb & g.get_neighbor_set(v);
             if (candidates.any()) {
@@ -57,7 +57,7 @@ inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vec
                 S_max = S;
             }
 
-            S.unset_bit(v);
+            S.reset(v);
         }
     }
 }
