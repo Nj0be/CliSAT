@@ -159,10 +159,10 @@ public:
 
     custom_bitset operator~() const;
     bool operator==(const custom_bitset& other) const;
-    custom_bitset operator&(const custom_bitset& other) const;
-    custom_bitset operator|(const custom_bitset& other) const;
-    custom_bitset operator^(const custom_bitset& other) const;
-    custom_bitset operator-(const custom_bitset& other) const;
+    friend constexpr custom_bitset operator&(const custom_bitset& lhs, const custom_bitset& rhs);
+    friend constexpr custom_bitset operator|(const custom_bitset& lhs, const custom_bitset& rhs);
+    friend constexpr custom_bitset operator^(const custom_bitset& lhs, const custom_bitset& rhs);
+    friend constexpr custom_bitset operator-(const custom_bitset& lhs, const custom_bitset& rhs);
     custom_bitset& operator&=(const custom_bitset& other);
     custom_bitset& operator|=(const custom_bitset& other);
     custom_bitset& operator^=(const custom_bitset &other);
@@ -317,46 +317,20 @@ inline custom_bitset custom_bitset::complement(const custom_bitset& src) {
     return bb;
 }
 
-inline custom_bitset custom_bitset::operator&(const custom_bitset& other) const {
-    custom_bitset bb(size());
-
-    std::ranges::transform(bits, other.bits, bb.bits.begin(), std::bit_and<>{});
-
-    return bb;
+constexpr custom_bitset operator&(const custom_bitset& lhs, const custom_bitset& rhs) {
+    return custom_bitset(lhs) &= rhs;
 }
 
-inline custom_bitset custom_bitset::operator|(const custom_bitset& other) const {
-    const auto M = std::min(bits.size(), other.bits.size());
-    custom_bitset bb(size());
-
-    for (size_type i = 0; i < M; ++i)
-        bb.bits[i] = bits[i] | other.bits[i];
-    for (size_type i = M; i < bits.size(); ++i)
-        bb.bits[i] = bits[i];
-
-    return bb;
+constexpr custom_bitset operator|(const custom_bitset& lhs, const custom_bitset& rhs) {
+    return custom_bitset(lhs) |= rhs;
 }
 
-inline custom_bitset custom_bitset::operator^(const custom_bitset& other) const {
-    const auto M = std::min(bits.size(), other.bits.size());
-    custom_bitset bb(size());
-
-    for (size_type i = 0; i < M; ++i)
-        bb.bits[i] = bits[i] ^ other.bits[i];
-    for (size_type i = M; i < bits.size(); ++i)
-        bb.bits[i] = bits[i] ^ 0;
-
-    return bb;
+constexpr custom_bitset operator^(const custom_bitset& lhs, const custom_bitset& rhs) {
+    return custom_bitset(lhs) ^= rhs;
 }
 
-inline custom_bitset custom_bitset::operator-(const custom_bitset& other) const {
-    const auto M = std::min(bits.size(), other.bits.size());
-    custom_bitset bb(*this);
-
-    for (size_type i = 0; i < M; ++i)
-        bb.bits[i] = bits[i] & ~other.bits[i];
-
-    return bb;
+constexpr custom_bitset operator-(const custom_bitset& lhs, const custom_bitset& rhs) {
+    return custom_bitset(lhs) -= rhs;
 }
 
 inline custom_bitset custom_bitset::operator~() const {
