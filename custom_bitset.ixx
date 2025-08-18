@@ -190,12 +190,14 @@ public:
     reference pop_front();
 
     [[nodiscard]] reference next(reference ref) const;
+    [[nodiscard]] reference next(const size_type pos) const { return next(reference(pos)); }
     reference pop_next(reference ref);
 
     [[nodiscard]] reference back() const;
     reference pop_back();
 
     [[nodiscard]] reference prev(reference ref) const;
+    [[nodiscard]] reference prev(const size_type pos) const { return prev(reference(pos)); }
     reference pop_prev(reference ref);
 
     [[nodiscard]] size_type degree() const { return count(); };
@@ -349,7 +351,7 @@ inline custom_bitset custom_bitset::operator^(const custom_bitset& other) const 
 
 inline custom_bitset custom_bitset::operator-(const custom_bitset& other) const {
     const auto M = std::min(bits.size(), other.bits.size());
-    custom_bitset bb(size());
+    custom_bitset bb(*this);
 
     for (size_type i = 0; i < M; ++i)
         bb.bits[i] = bits[i] & ~other.bits[i];
@@ -539,12 +541,16 @@ inline void custom_bitset::resize(const size_type new_size) {
     if (_size == new_size) return;
     _size = new_size;
     bits.resize(blocks_needed(_size));
-    bits[get_last_block(_size)] &= ~(~block_type{0} << get_block_bit(_size));
+    if (get_block_bit(_size)) bits[get_last_block(_size)] &= ~(~block_type{0} << get_block_bit(_size));
 }
 
 inline void custom_bitset::clear_before(const reference& ref) {
-    std::ranges::fill_n(bits.begin(), ref.block, 0);
-    bits[ref.block] &= (~block_type{0} << ref.bit);
+    if (ref.block >= bits.size()) {
+        std::ranges::fill(bits.begin(), bits.end(), 0);
+    } else {
+        std::ranges::fill_n(bits.begin(), ref.block, 0);
+        bits[ref.block] &= (~block_type{0} << ref.bit);
+    }
 }
 
 inline void custom_bitset::clear_before(const size_type pos) {
@@ -568,8 +574,9 @@ inline void custom_bitset::clear_after(const size_type pos) {
 }
 
 inline void custom_bitset::clear_from(const reference& ref) {
+    if (ref.block >= bits.size()) return; // nothing to clear
     bits[ref.block] &= ~(~block_type{0} << ref.bit);
-    std::ranges::fill(bits.begin() + ref.block + 1, bits.end()-1, 0);
+    std::ranges::fill(bits.begin() + ref.block + 1, bits.end(), 0);
 }
 
 inline void custom_bitset::clear_from(const size_type pos) {
