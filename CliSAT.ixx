@@ -34,281 +34,6 @@ inline void FiltSAL() {
 
 }
 
-/*
-/**
- * \brief Inserts the biggest vertices of P into r independent sets.
- *
- * Page 8 (143) Li et al. (2018a, 2017), section 5.2.1
- *
- * @param G Ordered graph
- * @param V Candidate set {p1, p2, ..., p|P|} of vertices to be inserted into the independent sets
- * @param r lower bound related to the largest clique found so far
- * @param VertexUB incremental upper bounds for each vertex
- * @return a set B of branching vertices that cannot be inserted into any of the r ISs and the r ISs themselves
- #1#
-inline std::pair<custom_bitset, std::vector<custom_bitset>> FilterByColoring(
-    const custom_graph& G,
-    const custom_bitset& V,
-    const uint64_t r,
-    std::vector<uint64_t>& VertexUB
-) {
-    custom_bitset B(G.size());  // B, a set of branching vertices obtained from P
-    std::vector<custom_bitset> ISs;  // set of independent sets
-
-    // We insert the biggest vertices of P into r ISs (decreasing order)
-    // TODO: doesn't work with reverse order
-    for (const auto pi : V) {
-        bool inserted = false;
-
-        // If there is an IS in which pi is not adjacent to any vertex, we insert pi into that IS
-        for (auto &is: ISs) {
-            if (G.get_neighbor_set(pi, is).any()) continue;
-
-            is.set(pi);
-            inserted = true;
-
-            if (B.none()) VertexUB[pi] = std::min(VertexUB[pi], ISs.size());
-
-            break;
-        }
-        if (inserted) continue; // pi has been inserted into an IS, we can skip it
-
-        if (ISs.size() < r) {
-            // If there is no IS, we create a new one
-            custom_bitset new_is(G.size());
-            new_is.set(pi);
-            ISs.push_back(new_is);
-
-            // TODO: fix
-            //std::cout << pi << " " << VertexUB[pi] << " " << ISs.size() << std::endl;
-            //VertexUB[pi] = std::min(VertexUB[pi], ISs.size());
-
-            continue;
-        }
-
-
-        // if there is an IS in which pi has only one adjacent vertex u, and u can be inserted into another IS
-        // RECOLOR (RE-NUMBER of MCS)
-        for (uint64_t i = 0; i < ISs.size(); ++i) {
-            auto common_neighbors = G.get_neighbor_set(pi, ISs[i]);
-            auto u = common_neighbors.front();
-
-            if (u == common_neighbors.size()) continue; // no common neighbor, we can skip this IS
-
-            // if there are more than one common neighbor, we can't insert pi into this IS
-            if (common_neighbors.next(u) != common_neighbors.size()) continue;
-
-            // u is the only neighbor of pi in is
-            for (uint64_t j = 0; j < ISs.size(); ++j) {
-            //for (uint64_t j = i+1; j < ISs.size(); ++j) {
-                if (j == i) continue; // skip the current IS
-
-                // if the intersection is not none, we can't insert u into this IS
-                if (G.get_neighbor_set(u, ISs[j]).any()) continue; // u is adjacent to some vertex in ISs[j]
-
-                // we can insert u in this IS, removing u from the previous IS and then insert pi into it
-                ISs[i].reset(u);
-                ISs[i].set(pi);
-                ISs[j].set(u);
-                inserted = true;
-
-                if (B.none()) { VertexUB[pi] = std::min(VertexUB[pi], ISs.size()); }
-
-                break;
-            }
-            if (inserted) break;
-        }
-
-        if (!inserted) B.set(pi);
-    }
-
-    return {B, ISs};
-}
-
-
-inline custom_bitset FilterByColoring2(
-    const custom_graph& G,
-    const custom_bitset& V,
-    std::vector<custom_bitset>& ISs,
-    const uint64_t r,
-    std::vector<uint64_t>& VertexUB
-) {
-    custom_bitset B(G.size());  // B, a set of branching vertices obtained from P
-    uint64_t ISs_size = 0;
-
-    // We insert the biggest vertices of P into r ISs (decreasing order)
-    // TODO: doesn't work with reverse order
-    for (const auto pi : V) {
-        bool inserted = false;
-
-        // If there is an IS in which pi is not adjacent to any vertex, we insert pi into that IS
-        for (uint64_t i = 0; i < ISs_size; ++i) {
-            if (G.get_neighbor_set(pi, ISs[i]).any()) continue;
-
-            ISs[i].set(pi);
-            inserted = true;
-
-            if (B.none()) VertexUB[pi] = std::min(VertexUB[pi], ISs_size);
-
-            break;
-        }
-        if (inserted) continue; // pi has been inserted into an IS, we can skip it
-
-        if (ISs_size < r) {
-            // If there is no IS, we create a new one
-            custom_bitset new_is(G.size());
-            new_is.set(pi);
-            ISs[ISs_size] = new_is;
-            ISs_size++;
-
-            // TODO: fix
-            //std::cout << pi << " " << VertexUB[pi] << " " << ISs.size() << std::endl;
-            //VertexUB[pi] = std::min(VertexUB[pi], ISs_size);
-
-            continue;
-        }
-
-
-        // if there is an IS in which pi has only one adjacent vertex u, and u can be inserted into another IS
-        // RECOLOR (RE-NUMBER of MCS)
-        for (uint64_t i = 0; i < ISs_size; ++i) {
-            auto common_neighbors = G.get_neighbor_set(pi, ISs[i]);
-            auto u = common_neighbors.front();
-
-            if (u == common_neighbors.size()) continue; // no common neighbor, we can skip this IS
-
-            // if there are more than one common neighbor, we can't insert pi into this IS
-            if (common_neighbors.next(u) != common_neighbors.size()) continue;
-
-            // u is the only neighbor of pi in is
-            for (uint64_t j = 0; j < ISs_size; ++j) {
-            //for (uint64_t j = i+1; j < ISs.size(); ++j) {
-                if (j == i) continue; // skip the current IS
-
-                // if the intersection is not none, we can't insert u into this IS
-                if (G.get_neighbor_set(u, ISs[j]).any()) continue; // u is adjacent to some vertex in ISs[j]
-
-                // we can insert u in this IS, removing u from the previous IS and then insert pi into it
-                ISs[i].reset(u);
-                ISs[i].set(pi);
-                ISs[j].set(u);
-                inserted = true;
-
-                if (B.none()) { VertexUB[pi] = std::min(VertexUB[pi], ISs_size); }
-
-                break;
-            }
-            if (inserted) break;
-        }
-
-        if (!inserted) B.set(pi);
-    }
-
-    return B;
-}
-*/
-
-/**
- *
- */
-/*
-inline custom_bitset IncMaxSat(
-    custom_graph& G,
-    const custom_bitset& V,
-    const custom_bitset& B,
-    std::vector<custom_bitset>& ISs,
-    const uint64_t r,
-    std::vector<uint64_t>& VertexUB
-) {
-    auto last_ui = custom_bitset::reference(0); // last vertex for which we derived an empty independent set
-    custom_bitset already_visited(G.size());
-
-    for (const auto ui : B) {
-        auto unit_is = custom_bitset(G.size());
-        unit_is.set(ui); // we create a unit independent set with the current vertex ui
-
-        std::vector<std::pair<custom_bitset::reference, uint64_t>> S;
-
-        ISs.emplace_back(unit_is);
-        S.emplace_back(ui, ISs.size() - 1); // we add the current vertex ui to the stack S
-        std::set<uint64_t> culprit_ISs;
-
-        while (!S.empty()) {
-            const auto [u, u_is] = S.back();
-            S.pop_back();
-            already_visited.set(u);
-            // insert current node to the culprit_ISs
-            culprit_ISs.insert(u_is);
-
-            const auto ISs_copy = ISs;
-
-            for (uint64_t i = 0; i < ISs.size(); ++i) {
-                custom_bitset& D = ISs[i];
-                // remove vertices non adjacent to u
-                D &= G.get_neighbor_set(u);
-                if (D.none()) {
-                    culprit_ISs.emplace(i); // we have derived an empty independent set
-                    last_ui = ui; // latest vertex for which we derived an empty IS
-                    break;
-                }
-                if (!already_visited[D.front()] && D.count() == 1) {
-                    S.emplace_back(D.front(), i);
-                }
-            }
-            // no empty IS has been derived, we can continue
-            if (last_ui != ui) continue;
-
-            // if we have derived an empty IS, we restore all removed vertices
-            ISs = ISs_copy;
-
-            const uint64_t old_size = G.size();
-            G.resize(G.size() + culprit_ISs.size());
-            already_visited.resize(G.size());
-            for (auto D : ISs) {
-                D.resize(G.size());
-            }
-
-            uint64_t offset = 0;
-            for (const auto is : culprit_ISs) {
-                for (uint64_t curr_is = 0; curr_is < ISs.size(); ++curr_is) {
-                    if (curr_is == is) continue; // skip the current IS
-
-                    for (const auto v : ISs[curr_is]) {
-                        G.add_edge(old_size + offset, v);
-                    }
-                }
-                ISs[is].set(old_size + offset); // add the new vertex to the is
-                ++offset;
-            }
-
-            break;
-        }
-        // no empty IS has been derived, we can break
-        if (last_ui != ui) break;
-    }
-
-    // restore G size
-    G.resize(VertexUB.size());
-
-    // a conflict has been derived for every vertex in B, we return an empty set
-    if (last_ui == B.back()) return custom_bitset(G.size());
-
-    // ui is the biggest vertex in B for which IncMaxSat fails to derive a conflict
-    for (const auto a : V) {
-        if (B.front() <= a && a < last_ui) {
-            //VertexUB[a] = std::min(VertexUB[a], r);
-        }
-    }
-
-    // { p | p in P and p <= ui }
-    custom_bitset B_ret = V;
-    B_ret.clear_before(last_ui);
-
-    return B_ret;
-}
-*/
-
-
 /**
  *
  */
@@ -479,19 +204,8 @@ inline void FindMaxClique(
 
         // if we can't improve, we prune the current branch
         if (u[bi] + curr > lb) {
-            //auto V_new = (V - custom_bitset(B, bi)) & G.get_neighbor_set(bi);
             V_copy.reset(bi);
             auto V_new = V_copy & G.get_neighbor_set(bi);
-            /*
-            auto V_new = V - custom_bitset::from(B, bi);
-            V_new &= G.get_neighbor_set(bi);
-            */
-            //auto V_new = ((V - B) | custom_bitset::until(B, bi) ) & G.get_neighbor_set(bi);
-            /*
-            auto V_new = ((V - B) );
-            V_new |= custom_bitset::until(B, bi);
-            V_new &= G.get_neighbor_set(bi);
-            */
 
             // if we are in a leaf
             if (V_new.none()) {
@@ -529,52 +243,12 @@ inline void FindMaxClique(
             }
         }
 
-        /*
-        custom_bitset inv = custom_bitset::after(G.get_neighbor_set(bi), bi);
-        if (u[bi] < lb - curr) {
-            u[bi] = lb - curr;
-            for (auto v : inv) {
-                inv |= custom_bitset::after(G.get_neighbor_set(v), v);
-                u[v] = 0;
-                for (const auto neighbor : G.get_prev_neighbor_set(v)) {
-                    u[v] = std::max(u[v], 1 + u[neighbor]);
-                }
-            }
-        }
-        */
-        /*
-        if (u[bi] < lb - curr) {
-            u[bi] = lb - curr;
-            for (auto v = bi+1; v < G.size(); ++v) {
-                u[v] = 0;
-                for (const auto neighbor : G.get_prev_neighbor_set(v)) {
-                    u[v] = std::max(u[v], 1 + u[neighbor]);
-                }
-            }
-        }
-        */
-        /*
-        if (u[bi] < lb - curr) {
-            u[bi] = lb - curr;
-            for (auto v = G.get_neighbor_set(bi).next(bi); v != G.size(); v = G.get_neighbor_set(bi).next(v)) {
-                u[v] = 0;
-                for (const auto neighbor : G.get_prev_neighbor_set(v)) {
-                    u[v] = std::max(u[v], 1 + u[neighbor]);
-                }
-            }
-        }
-        */
         K.reset(bi);
     }
 }
 
 export inline custom_bitset CliSAT(const custom_graph& g) {
-    auto begin = std::chrono::steady_clock::now();
     auto [ordering, k] = NEW_SORT(g, 3);
-    auto end = std::chrono::steady_clock::now();
-    uint64_t tot = 0;
-    tot += std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-    //std::cout << "Prep = " << tot << "[µs]" << std::endl;
     auto ordered_g = g.change_order(ordering);
 
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
@@ -605,7 +279,6 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
         u[i] = std::min(1 + max_u, k);
     }
 
-    tot = 0;
     for (uint64_t i = K_max.count(); i < ordered_g.size(); ++i) {
         //std::cout << "Node " << i << std::endl;
         custom_bitset V = ordered_g.get_prev_neighbor_set(i);
@@ -623,22 +296,9 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
             if (count >= lb) break;
         }
 
-
         FindMaxClique(ordered_g, K, 2, K_max, lb, V, B, u);
-        //auto begin = std::chrono::steady_clock::now();
         u[i] = lb;
-        /*
-        for (auto v = i+1; v < ordered_g.size(); ++v) {
-            if (u[v] <= lb+1) continue;
-            u[v] = 0;
-            for (const auto neighbor : ordered_g.get_prev_neighbor_set(v)) {
-                u[v] = std::max(u[v], 1 + u[neighbor]);
-            }
-        }
-        auto end = std::chrono::steady_clock::now();
-    */
     }
-    //std::cout << "Prep = " << tot << "[µs]" << std::endl;
 
     return ordered_g.convert_back_set(K_max);
 }
