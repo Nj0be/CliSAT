@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
     end = std::chrono::steady_clock::now();
     std::cout << "BBMC = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
-    /*begin = std::chrono::steady_clock::now();
+    begin = std::chrono::steady_clock::now();
     result = BB_Max_Clique_iter(g);
     end = std::chrono::steady_clock::now();
     std::cout << "BBMC iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;#1#

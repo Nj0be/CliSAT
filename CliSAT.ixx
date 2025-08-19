@@ -4,12 +4,9 @@
 
 module;
 
-#include <chrono>
 #include <set>
 #include <vector>
-#include <cstdint>
 #include <iostream>
-#include <ranges>
 
 export module CliSAT;
 
@@ -42,8 +39,8 @@ inline custom_bitset IncMaxSat(
     const custom_bitset& V,
     custom_bitset B,
     std::vector<custom_bitset>& ISs,
-    uint64_t r,
-    std::vector<uint64_t>& VertexUB
+    int r,
+    std::vector<int>& VertexUB
 ) {
     //G.resize(G.size()+ B.count()*r*2);
 
@@ -57,15 +54,15 @@ inline custom_bitset IncMaxSat(
         auto unit_is = custom_bitset(G.size());
         unit_is.set(ui); // we create a unit independent set with the current vertex ui
 
-        std::vector<std::pair<custom_bitset::reference, uint64_t>> S;
+        std::vector<std::pair<custom_bitset::reference, int>> S;
 
         ISs[r] = unit_is; // we add the unit independent set to ISs
         S.emplace_back(ui, r); // we add the current vertex ui to the stack S
-        std::set<uint64_t> culprit_ISs;
+        std::set<int> culprit_ISs;
 
         custom_bitset already_visited(G.size());
 
-        for (uint64_t i = 0; i < r+1; ++i) {
+        for (auto i = 0; i < r+1; ++i) {
             ISs_copy[i] = ISs[i];
         }
 
@@ -86,7 +83,7 @@ inline custom_bitset IncMaxSat(
             //neighbor_set.set(u);
 
             // useless to iterate over r+1 that contains only u;
-            for (uint64_t i = 0; i < r; ++i) {
+            for (auto i = 0; i < r; ++i) {
                 custom_bitset& D = ISs[i];
 
                 // if D is the unit IS set that we are setting to true, we continue
@@ -116,28 +113,28 @@ inline custom_bitset IncMaxSat(
             if (!conflict_found) continue;
 
             // if we have derived an empty IS, we restore all removed vertices
-            for (uint64_t i = 0; i < r+1; ++i) {
+            for (auto i = 0; i < r+1; ++i) {
                 ISs[i] = ISs_copy[i];
             }
 
             // we need to add culprit_ISs also based on hard clauses (neighbors)
-            for (uint64_t is = 0; is < r; ++is) {
+            for (auto is = 0; is < r; ++is) {
                 if ((ISs[is] & removed_literals).any()) {
                     culprit_ISs.emplace(is);
                 }
             }
 
-            uint64_t first_node = G.size();
+            auto first_node = G.size();
             G.resize(G.size() + culprit_ISs.size());
 
-            for (uint64_t is = 0; is < r+1; ++is) {
+            for (auto is = 0; is < r+1; ++is) {
                 ISs[is].resize(G.size());
             }
 
             auto last_node = first_node;
 
             for (const auto is : culprit_ISs) {
-                for (uint64_t curr_is = 0; curr_is < r+1; ++curr_is) {
+                for (auto curr_is = 0; curr_is < r+1; ++curr_is) {
                     if (curr_is == is) continue; // skip the current IS
 
                     for (auto v : ISs[curr_is]) {
@@ -179,13 +176,13 @@ inline custom_bitset IncMaxSat(
 inline void FindMaxClique(
     const custom_graph& G,  // graph
     custom_bitset& K,       // current branch
-    const uint64_t curr,           // lower bound
+    const int curr,           // lower bound
     custom_bitset& K_max,   // max branch
-    uint64_t& lb,           // lower bound
+    int& lb,           // lower bound
     const custom_bitset& V, // vertices set
     const custom_bitset &B,       // branching set
     // should not be a reference?
-    std::vector<uint64_t> u // incremental upper bounds
+    std::vector<int> u // incremental upper bounds
 ) {
     //static std::vector<custom_bitset> ISs(G.size(), custom_bitset(G.size()*2));
 
@@ -253,13 +250,13 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
 
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     custom_bitset K_max = {0};
-    uint64_t lb = K_max.count();
+    int lb = static_cast<int>(K_max.count());
 
-    std::vector<uint64_t> u(ordered_g.size());
+    std::vector<int> u(ordered_g.size());
     // first |k_max| values bounded by |K_max| (==lb)
     u[0] = 1;
-    for (uint64_t i = 1; i < lb; i++) {
-        uint64_t max_u = 0;
+    for (auto i = 1; i < lb; i++) {
+        auto max_u = 0;
         const custom_bitset prev_neighb_set = ordered_g.get_prev_neighbor_set(i);
 
         for (const auto neighbor : prev_neighb_set) {
@@ -269,8 +266,8 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
     }
 
     // remaining values bounded by k
-    for (uint64_t i = lb; i < ordered_g.size(); i++) {
-        uint64_t max_u = 0;
+    for (std::size_t i = lb; i < ordered_g.size(); i++) {
+        auto max_u = 0;
         const custom_bitset prev_neighb_set = ordered_g.get_prev_neighbor_set(i);
 
         for (const auto neighbor : prev_neighb_set) {
@@ -279,7 +276,7 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
         u[i] = std::min(1 + max_u, k);
     }
 
-    for (uint64_t i = K_max.count(); i < ordered_g.size(); ++i) {
+    for (auto i = K_max.count(); i < ordered_g.size(); ++i) {
         //std::cout << "Node " << i << std::endl;
         custom_bitset V = ordered_g.get_prev_neighbor_set(i);
 
@@ -289,7 +286,7 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
         // first lb vertices of V
         // we start from 1 because we already have i in K
         custom_bitset B(V);
-        uint64_t count = 1;
+        auto count = 1;
         for (const auto v : V) {
             B.reset(v);
             count++;

@@ -4,7 +4,6 @@
 
 module;
 
-#include <cstdint>
 #include <vector>
 
 export module coloring;
@@ -14,9 +13,9 @@ import custom_bitset;
 
 // Independent Set Sequential
 // computes the chromatic number of a graph using a greedy strategy (heuristic)
-export inline uint64_t ISEQ(const custom_graph& g, custom_bitset Ubb) {
+export inline int ISEQ(const custom_graph& g, custom_bitset Ubb) {
     custom_bitset Qbb(Ubb.size());
-    int64_t k = 0;
+    int k = 0;
     for (k = 0; Ubb.any(); ++k) {
         Qbb = Ubb;
         for (const auto v : Qbb) {
@@ -47,10 +46,10 @@ export inline std::vector<custom_bitset> ISEQ_sets(const custom_graph& g, custom
     return independent_sets;
 }
 
-export inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const int64_t k_max) {
+export inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const int k_max) {
     custom_bitset pruned(g.size());
     custom_bitset Qbb(Ubb.size());
-    int64_t k = 0;
+    int k = 0;
     for (k = 0; k < k_max; ++k) {
         Qbb = Ubb;
         for (const auto v : Qbb) {
@@ -68,8 +67,8 @@ export inline custom_bitset ISEQ_branching(
     const custom_graph& g,
     custom_bitset Ubb,
     std::vector<custom_bitset>& ISs,
-    const int64_t k_max) {
-    int64_t k = 0;
+    const int k_max) {
+    int k = 0;
 
     for (k = 0; k < k_max; ++k) {
         ISs[k] = Ubb;
@@ -88,9 +87,9 @@ export inline custom_bitset ISEQ_branching(
 export inline custom_bitset ISEQ_branching(
     const custom_graph& g,
     custom_bitset Ubb,
-    const int64_t k_max
+    const int k_max
 ) {
-    int64_t k = 0;
+    int k = 0;
     custom_bitset Qbb(Ubb.size());
 
     for (k = 0; k < k_max; ++k) {
