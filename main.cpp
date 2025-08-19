@@ -8,7 +8,7 @@
 import CliSAT;
 import custom_graph;
 
-int main() {
+int main(int argc, char *argv[]) {
     /*
     ugraph g(100); //creates an none (undirected) graph with 100 vertices
     g.add_edge(0, 1);
@@ -46,6 +46,8 @@ int main() {
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq";
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr400_0.7.clq";
+
+    //auto filename = argv[1];
 
 
     auto begin = std::chrono::steady_clock::now();

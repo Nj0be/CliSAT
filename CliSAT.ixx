@@ -4,10 +4,12 @@
 
 module;
 
+#include <chrono>
 #include <set>
 #include <vector>
 #include <cstdint>
 #include <iostream>
+#include <ranges>
 
 export module CliSAT;
 
@@ -15,6 +17,7 @@ import AMTS;
 import custom_bitset;
 import custom_graph;
 import sorting;
+import coloring;
 
 // TODO: implement
 inline void SATCOL() {
@@ -29,62 +32,6 @@ inline void FiltCOL() {
 // TODO: implement
 inline void FiltSAL() {
 
-}
-
-inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const int64_t k_max) {
-    custom_bitset pruned(g.size());
-    custom_bitset Qbb(Ubb.size());
-    int64_t k = 0;
-    for (k = 0; k < k_max; ++k) {
-        Qbb = Ubb;
-        for (const auto v : Qbb) {
-            // at most, we can remove vertices, so we don't need to start a new scan
-            Qbb -= g.get_neighbor_set(v);
-        }
-        // add vertices to pruned
-        pruned |= Qbb;
-        Ubb -= Qbb;
-    }
-    return pruned;
-}
-
-inline custom_bitset ISEQ_branching(
-    const custom_graph& g,
-    custom_bitset Ubb,
-    std::vector<custom_bitset>& ISs,
-    const int64_t k_max) {
-    int64_t k = 0;
-
-    for (k = 0; k < k_max; ++k) {
-        ISs[k] = Ubb;
-        for (const auto v : ISs[k]) {
-            // at most, we can remove vertices, so we don't need to start a new scan
-            ISs[k] -= g.get_neighbor_set(v);
-        }
-        Ubb -= ISs[k];
-        // TODO
-        ISs[k].resize(g.size()*2);
-    }
-    return Ubb;
-}
-
-
-inline custom_bitset ISEQ_branching(
-    const custom_graph& g,
-    custom_bitset Ubb,
-    const int64_t k_max) {
-    int64_t k = 0;
-    custom_bitset Qbb(g.size());
-
-    for (k = 0; k < k_max; ++k) {
-        Qbb = Ubb;
-        for (const auto v : Qbb) {
-            // at most, we can remove vertices, so we don't need to start a new scan
-            Qbb -= g.get_neighbor_set(v);
-        }
-        Ubb -= Qbb;
-    }
-    return Ubb;
 }
 
 /*
@@ -505,55 +452,68 @@ inline custom_bitset IncMaxSat(
 // TODO: P pass by reference or not? I don't think so
 // we pass u by copy, not reference!
 inline void FindMaxClique(
-    custom_graph& G,  // graph
+    const custom_graph& G,  // graph
     custom_bitset& K,       // current branch
+    const uint64_t curr,           // lower bound
     custom_bitset& K_max,   // max branch
     uint64_t& lb,           // lower bound
     const custom_bitset& V, // vertices set
-    custom_bitset &B,       // branching set
-    // should not be a reference!
+    const custom_bitset &B,       // branching set
+    // should not be a reference?
     std::vector<uint64_t> u // incremental upper bounds
 ) {
     //static std::vector<custom_bitset> ISs(G.size(), custom_bitset(G.size()*2));
 
+    auto V_copy = V;
     for (const auto bi : B) {
         K.set(bi);
 
         // calculate u[bi]
         // if bi == 0, u[bi] always == 1!
-        uint64_t max_u = 0;
-        const uint64_t threshold = lb - K.count() - 1;
+        u[bi] = 0;
+        // TODO: G.get_prev_neighbor_set(bi, V_copy) wrong because we are removing elements from V_copy
         for (const auto neighbor : G.get_prev_neighbor_set(bi, V)) {
-            max_u = std::max(max_u, u[neighbor]);
-            if (max_u > threshold) break;
+            u[bi] = std::max(u[bi], 1+u[neighbor]);
+            if (u[bi] + curr > lb) break;
         }
-        u[bi] = 1 + max_u;
 
         // if we can't improve, we prune the current branch
-        if (u[bi] + K.count() <= lb) {
-            B.reset(bi);
-        } else {
-            auto V_new = (V - custom_bitset::until(B, bi)) & G.get_neighbor_set(bi);
+        if (u[bi] + curr > lb) {
+            //auto V_new = (V - custom_bitset(B, bi)) & G.get_neighbor_set(bi);
+            V_copy.reset(bi);
+            auto V_new = V_copy & G.get_neighbor_set(bi);
+            /*
+            auto V_new = V - custom_bitset::from(B, bi);
+            V_new &= G.get_neighbor_set(bi);
+            */
+            //auto V_new = ((V - B) | custom_bitset::until(B, bi) ) & G.get_neighbor_set(bi);
+            /*
+            auto V_new = ((V - B) );
+            V_new |= custom_bitset::until(B, bi);
+            V_new &= G.get_neighbor_set(bi);
+            */
 
             // if we are in a leaf
             if (V_new.none()) {
                 // update best solution
                 // TODO: inside or outside?
-                if (K.count() > lb) {
-                    lb = K.count();
+                if (curr > lb) {
+                    lb = curr;
                     K_max = K;
-                    //std::cout << lb << std::endl;
+                    //std::cout << "New solution: " << lb << std::endl;
                 }
 
                 K.reset(bi);
                 return;
             }
 
-            auto B_new = ISEQ_branching(G, V_new, lb - K.count());
+            auto B_new = ISEQ_branching(G, V_new, lb - curr);
+            /*
             if (B_new.none()) {
                 K.reset(bi);
                 continue;
             }
+            */
             //B_new = IncMaxSat(G, V_new, B_new, ISs, lb - K.count(), u);
 
             // TODO
@@ -565,17 +525,56 @@ inline void FindMaxClique(
 
             // if B is not none
             if (!B_new.none()) {
-                FindMaxClique(G, K, K_max, lb, V_new, B_new, u);
+                FindMaxClique(G, K, curr+1, K_max, lb, V_new, B_new, u);
             }
         }
 
-        u[bi] = std::min(u[bi], lb - K.count());
+        /*
+        custom_bitset inv = custom_bitset::after(G.get_neighbor_set(bi), bi);
+        if (u[bi] < lb - curr) {
+            u[bi] = lb - curr;
+            for (auto v : inv) {
+                inv |= custom_bitset::after(G.get_neighbor_set(v), v);
+                u[v] = 0;
+                for (const auto neighbor : G.get_prev_neighbor_set(v)) {
+                    u[v] = std::max(u[v], 1 + u[neighbor]);
+                }
+            }
+        }
+        */
+        /*
+        if (u[bi] < lb - curr) {
+            u[bi] = lb - curr;
+            for (auto v = bi+1; v < G.size(); ++v) {
+                u[v] = 0;
+                for (const auto neighbor : G.get_prev_neighbor_set(v)) {
+                    u[v] = std::max(u[v], 1 + u[neighbor]);
+                }
+            }
+        }
+        */
+        /*
+        if (u[bi] < lb - curr) {
+            u[bi] = lb - curr;
+            for (auto v = G.get_neighbor_set(bi).next(bi); v != G.size(); v = G.get_neighbor_set(bi).next(v)) {
+                u[v] = 0;
+                for (const auto neighbor : G.get_prev_neighbor_set(v)) {
+                    u[v] = std::max(u[v], 1 + u[neighbor]);
+                }
+            }
+        }
+        */
         K.reset(bi);
     }
 }
 
 export inline custom_bitset CliSAT(const custom_graph& g) {
-    auto [ordering, k] = NEW_SORT(g);
+    auto begin = std::chrono::steady_clock::now();
+    auto [ordering, k] = NEW_SORT(g, 3);
+    auto end = std::chrono::steady_clock::now();
+    uint64_t tot = 0;
+    tot += std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+    //std::cout << "Prep = " << tot << "[µs]" << std::endl;
     auto ordered_g = g.change_order(ordering);
 
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
@@ -606,26 +605,40 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
         u[i] = std::min(1 + max_u, k);
     }
 
+    tot = 0;
     for (uint64_t i = K_max.count(); i < ordered_g.size(); ++i) {
-        //std::cout << "i: " << i << std::endl;
+        //std::cout << "Node " << i << std::endl;
         custom_bitset V = ordered_g.get_prev_neighbor_set(i);
-        V.set(i);
-
-        // first lb vertices of V
-        custom_bitset B(V);
-        uint64_t count = 0;
-        for (const auto v : V) {
-            B.reset(v);
-            count++;
-            if (count == lb) break;
-        }
 
         custom_bitset K(ordered_g.size());
         K.set(i);
 
-        FindMaxClique(ordered_g, K, K_max, lb, V, B, u);
+        // first lb vertices of V
+        // we start from 1 because we already have i in K
+        custom_bitset B(V);
+        uint64_t count = 1;
+        for (const auto v : V) {
+            B.reset(v);
+            count++;
+            if (count >= lb) break;
+        }
+
+
+        FindMaxClique(ordered_g, K, 2, K_max, lb, V, B, u);
+        //auto begin = std::chrono::steady_clock::now();
         u[i] = lb;
+        /*
+        for (auto v = i+1; v < ordered_g.size(); ++v) {
+            if (u[v] <= lb+1) continue;
+            u[v] = 0;
+            for (const auto neighbor : ordered_g.get_prev_neighbor_set(v)) {
+                u[v] = std::max(u[v], 1 + u[neighbor]);
+            }
+        }
+        auto end = std::chrono::steady_clock::now();
+    */
     }
+    //std::cout << "Prep = " << tot << "[µs]" << std::endl;
 
     return ordered_g.convert_back_set(K_max);
 }

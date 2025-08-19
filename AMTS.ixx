@@ -220,7 +220,7 @@ export inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const u
     return {S_max, false};
 }
 
-inline custom_bitset run_AMTS(const custom_graph& g, int64_t run_time=50) {
+export inline custom_bitset run_AMTS(const custom_graph& g, int64_t run_time=50) {
     auto max_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(run_time);
     // TODO: get complement for p < 0.5
     uint64_t Iter_Max = 100000000;

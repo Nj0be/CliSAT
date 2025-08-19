@@ -488,7 +488,7 @@ void subtraction_benchmark() {
         }
     }
     // std::cout << bbi;
-    /*
+
     begin = std::chrono::steady_clock::now();
     bb1 &= ~bb2;
     end = std::chrono::steady_clock::now();

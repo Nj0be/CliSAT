@@ -31,7 +31,9 @@ target_include_directories(CliSAT PUBLIC
     "${PROJECT_BINARY_DIR}"
 )
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+# statically linked
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -fmodules -static")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 # set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -flto=auto")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto=auto")
+# disable asserts in release builds
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto=auto -DNDEBUG")
