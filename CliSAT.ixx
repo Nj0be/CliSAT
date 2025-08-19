@@ -240,6 +240,7 @@ inline void FindMaxClique(
             }
         }
 
+        u[bi] = std::min(u[bi], lb-curr);
         K.reset(bi);
     }
 }
