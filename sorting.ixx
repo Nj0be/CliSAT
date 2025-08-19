@@ -5,8 +5,10 @@
 module;
 
 #include <algorithm>
+#include <chrono>
 #include <vector>
 #include <cstdint>
+#include <iostream>
 #include <numeric>
 
 export module sorting;
@@ -68,7 +70,7 @@ inline std::vector<uint64_t> MWSI(custom_graph g, const uint64_t p=3) {
     std::iota(vertices.begin(), vertices.end(), 0);
 
     for (uint64_t i = 0; i < g.size(); i++) {
-        degrees[i] = g[i].degree();
+        degrees[i] = g[i].count();
     }
 
     std::vector degrees_orig = degrees;
@@ -82,24 +84,22 @@ inline std::vector<uint64_t> MWSI(custom_graph g, const uint64_t p=3) {
     const uint64_t k = g.size()/p;
 
     for (uint64_t i = 1; i <= g.size(); i++) {
-        for (uint64_t j = 0; j <= g.size()-i; j++) {
-            auto curr_vert = vertices[j];
-            neighb_deg[curr_vert] = 0;
-            for (const auto v : g[curr_vert]) {
-                neighb_deg[curr_vert] += degrees[v];
-            }
-        }
         auto v_min = std::ranges::min_element(vertices.begin(), vertices.end()-i,
             [&degrees, &neighb_deg](const uint64_t a, const uint64_t b) {
                 if (degrees[a] != degrees[b]) return degrees[a] < degrees[b];
                 return neighb_deg[a] < neighb_deg[b];
             });
 
-        for (auto cursor = g[*v_min].pop_front();
-             cursor != g[*v_min].size();
-             cursor = g[*v_min].pop_next(cursor)) {
-            degrees[*cursor]--;
-            g[*cursor].reset(*v_min);
+        const auto v_min_deg = degrees[*v_min];
+
+        for (auto v = g[*v_min].pop_front(); v != g[*v_min].size(); v = g[*v_min].pop_next(v)) {
+            g[v].reset(*v_min);
+            // update neigh_degree (we are going to remove v_min)
+            degrees[v]--;
+            neighb_deg[v] -= v_min_deg;
+            for (auto u: g[v]) {
+                neighb_deg[u]--;
+            }
         }
         std::iter_swap(v_min, vertices.end()-i);
     }
