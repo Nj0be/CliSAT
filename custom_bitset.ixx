@@ -219,6 +219,7 @@ public:
     [[nodiscard]] bool all() const;
     [[nodiscard]] bool any() const;
     [[nodiscard]] bool none() const;
+    [[nodiscard]] bool intersects(const custom_bitset& other) const;
 
     void resize(size_type new_size);
 
@@ -604,4 +605,13 @@ inline bool custom_bitset::any() const {
 
 inline bool custom_bitset::none() const {
     return std::ranges::none_of(_bits, [](const auto word) { return word != 0; });
+}
+
+bool custom_bitset::intersects(const custom_bitset &other) const {
+    const auto M = std::min(_bits.size(), other._bits.size());
+
+    for (size_type i = 0; i < M; i++)
+        if (_bits[i] & other._bits[i]) return true;
+
+    return false;
 }
