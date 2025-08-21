@@ -43,12 +43,11 @@ public:
     [[nodiscard]] size_type get_n_edges() const;
 
     [[nodiscard]] const custom_bitset& get_neighbor_set(size_type v) const;
-    [[nodiscard]] custom_bitset get_neighbor_set(size_type v, custom_bitset set) const;
     [[nodiscard]] custom_bitset get_neighbor_set(size_type v, size_type threshold) const;
     [[nodiscard]] custom_bitset get_prev_neighbor_set(size_type v) const;
-    [[nodiscard]] custom_bitset get_prev_neighbor_set(size_type v, custom_bitset set) const;
+    [[nodiscard]] custom_bitset get_prev_neighbor_set(size_type v, const custom_bitset& set) const;
     [[nodiscard]] custom_bitset get_anti_neighbor_set(size_type v) const;
-    [[nodiscard]] custom_bitset get_anti_neighbor_set(size_type v, custom_bitset set) const;
+    [[nodiscard]] custom_bitset get_anti_neighbor_set(size_type v, const custom_bitset& set) const;
 
     [[nodiscard]] size_type degree() const;
     [[nodiscard]] size_type vertex_degree(size_type v) const;
@@ -143,33 +142,23 @@ const custom_bitset & custom_graph::get_neighbor_set(const size_type v) const {
     return _graph[v];
 }
 
-// it returns a bitset of the size of set.size()
-custom_bitset custom_graph::get_neighbor_set(const size_type v, custom_bitset set) const {
-    //return get_neighbor_set(v) & set;
-    return set &= get_neighbor_set(v);
-}
-
-// it returns a bitset of the size of threshold
 custom_bitset custom_graph::get_neighbor_set(const size_type v, const size_type threshold) const {
     // the first one maintains the size, the second one reduces it to improve performance, but it's less safe
-
-    //return custom_bitset::before(get_neighbor_set(v), threshold);
-
     assert(threshold < size());
     [[assume(threshold < size())]];
 
-    return {get_neighbor_set(v), threshold};
+    return custom_bitset::before(get_neighbor_set(v), threshold);
+
+    //return {get_neighbor_set(v), threshold};
 }
 
-// it returns a bitset of the size of v
 custom_bitset custom_graph::get_prev_neighbor_set(const size_type v) const {
     return get_neighbor_set(v, v);
 }
 
-// it returns a bitset of the size of min(v, set.size())
-custom_bitset custom_graph::get_prev_neighbor_set(const size_type v, custom_bitset set) const {
+custom_bitset custom_graph::get_prev_neighbor_set(const size_type v, const custom_bitset& set) const {
     //return get_prev_neighbor_set(v) & set;
-    return set &= get_prev_neighbor_set(v);
+    return get_prev_neighbor_set(v) & set;
 }
 
 custom_bitset custom_graph::get_anti_neighbor_set(const size_type v) const {
@@ -179,8 +168,8 @@ custom_bitset custom_graph::get_anti_neighbor_set(const size_type v) const {
     return ~_graph[v];
 }
 
-custom_bitset custom_graph::get_anti_neighbor_set(const size_type v, custom_bitset set) const {
-    return set &= get_anti_neighbor_set(v);
+custom_bitset custom_graph::get_anti_neighbor_set(const size_type v, const custom_bitset& set) const {
+    return get_anti_neighbor_set(v) & set;
 }
 
 inline custom_graph::size_type custom_graph::degree() const {
@@ -249,7 +238,7 @@ inline custom_graph custom_graph::change_order(const std::vector<size_type> &ord
 
 inline custom_graph::size_type custom_graph::get_subgraph_edges(const custom_bitset &subset) const {
     size_type edges = 0;
-    for (const auto v : subset) edges += (get_neighbor_set(v, subset)).count();
+    for (const auto v : subset) edges += (get_neighbor_set(v) & subset).count();
     return edges/2;
 }
 
