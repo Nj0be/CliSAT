@@ -355,7 +355,12 @@ inline bool custom_bitset::operator==(const custom_bitset &other) const {
 }
 
 inline custom_bitset& custom_bitset::operator&=(const custom_bitset &other) {
-    std::ranges::transform(_bits, other._bits, _bits.begin(), std::bit_and<>{});
+    const auto M = std::min(_bits.size(), other._bits.size());
+
+    for (size_type i = 0; i < M; ++i)
+        _bits[i] &= other._bits[i];
+    for (size_type i = M; i < _bits.size(); ++i)
+        _bits[i] = 0;
 
     return *this;
 }
