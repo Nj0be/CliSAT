@@ -4,6 +4,7 @@
 
 module;
 
+#include <algorithm>
 #include <vector>
 
 export module coloring;
@@ -63,26 +64,30 @@ export inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb
     return pruned;
 }
 
+// if we can't generate k independent sets, Ubb will be empty so then node will be fathomed (B empty)
 export inline custom_bitset ISEQ_branching(
     const custom_graph& g,
     custom_bitset Ubb,
     std::vector<custom_bitset>& ISs,
-    const int k_max) {
+    std::vector<std::size_t>& alpha,
+    const int k_max
+) {
     int k = 0;
+    alpha = std::vector<std::size_t>(k_max+1);
 
     for (k = 0; k < k_max; ++k) {
         ISs[k] = Ubb;
+        auto last_v = 0;
         for (const auto v : ISs[k]) {
+            last_v = v;
             // at most, we can remove vertices, so we don't need to start a new scan
             ISs[k] -= g.get_neighbor_set(v);
             Ubb.reset(v);
         }
-        // TODO
-        ISs[k].resize(g.size()*2);
+        alpha[k] = last_v;
     }
     return Ubb;
 }
-
 
 export inline custom_bitset ISEQ_branching(
     const custom_graph& g,
@@ -90,7 +95,7 @@ export inline custom_bitset ISEQ_branching(
     const int k_max
 ) {
     int k = 0;
-    custom_bitset Qbb(Ubb.size());
+    static custom_bitset Qbb(g.size());
 
     for (k = 0; k < k_max; ++k) {
         Qbb = Ubb;
@@ -101,4 +106,12 @@ export inline custom_bitset ISEQ_branching(
         }
     }
     return Ubb;
+}
+
+export inline bool is_IS(
+    const custom_graph& g,
+    const custom_bitset& Ubb
+) {
+    // every vertex of Ubb shouldn't be connected to any neighbors of other vertex of Ubb
+    return std::ranges::all_of(Ubb, [&g, &Ubb](auto v) { return !g.get_neighbor_set(v).intersects(Ubb); });
 }

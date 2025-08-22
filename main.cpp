@@ -7,45 +7,41 @@
 
 import CliSAT;
 import custom_graph;
+import custom_bitset;
 
 int main(int argc, char *argv[]) {
     /*
-    ugraph g(100); //creates an none (undirected) graph with 100 vertices
-    g.add_edge(0, 1);
-    g.add_edge(0, 2);
-    g.add_edge(1, 2);
+    custom_bitset a(64, true);
+    std::cout << a << std::endl;
+    exit(1);
     */
-
-    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-1.clq"); //12
-    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-2.clq"); //24
-    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/csplib/aim_A/aim-100-1-6-unsat-3.clq"); //151
-    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/csplib/aim_A/aim-100-1-6-sat-1.clq"); //154
-    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/example.txt"); //4
-    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C1000.9.clq"); //68*
-    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C500.9.clq"); //57*
-    //const custom_graph g("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq"); //44
-    //BB_Max_Clique_cl bb("/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C125.9.clq"); //34
 
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-1.clq"; //12
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/brock200_1.clq"; //21
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/MANN_a45.clq"; // 345
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/brock200_2.clq"; // 12
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/MANN_a45.clq"; //345
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/brock200_2.clq"; //12
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/c-fat200-2.clq"; //24
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C125.9.clq"; //34
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/C250.9.clq"; //44
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/example.txt"; //4
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/example2.txt"; //3
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/dsjc1000.5.clq";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_44.clq";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_55.clq";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san1000.clq";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_1.clq";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_2.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_44.clq"; //44
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/gen200_p0.9_55.clq"; //55
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san1000.clq"; //15
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_1.clq"; //70
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san200_0.9_2.clq"; //60
     auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_1.clq"; //40
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_3.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/san400_0.7_3.clq"; //22
     //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq";
-    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr400_0.7.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr200_0.7.clq"; //18
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/dimacs/sanr400_0.7.clq"; //21
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/misclib/evil/evil-N120-p98-myc5x24.clq";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/misclib/mon/monoton-7.clq"; //19
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/misclib/sudoku/gordon_royle_1.txt";
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/misclib/vc/vc-exact_005.gr.clqc"; //71
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/csplib/aim_A/aim-50-1-6-sat-1.clq"; //77
+    //auto filename = "/home/benia/uni/Tesi_triennale/CliSAT_instances/csplib/aim_A/aim-50-1-6-sat-2.clq"; //76
 
     //auto filename = argv[1];
 

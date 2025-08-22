@@ -5,6 +5,7 @@
 module;
 
 #include <algorithm>
+#include <bitset>
 #include <cassert>
 #include <numeric>
 #include <ranges>
@@ -20,14 +21,13 @@ public:
     // 32 bit architecture will use uint32_t, 64 bit will use uint64_t
     typedef uint_fast32_t block_type;
     typedef std::size_t size_type;
-    static constexpr int block_size = std::numeric_limits<block_type>::digits;
 
     class reference {
         size_type block;    // current block index
         size_type bit;            // bit position inside block
 
     public:
-        reference(const size_type block, const size_type bit): block(block), bit(bit) {}
+        constexpr reference(const size_type block, const size_type bit): block(block), bit(bit) {}
         explicit reference(const size_type pos) : block(get_block(pos)), bit(get_block_bit(pos)) {}
 
         bool operator==(const reference& other) const { return block == other.block && bit == other.bit; }
@@ -35,8 +35,20 @@ public:
         size_type operator*() const { return block*block_size + bit; }
         operator size_type() const { return **this; };
 
+        // prefix increment
+        reference& operator++() { *this = reference(*this + 1); return *this; }
+        // postfix increment
+        reference operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
+
+        // prefix decrement
+        reference& operator--() { *this = reference(*this - 1); return *this; }
+        // postfix decrement
+        reference operator--(int) { const auto tmp = *this; --(*this); return tmp; }
+
         friend class custom_bitset;
     };
+
+    static const reference npos;
 
     class iterator {
         custom_bitset* bs;
@@ -115,24 +127,122 @@ public:
         friend class custom_bitset;
     };
 
+
+    class reverse_iterator {
+        custom_bitset* bs;
+        reference ref;
+
+    public:
+        using value_type = reference;
+        using difference_type = std::ptrdiff_t;
+        using iterator_category = std::bidirectional_iterator_tag;
+        using iterator_concept  = std::bidirectional_iterator_tag;
+
+        consteval explicit reverse_iterator() : bs(nullptr), ref(0, 0) {}
+        reverse_iterator(custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
+        reverse_iterator(custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
+
+        reference operator*() const { return ref; }
+
+        reverse_iterator& operator=(const bool value) {
+            bs->set(value);
+            return *this;
+        }
+
+        // Conversion to bool for reading
+        explicit operator bool() const { return bs->test(ref); }
+
+        // prefix increment
+        reverse_iterator& operator--() { ref = bs->next(ref); return *this; }
+        // postfix increment
+        reverse_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
+
+        // prefix decrement
+        reverse_iterator& operator++() { ref = bs->prev(ref); return *this; }
+        // postfix decrement
+        reverse_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
+
+        bool operator==(const reverse_iterator& other) const { return bs == other.bs && ref == other.ref; }
+        //bool operator!=(const iterator& other) const { return !(*this == other); }
+
+        friend class custom_bitset;
+    };
+
+    class reverse_const_iterator {
+        const custom_bitset* bs;
+        reference ref;
+
+    public:
+        using value_type = reference;
+        using difference_type = std::ptrdiff_t;
+        using iterator_category = std::bidirectional_iterator_tag;
+        using iterator_concept  = std::bidirectional_iterator_tag;
+
+        consteval explicit reverse_const_iterator() : bs(nullptr), ref(0, 0) {}
+        reverse_const_iterator(const custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
+        reverse_const_iterator(const custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
+        explicit reverse_const_iterator(const iterator& it) : bs(it.bs), ref(it.ref) {}
+
+        reference operator*() const { return ref; }
+
+        explicit operator bool() const {
+            return bs->test(ref);
+        }
+
+        // prefix increment
+        reverse_const_iterator& operator++() { ref = bs->next(ref); return *this; }
+        // postfix increment
+        reverse_const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
+
+        // prefix decrement
+        reverse_const_iterator& operator--() { ref = bs->prev(ref); return *this; }
+        // postfix decrement
+        reverse_const_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
+
+        bool operator==(const reverse_const_iterator& other) const { return bs == other.bs && ref == other.ref; }
+        //bool operator!=(const const_iterator& other) const { return !(*this == other); }
+
+        friend class custom_bitset;
+    };
+
     [[nodiscard]] iterator begin() { return {this, front()}; }
     [[nodiscard]] const_iterator begin() const { return {this, front()}; }
-    [[nodiscard]] iterator end() { return {this, _size}; }
-    [[nodiscard]] const_iterator end() const { return {this, _size}; }
-    [[nodiscard]] iterator rbegin() { return {this, back()}; }
-    [[nodiscard]] const_iterator rbegin() const { return {this, back()}; }
-    [[nodiscard]] iterator rend() { return end(); }
-    [[nodiscard]] const_iterator rend() const { return end(); }
+    [[nodiscard]] iterator end() { return {this, npos}; }
+    [[nodiscard]] const_iterator end() const { return {this, npos}; }
+    [[nodiscard]] reverse_iterator rbegin() { return {this, back()}; }
+    [[nodiscard]] reverse_const_iterator rbegin() const { return {this, back()}; }
+    [[nodiscard]] reverse_iterator rend() { return {this, npos}; }
+    [[nodiscard]] reverse_const_iterator rend() const { return {this, npos}; }
+
+
+    /*
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using reverse_const_iterator = std::reverse_iterator<const_iterator>;
+
+    [[nodiscard]] iterator begin() { return {this, front()}; }
+    [[nodiscard]] const_iterator begin() const { return {this, front()}; }
+    [[nodiscard]] iterator end() { return {this, npos}; }
+    [[nodiscard]] const_iterator end() const { return {this, npos}; }
+    [[nodiscard]] reverse_iterator rbegin() { return std::make_reverse_iterator(iterator(this, back()+1)); }
+    [[nodiscard]] reverse_const_iterator rbegin() const { return std::make_reverse_iterator(const_iterator(this, back()+1)); }
+    [[nodiscard]] reverse_iterator rend() { return std::make_reverse_iterator(iterator(this, 0)); }
+    [[nodiscard]] reverse_const_iterator rend() const { return std::make_reverse_iterator(const_iterator(this, 0)); }
+    */
 
 private:
+    static constexpr size_type block_size = std::numeric_limits<block_type>::digits;
+    static constexpr size_type block_size_log2 = std::countr_zero(block_size);
+
     size_type _size;
     std::vector<block_type> _bits;
 
     static size_type bit_scan_forward(const block_type x) { return std::countr_zero(x); }
     static size_type bit_scan_reverse(const block_type x) { return block_size-1 - std::countl_zero(x); }
 
-    static size_type get_block(const size_type pos) { return pos/block_size; };
-    static size_type get_block_bit(const size_type pos) { return pos%block_size; };
+    //static size_type get_block(const size_type pos) { return pos/block_size; };
+    static size_type get_block(const size_type pos) { return pos >> block_size_log2; };
+    //static size_type get_block_bit(const size_type pos) { return pos%block_size; }
+    static size_type get_block_bit(const size_type pos) { return pos & below_mask(block_size_log2); }
 
     // Used to allocate at least one block regardless of size
     static size_type blocks_needed(const size_type size) { return get_block(size + block_size-1) | (size == 0); }
@@ -153,6 +263,7 @@ public:
     custom_bitset(custom_bitset other, size_type size);
     custom_bitset(const std::initializer_list<block_type>& v);
     custom_bitset(const std::vector<size_type>& v, size_type size);
+    custom_bitset(const custom_bitset& other) : _size(other._size), _bits(other._bits) {}
 
     static custom_bitset before(custom_bitset src, const reference& ref);
     static custom_bitset before(const custom_bitset& src, size_type pos);
@@ -166,14 +277,74 @@ public:
 
     custom_bitset operator~() const;
     bool operator==(const custom_bitset& other) const;
+    custom_bitset& operator=(const custom_bitset& other) {
+        assert(size() == other.size());
+        [[assume(size() == other.size())]];
+
+        for (size_type i = 0; i < _bits.size(); ++i)
+            _bits[i] = other._bits[i];
+
+        return *this;
+    }
     friend constexpr custom_bitset operator&(custom_bitset lhs, const custom_bitset& rhs);
     friend constexpr custom_bitset operator|(custom_bitset lhs, const custom_bitset& rhs);
     friend constexpr custom_bitset operator^(custom_bitset lhs, const custom_bitset& rhs);
     friend constexpr custom_bitset operator-(custom_bitset lhs, const custom_bitset& rhs);
+    static bool calculate_subproblem(const custom_bitset& V, const custom_bitset& B, const custom_bitset& neigh_set, const reference& bi, custom_bitset& res) {
+        bool non_empty = false;
+        std::size_t block = 0;
+        for (; block < bi.block; ++block) {
+            res._bits[block] = ((V._bits[block] - B._bits[block]) & neigh_set._bits[block]) | (neigh_set._bits[block] & V._bits[block]);
+            non_empty |= (res._bits[block] != 0);
+        }
+        res._bits[block] = ((V._bits[block] - B._bits[block]) & neigh_set._bits[block]) | ((neigh_set._bits[block] & below_mask(bi)) & V._bits[block]);
+        non_empty |= (res._bits[block] != 0);
+        for (++block; block < res._bits.size(); ++block) {
+            res._bits[block] = ((V._bits[block] - B._bits[block]) & neigh_set._bits[block]);
+            non_empty |= (res._bits[block] != 0);
+        }
+
+        return non_empty;
+    }
+    static bool calculate_subproblem2(const custom_bitset& V, const custom_bitset& P, const custom_bitset& neigh_set, const reference& bi, custom_bitset& res) {
+        bool non_empty = false;
+        std::size_t block = 0;
+        for (; block < bi.block; ++block) {
+            res._bits[block] = (P._bits[block] & neigh_set._bits[block]) | (neigh_set._bits[block] & V._bits[block]);
+            non_empty |= (res._bits[block] != 0);
+        }
+        res._bits[block] = (P._bits[block] & neigh_set._bits[block]) | ((neigh_set._bits[block] & below_mask(bi)) & V._bits[block]);
+        non_empty |= (res._bits[block] != 0);
+        for (++block; block < res._bits.size(); ++block) {
+            res._bits[block] = (P._bits[block] & neigh_set._bits[block]);
+            non_empty |= (res._bits[block] != 0);
+        }
+
+        return non_empty;
+    }
+    static void get_prev_neighbor_set(const custom_bitset& neigh_set, const custom_bitset& V, const reference& bi, custom_bitset& res) {
+        std::size_t block = 0;
+        for (; block < bi.block; ++block) {
+            res._bits[block] = neigh_set._bits[block] & V._bits[block];
+        }
+        res._bits[block] = (neigh_set._bits[block] & below_mask(bi)) & V._bits[block];
+    }
+    static void get_prev_neighbor_set(const custom_bitset& neigh_set, const reference& bi, custom_bitset& res) {
+        std::size_t block = 0;
+        for (; block < bi.block; ++block) {
+            res._bits[block] = neigh_set._bits[block];
+        }
+        res._bits[block] = (neigh_set._bits[block] & below_mask(bi));
+    }
+    static void SUB(const custom_bitset& lhs, const custom_bitset& rhs, custom_bitset& res) {
+        for (size_type i = 0; i < lhs._bits.size(); ++i)
+            res._bits[i] = lhs._bits[i] & ~rhs._bits[i];
+    }
     custom_bitset& operator&=(const custom_bitset& other);
     custom_bitset& operator|=(const custom_bitset& other);
     custom_bitset& operator^=(const custom_bitset &other);
     custom_bitset& operator-=(const custom_bitset& other);
+    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest);
     bool operator[](const reference& ref) const { return test(ref); };
     bool operator[](const size_type pos) const { return test(pos); };
     iterator operator[](const reference& ref) { return {this, ref}; };
@@ -232,6 +403,8 @@ public:
     void clear_from(const reference& ref);
     void clear_from(size_type pos);
 };
+
+constexpr custom_bitset::reference custom_bitset::npos(std::numeric_limits<custom_bitset::block_type>::max(), 0);
 
 template <>
 struct std::formatter<custom_bitset::reference> : std::formatter<custom_bitset::size_type> {
@@ -356,37 +529,59 @@ inline bool custom_bitset::operator==(const custom_bitset &other) const {
 }
 
 inline custom_bitset& custom_bitset::operator&=(const custom_bitset &other) {
-    const auto M = std::min(_bits.size(), other._bits.size());
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
 
-    for (size_type i = 0; i < M; ++i)
+    for (size_type i = 0; i < _bits.size(); ++i)
         _bits[i] &= other._bits[i];
-    for (size_type i = M; i < _bits.size(); ++i)
-        _bits[i] = 0;
 
     return *this;
 }
 
+void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest) {
+    const auto M = std::min(lhs._bits.size(), rhs._bits.size());
+
+    for (size_type i = 0; i < M; ++i)
+        dest._bits[i] = lhs._bits[i] & rhs._bits[i];
+    for (size_type i = M; i < dest._bits.size(); ++i)
+        dest._bits[i] = 0;
+}
+
+
 inline custom_bitset& custom_bitset::operator|=(const custom_bitset &other) {
-    std::ranges::transform(_bits, other._bits, _bits.begin(), std::bit_or<>{});
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
+
+    for (size_type i = 0; i < _bits.size(); ++i)
+        _bits[i] |= other._bits[i];
 
     return *this;
 }
 
 inline custom_bitset& custom_bitset::operator^=(const custom_bitset &other) {
-    const auto M = std::min(_bits.size(), other._bits.size());
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
 
-    for (size_type i = 0; i < M; ++i)
+    for (size_type i = 0; i < _bits.size(); ++i)
         _bits[i] ^= other._bits[i];
-    for (size_type i = M; i < _bits.size(); ++i)
-        _bits[i] ^= 0;
 
     return *this;
 }
 
 inline custom_bitset& custom_bitset::operator-=(const custom_bitset &other) {
-    const auto M = std::min(_bits.size(), other._bits.size());
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
 
-    for (size_type i = 0; i < M; ++i)
+    /*
+    size_type i = 0;
+    for (; i+3 < _bits.size(); i+=4) {
+        _bits[i] &= ~other._bits[i];
+        _bits[i+1] &= ~other._bits[i+1];
+        _bits[i+2] &= ~other._bits[i+2];
+        _bits[i+3] &= ~other._bits[i+3];
+    }
+    */
+    for (size_type i = 0; i < _bits.size(); i++)
         _bits[i] &= ~other._bits[i];
 
     return *this;
@@ -446,12 +641,12 @@ inline custom_bitset::reference custom_bitset::front() const {
         }
     }
 
-    return reference(_size);
+    return npos;
 }
 
 inline custom_bitset::reference custom_bitset::pop_front() {
     const auto ref = front();
-    if (ref != size()) reset(ref);
+    if (ref != npos) reset(ref);
     return ref;
 }
 
@@ -474,36 +669,34 @@ inline custom_bitset::reference custom_bitset::next(reference ref) const {
         }
     }
 
-    return reference(_size);
+    return npos;
 }
 
 inline custom_bitset::reference custom_bitset::pop_next(reference ref) {
     ref = next(ref);
-    if (ref != size()) reset(ref);
+    if (ref != npos) reset(ref);
     return ref;
 }
 
 inline custom_bitset::reference custom_bitset::back() const {
-    for (reference ref(_size-1); ref.block-- > 0;) {
+    reference ref(_size-1);
+    do {
         if (_bits[ref.block] != 0) {
             ref.bit= bit_scan_reverse(_bits[ref.block]);
             return ref;
         }
-    }
+    } while (ref.block-- > 0);
 
-    return reference(_size);
+    return npos;
 }
 
 inline custom_bitset::reference custom_bitset::pop_back() {
     const auto ref = back();
-    if (ref != size()) reset(ref);
+    if (ref != npos) reset(ref);
     return ref;
 }
 
 inline custom_bitset::reference custom_bitset::prev(reference ref) const {
-    assert(ref < _size);
-    [[assume(ref < _size)]];
-
     const auto masked_number = _bits[ref.block] & below_mask(ref.bit);
     if (masked_number != 0) {
         ref.bit = bit_scan_reverse(masked_number);
@@ -517,12 +710,12 @@ inline custom_bitset::reference custom_bitset::prev(reference ref) const {
         }
     }
 
-    return reference(_size);
+    return npos;
 }
 
 inline custom_bitset::reference custom_bitset::pop_prev(reference ref) {
     ref = prev(ref);
-    if (ref != size()) reset(ref);
+    if (ref != npos) reset(ref);
     return ref;
 }
 
@@ -614,4 +807,31 @@ bool custom_bitset::intersects(const custom_bitset &other) const {
         if (_bits[i] & other._bits[i]) return true;
 
     return false;
+}
+
+// Needed to allow std::views::reverse and std::ranges::reverse_view compatibility
+template<>
+inline constexpr bool std::ranges::enable_view<custom_bitset> = true;// Specialize view concept for your type
+
+namespace std::ranges {
+    template<>
+    class reverse_view<custom_bitset> {
+    private:
+        custom_bitset* base_;
+
+    public:
+        explicit reverse_view(custom_bitset& base) : base_(&base) {}
+
+        // Use the container's actual rbegin/rend instead of make_reverse_iterator
+        /*
+        auto begin() { return std::make_reverse_iterator(base_->rbegin()); }
+        auto end() { return std::make_reverse_iterator(base_->rend()); }
+        auto begin() const { return std::make_reverse_iterator(base_->rbegin()); }
+        auto end() const { return std::make_reverse_iterator(base_->rend()); }
+    */
+        auto begin() { return base_->rbegin(); }
+        auto end() { return base_->rend(); }
+        auto begin() const { return base_->rbegin(); }
+        auto end() const { return base_->rend(); }
+    };
 }

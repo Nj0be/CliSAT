@@ -50,7 +50,7 @@ inline std::vector<uint64_t> MWS(custom_graph g) {
 
         // destructive to clean graph
         for (auto cursor = g[*v_min].pop_front();
-             cursor != g[*v_min].size();
+             cursor != custom_bitset::npos;
              cursor = g[*v_min].pop_next(cursor)) {
             degrees[*cursor]--;
             g[*cursor].reset(*v_min);
@@ -92,7 +92,7 @@ inline std::vector<std::size_t> MWSI(custom_graph g, const int p=3) {
 
         const auto v_min_deg = degrees[*v_min];
 
-        for (auto v = g[*v_min].pop_front(); v != g[*v_min].size(); v = g[*v_min].pop_next(v)) {
+        for (auto v = g[*v_min].pop_front(); v != custom_bitset::npos; v = g[*v_min].pop_next(v)) {
             g[v].reset(*v_min);
             // update neigh_degree (we are going to remove v_min)
             degrees[v]--;
