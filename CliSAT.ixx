@@ -14,6 +14,137 @@ import custom_graph;
 import sorting;
 import coloring;
 
+/**
+ *
+ */
+inline void IncMaxSat(
+    custom_graph& G,
+    const custom_bitset& V,
+    custom_bitset& B,
+    std::vector<custom_bitset>& ISs,
+    const int k,
+    std::vector<int>& u
+) {
+    static std::vector<custom_bitset> ISs_copy(G.size(), custom_bitset(G.size()));
+    static std::vector<std::pair<custom_bitset::reference, int>> S;
+    static custom_bitset already_added(G.size());
+    static custom_bitset already_visited(G.size());
+
+
+    for (const auto ui : B) {
+        S.clear();
+        bool conflict_found = false;
+
+        //auto unit_is = custom_bitset(G.size()*2);
+        auto unit_is = custom_bitset(G.size());
+        unit_is.set(ui); // we create a unit independent set with the current vertex ui
+
+        ISs[k] = unit_is; // we add the unit independent set to ISs
+        S.emplace_back(ui, k); // we add the current vertex ui to the stack S
+        std::set<int> culprit_ISs;
+
+        for (auto i = 0; i < k+1; ++i) {
+            ISs_copy[i] = ISs[i];
+        }
+
+        already_added.reset();
+        already_visited.reset();
+
+        //custom_bitset removed_literals(G.size());
+
+        // for each Unit IS
+        while (!S.empty()) {
+            const auto [u, u_is] = S.back();
+            already_visited.set(u_is);
+            S.pop_back();
+
+            // insert current node to the culprit_ISs
+            culprit_ISs.emplace(u_is);
+
+            // use only with already_visited
+            //ISs[u_is].reset(u);
+
+            auto neighbor_set = G.get_neighbor_set(u);
+
+            // useless to iterate over r+1 that contains only u;
+            for (auto i = 0; i < k; ++i) {
+                // if D is the unit IS set that we are setting to true, we continue
+                //if (i == u_is) continue;
+                if (i == u_is || already_visited[i]) continue;
+
+                auto& D = ISs[i];
+
+                // remove vertices non adjacent to u
+                D &= neighbor_set;
+                auto di = D.front();
+
+                if (di == custom_bitset::npos) { // empty IS, conflict detected
+                    // TODO: necessary? (don't think so)
+                    //culprit_ISs.emplace(i); // we have derived an empty independent set
+                    conflict_found = true;
+                    B.reset(ui);
+                    break;
+                }
+                if (!already_added[di] && D.next(di) == custom_bitset::npos) { // Unit IS
+                    already_added.set(di);
+                    S.emplace_back(di, i);
+                }
+            }
+
+            // no empty IS has been derived, we can continue
+            if (!conflict_found) continue;
+
+            // if we have derived an empty IS, we restore all removed vertices
+            for (auto i = 0; i < k+1; ++i) {
+                ISs[i] = ISs_copy[i];
+            }
+
+            auto first_node = G.size();
+
+            G.resize(G.size() + culprit_ISs.size());
+            already_added.resize(G.size());
+            already_visited.resize(G.size());
+
+            for (auto is = 0; is < k+1; ++is) {
+                ISs[is].resize(G.size());
+                ISs_copy[is].resize(G.size());
+            }
+
+            auto last_node = first_node;
+
+            for (const auto is : culprit_ISs) {
+                for (auto curr_is = 0; curr_is < k+1; ++curr_is) {
+                    if (curr_is == is) continue; // skip the current IS
+
+                    for (auto v : ISs[curr_is]) {
+                        if (v >= first_node) break; // skip new vertices
+                        G.add_edge(last_node, v);
+                    }
+                }
+                for (auto v : B) {
+                    G.add_edge(last_node, v);
+                }
+
+                ISs[is].set(last_node); // add the new vertex to the is
+                ++last_node;
+            }
+
+            break;
+        }
+
+        // no empty IS has been derived, we can break
+        if (!conflict_found) break;
+    }
+
+    G.resize(u.size());
+    already_added.resize(G.size());
+    already_visited.resize(G.size());
+    for (auto is = 0; is < k+1; ++is) {
+        ISs[is].resize(G.size());
+        ISs_copy[is].resize(G.size());
+    }
+}
+
 // TODO: implement
 inline void SATCOL() {
 
@@ -110,20 +241,15 @@ inline bool FiltSAT(
 uint64_t steps = 0;
 uint64_t pruned = 0;
 
-// TODO: P pass by reference or not? I don't think so
-// we pass u by copy, not reference!
 inline void FindMaxClique(
-    const custom_graph& G,  // graph
+    custom_graph& G,  // graph
     custom_bitset& K,       // current branch
     const int curr,           // lower bound
     custom_bitset& K_max,   // max branch
     int& lb,           // lower bound
-    const custom_bitset& V, // vertices set
+    custom_bitset& V, // vertices set
     custom_bitset& B,       // branching set
-    // should not be a reference?
     std::vector<int> u, // incremental upper bounds,
-    // TODO: pass by reference or value?
-    //std::vector<std::size_t>& alpha,
     const std::vector<std::size_t> &alpha = {},
     const int is_k_partite = 0
 ) {
@@ -135,7 +261,10 @@ inline void FindMaxClique(
 
     //auto V_copy = V;
     //auto P = V - B;
-    for (const auto bi : B) {
+    for (auto bi = B.pop_front(); bi != custom_bitset::npos; bi = B.pop_next(bi)) {
+    //for (const auto bi : B) {
+        //if (K.count() != curr) std::cout << "scacco matto atei! " << K.count() << " " << curr << std::endl;
+        const int k = lb-curr;
         // if bi == 0, u[bi] always == 1!
         u[bi] = 1;
         // TODO: G.get_prev_neighbor_set(bi, V_copy) wrong because we are removing elements from V_copy
@@ -147,19 +276,21 @@ inline void FindMaxClique(
         }
 
         // if we can't improve, we prune the current branch
-        if (u[bi] + curr <= lb) {
+        if (u[bi] <= k) {
+        //if (false) {
             pruned++;
             //P.set(bi);
-            B.reset(bi);
+            //B.reset(bi);
         } else {
             // equivalent to (P & N(bi)) | prev_neighbor(bi, V)
-            //auto V_new = ((P & G.get_neighbor_set(bi)) | G.get_prev_neighbor_set(bi, V));
+            //V_new = ((P & G.get_neighbor_set(bi)) | G.get_prev_neighbor_set(bi, V));
+            //V_new = ((V - B) | custom_bitset::until(B, bi)) & G.get_neighbor_set(bi);
+            //V_new = ((V - custom_bitset::after(B, bi)) & G.get_neighbor_set(bi));
 
             // if we are in a leaf
             //if (V_new.none()) {
-            if (!custom_bitset::calculate_subproblem(V, B, G.get_neighbor_set(bi), bi, V_new)) {
+            if (!custom_bitset::calculate_subproblem3(V, B, G.get_neighbor_set(bi), bi, V_new)) {
                 // update best solution
-                // TODO: inside or outside?
                 if (curr > lb) {
                     lb = curr;
                     K.set(bi);
@@ -171,24 +302,14 @@ inline void FindMaxClique(
                 return;
             }
 
-            const int k = lb-curr;
-            /*
-            if (k < 0) {
-                std::cout << "cipolle" << std::endl;
-                K.set(bi);
-                FindMaxClique(G, K, curr+1, K_max, lb, V_new, V_new, u);
-                K.reset(bi);
-                continue;
-            }
-            */
-
             int next_is_k_partite = is_k_partite;
             std::vector<std::size_t> new_alpha = alpha;
+            //const auto depth = std::max(is_k_partite - k, 0);
 
             // if is a k+1 partite graph
             if (is_k_partite) {
-                const auto depth = is_k_partite - k;
                 // TODO: return or continue?
+                const auto depth = is_k_partite - k;
                 if (!FiltCOL(G, V_new, ISs[0], ISs[depth], new_alpha, k+1, is_k_partite)) return;
                 if (!FiltSAT(G, V_new, ISs[depth], new_alpha, k+1)) return;
                 B_new = ISEQ_branching(G, V_new, k);
@@ -196,6 +317,7 @@ inline void FindMaxClique(
             } else {
                 B_new = ISEQ_branching(G, V_new, ISs[0], new_alpha, k);
                 //if (B_new.none()) continue;
+                if (B_new.none()) continue;
                 if (is_IS(G, B_new)) {
                     ISs[0][k] = B_new;
                     new_alpha[k] = B_new.back();
@@ -204,6 +326,7 @@ inline void FindMaxClique(
                     if (!FiltSAT(G, V_new, ISs[0], new_alpha, k+1)) continue;
                     B_new = ISEQ_branching(G, V_new, k);
                 } else {
+                    IncMaxSat(G, V_new, B_new, ISs[0], k, u);
                     SATCOL();
                 }
             }
@@ -211,7 +334,7 @@ inline void FindMaxClique(
             //B_new = ISEQ_branching(G, V_new, k);
 
             // if B is not none
-            if (!B_new.none()) {
+            if (B_new.any()) {
                 K.set(bi);
                 FindMaxClique(G, K, curr+1, K_max, lb, V_new, B_new, u, new_alpha, next_is_k_partite);
                 K.reset(bi);
@@ -223,7 +346,7 @@ inline void FindMaxClique(
 
 export inline custom_bitset CliSAT(const custom_graph& g) {
     auto [ordering, k] = NEW_SORT(g, 3);
-    const auto ordered_g = g.change_order(ordering);
+    auto ordered_g = g.change_order(ordering);
 
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     custom_bitset K_max(g.size());
