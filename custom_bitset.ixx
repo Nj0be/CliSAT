@@ -534,17 +534,10 @@ inline custom_bitset custom_bitset::operator~() const {
 
 inline bool custom_bitset::operator==(const custom_bitset &other) const {
     if (this == &other) return true;
+    if (_size != other._size) return false;
 
-    const auto M = std::min(_bits.size(), other._bits.size());
-
-    for (size_type i = 0; i < M; i++)
+    for (size_type i = 0; i < _bits.size(); i++)
         if (_bits[i] != other._bits[i]) return false;
-
-    // if one is smaller, we check that the remaining bits are 0
-    for (size_type i = M; i < _bits.size(); i++)
-        if (_bits[i] != 0) return false;
-    for (size_type i = M; i < other._bits.size(); ++i)
-        if (other._bits[i] != 0) return false;
 
     return true;
 }
@@ -811,27 +804,30 @@ inline bool custom_bitset::none() const {
 }
 
 bool custom_bitset::intersects(const custom_bitset &other) const {
-    const auto M = std::min(_bits.size(), other._bits.size());
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
 
-    for (size_type i = 0; i < M; i++)
+    for (size_type i = 0; i < _bits.size(); i++)
         if (_bits[i] & other._bits[i]) return true;
 
     return false;
 }
 
 bool custom_bitset::is_subset_of(const custom_bitset &other) const {
-    const auto M = std::min(_bits.size(), other._bits.size());
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
 
-    for (size_type i = 0; i < M; i++)
+    for (size_type i = 0; i < _bits.size(); i++)
         if (_bits[i] & ~other._bits[i]) return false;
 
     return true;
 }
 
 bool custom_bitset::is_superset_of(const custom_bitset &other) const {
-    const auto M = std::min(_bits.size(), other._bits.size());
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
 
-    for (size_type i = 0; i < M; i++)
+    for (size_type i = 0; i < _bits.size(); i++)
         if (other._bits[i] & ~_bits[i]) return false;
 
     return true;
