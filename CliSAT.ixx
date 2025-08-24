@@ -400,13 +400,18 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
         custom_bitset::get_prev_neighbor_set(ordered_g.get_neighbor_set(i), custom_bitset::reference(i), V);
         B = V;
 
-        K.set(i);
-
         // we pruned first lb vertices of V (they can't improve the solution on they own)
-        B.clear_before(lb-1);
+        auto count = 0;
+        for (const auto v : B) {
+            if (count >= lb-1) break;
+            B.reset(v);
+            count++;
+        }
 
+        K.set(i);
         FindMaxClique(ordered_g, K, 2, K_max, lb, V, B, u);
         K.reset(i);
+
         u[i] = lb;
 
         auto end = std::chrono::steady_clock::now();
