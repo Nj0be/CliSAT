@@ -291,8 +291,7 @@ inline void FindMaxClique(
     custom_bitset B_new(G.size());
     steps++;
 
-    for (auto bi = B.pop_front(); bi != custom_bitset::npos; bi = B.pop_next(bi)) {
-        const int k = lb-curr;
+    for (auto bi : B) {
 
         // if bi == 0, u[bi] always == 1!
         u[bi] = 1;
@@ -300,15 +299,21 @@ inline void FindMaxClique(
         custom_bitset::get_prev_neighbor_set(G.get_neighbor_set(bi), V, bi, prev_neighb_set);
         for (const auto neighbor : prev_neighb_set) {
             u[bi] = std::max(u[bi], 1+u[neighbor]);
-            if (u[bi] + curr > lb) break;
+            // no point continue searching, we will overwrite this anyway with a potentially lower value
+            if (u[bi] + curr-1 > lb) break;
         }
 
         // if we can't improve, we prune the current branch
-        if (u[bi] <= k) {
+        // curr-1 because bi is not part of K yet
+        if (u[bi] + curr-1 <= lb) {
             pruned++;
+            B.reset(bi);
+            // lb-curr+1 because we have not added bi to K yet
+            u[bi] = std::min(u[bi], lb-curr+1);
             continue;
         }
 
+        u[bi] = std::min(u[bi], lb-curr);
         // if we are in a leaf
         if (!custom_bitset::calculate_subproblem3(V, B, G.get_neighbor_set(bi), bi, V_new)) {
             // update best solution
@@ -323,6 +328,7 @@ inline void FindMaxClique(
             return;
         }
 
+        const int k = lb-curr;
         int next_is_k_partite = is_k_partite;
         std::vector<std::size_t> new_alpha = alpha;
         const auto depth = std::max(is_k_partite - k, 0);
@@ -343,14 +349,13 @@ inline void FindMaxClique(
                 // if we could return here, huge gains... damn
                 if (!FiltSAT(G, V_new, ISs[0], new_alpha, k+1)) continue;
                 // TODO: which one?
-                //B_new = ISEQ_branching(G, V_new, k);
-                B_new = ISEQ_branching(G, V_new, ISs[0], new_alpha, k);
+                B_new = ISEQ_branching(G, V_new, k);
+                //B_new = ISEQ_branching(G, V_new, ISs[0], new_alpha, k);
             } else {
+                if (!IncMaxSat(G, B_new, ISs[0], k)) continue;
                 SATCOL();
             }
         }
-
-        if (!IncMaxSat(G, B_new, ISs[depth], k)) continue;
 
         // if B is not empty
         if (B_new.any()) {
@@ -359,6 +364,7 @@ inline void FindMaxClique(
             K.reset(bi);
         }
 
+        // lb updated!
         u[bi] = std::min(u[bi], lb-curr);
     }
 }
@@ -388,6 +394,7 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
     }
 
     // remaining values bounded by k
+    // TODO: why it's necessary??
     for (std::size_t i = lb; i < ordered_g.size(); i++) {
         for (const auto neighbor : ordered_g.get_prev_neighbor_set(i)) {
             u[i] = std::max(u[i], 1 + u[neighbor]);
@@ -401,9 +408,11 @@ export inline custom_bitset CliSAT(const custom_graph& g) {
         B = V;
 
         // we pruned first lb vertices of V (they can't improve the solution on they own)
-        auto count = 0;
+        // if we set count to zero, we can't possibly improve the solution because the B set can become empty even tough
+        // it should be possible to improve, lb vertices + 1 from k, but we remove every one from the 23
+        auto count = 1;
         for (const auto v : B) {
-            if (count >= lb-1) break;
+            if (count == lb) break;
             B.reset(v);
             count++;
         }
