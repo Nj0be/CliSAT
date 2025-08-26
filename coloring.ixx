@@ -108,6 +108,24 @@ export inline custom_bitset ISEQ_branching(
     return Ubb;
 }
 
+export inline int ISEQ_all(
+    const custom_graph& g,
+    custom_bitset Ubb,
+    std::vector<custom_bitset>& ISs
+) {
+    int k = 0;
+
+    for (k = 0; Ubb.any(); ++k) {
+        ISs[k] = Ubb;
+        for (const auto v : ISs[k]) {
+            // at most, we can remove vertices, so we don't need to start a new scan
+            ISs[k] -= g.get_neighbor_set(v);
+            Ubb.reset(v);
+        }
+    }
+    return k;
+}
+
 export inline bool is_IS(
     const custom_graph& g,
     const custom_bitset& Ubb

@@ -101,44 +101,11 @@ inline bool IncMaxSat(
             if (conflict_found) break;
         }
 
-        if (!conflict_found) {
-            // FL
-            conflict_found = true;
-            for (int i = k-1; i >= 0; --i) {
-                conflict_found = true;
-                conflicting_clauses.reset();
-                conflicting_clauses.set(i);
-                for (auto v : ISs[i]) {
-                    auto is_connected = true;
-                    // check if u is not connected to another is
-                    //for (int j = 0; j < k_max; ++j) {
-                    for (int j = k-1; j >= 0; --j) {
-                        if (i == j) continue;
-                        is_connected = G.get_neighbor_set(v).intersects(ISs[j]);
-                        if (!is_connected) {
-                            conflicting_clauses.set(j);
-                        };
-                    }
-                    // every literal needs to be failed
-                    if (is_connected) {
-                        conflict_found = false;
-                        break;
-                    }
-                }
-                if (conflict_found) break;
-            }
-            if (!conflict_found) {
-                for (auto i = 0; i < k; ++i) {
-                    ISs[i] = ISs_copy[i];
-                }
-                break;
-            };
-        }
-
-        // if we have derived an empty IS, we restore all removed vertices
         for (auto i = 0; i < k; ++i) {
             ISs[i] = ISs_copy[i];
         }
+
+        if (!conflict_found) break;
 
         auto first_node = G.size();
 
@@ -192,8 +159,141 @@ inline bool IncMaxSat(
 }
 
 // TODO: implement
-inline void SATCOL() {
+inline bool SATCOL(
+    custom_graph& G,
+    custom_bitset& B,
+    std::vector<custom_bitset>& ISs,
+    int k
+) {
+    static std::vector ISs_copy(G.size(), custom_bitset(G.size()));
+    static std::vector<std::pair<custom_bitset::reference, int>> S;
+    static custom_bitset already_added(G.size());
+    static custom_bitset already_visited(G.size());
+    static custom_bitset unit_is(G.size());
+    static custom_bitset conflicting_clauses(G.size());
+    static std::vector ISs_B(G.size(), custom_bitset(G.size()));
+    const auto k_B = ISEQ_all(G, B, ISs_B);
 
+    const auto orig_size = G.size();
+
+    for (auto B_is = 0; B_is < k_B; B_is++) {
+        ISs_B[B_is].resize(G.size());
+        bool conflict_found = false;
+
+        conflicting_clauses.reset();
+        for (auto ui : ISs_B[B_is]) {
+            S.clear();
+            conflict_found = false;
+
+            unit_is.set(ui); // we create a unit independent set with the current vertex ui
+            ISs[k] = unit_is; // we add the unit independent set to ISs
+            unit_is.reset(ui);
+
+            S.emplace_back(ui, k); // we add the current vertex ui to the stack S
+
+            for (auto i = 0; i <= k; ++i) {
+                ISs_copy[i] = ISs[i];
+            }
+
+            already_added.reset();
+            already_visited.reset();
+
+            // for each Unit IS
+            while (!S.empty()) {
+                const auto [u, u_is] = S.back();
+                already_visited.set(u_is);
+                S.pop_back();
+
+                // insert current node to the culprit_ISs
+                conflicting_clauses.set(u_is);
+
+                // use only with already_visited
+                ISs[u_is].reset(u);
+
+                // useless to iterate over r+1 that contains only u;
+                for (auto i = 0; i < k; ++i) {
+                    // if D is the unit IS set that we are setting to true, we continue
+                    //if (i == u_is) continue;
+                    if (i == u_is || already_visited[i]) continue;
+
+                    auto& D = ISs[i];
+
+                    // remove vertices non adjacent to u
+                    D &= G.get_neighbor_set(u);
+                    auto di = D.front();
+
+                    if (di == custom_bitset::npos) { // empty IS, conflict detected
+                        conflicting_clauses.set(i); // we have derived an empty independent set
+                        conflict_found = true;
+                        //B.reset(ui);
+
+                        // more than one conflict can be found, but it's redundant
+                        break;
+                    }
+                    if (!already_added[i] && D.next(di) == custom_bitset::npos) { // Unit IS
+                        already_added.set(i);
+                        S.emplace_back(di, i);
+                    }
+                }
+
+                // empty IS has been derived, we break
+                if (conflict_found) break;
+            }
+
+            for (auto i = 0; i < k; ++i) {
+                ISs[i] = ISs_copy[i];
+            }
+            if (!conflict_found) break;
+        }
+
+        if (!conflict_found) break;
+
+        ISs[k] = ISs_B[B_is]; // we add the unit independent set to ISs
+
+        // conflict found!
+        for (auto v : ISs_B[B_is]) B.reset(v);
+        if (B.none()) break;
+
+        k++;
+
+        auto first_node = G.size();
+
+        G.resize(G.size() + conflicting_clauses.count());
+
+        // k+1 for next iteration
+        for (auto is = 0; is < k+1; ++is) {
+            ISs[is].resize(G.size());
+        }
+
+        auto last_node = first_node;
+
+        for (const auto is : conflicting_clauses) {
+            for (auto curr_is = 0; curr_is <= k; ++curr_is) {
+                if (static_cast<std::size_t>(curr_is) == is) continue; // skip the current IS
+
+                for (auto v : ISs[curr_is]) {
+                    if (v >= first_node) break; // skip new vertices
+                    G.add_edge(last_node, v);
+                }
+            }
+            for (auto v : B) {
+                G.add_edge(last_node, v);
+            }
+
+            ISs[is].set(last_node); // add the new vertex to the is
+            ++last_node;
+        }
+    }
+
+    G.resize(orig_size);
+    for (auto is = 0; is < k+1; ++is) {
+        ISs[is].resize(orig_size);
+    }
+    for (auto is = 0; is < k_B; ++is) {
+        ISs_B[is].resize(orig_size);
+    }
+
+    return B.any();
 }
 
 inline bool FiltCOL(
@@ -366,8 +466,8 @@ inline void FindMaxClique(
                 B_new = ISEQ_branching(G, V_new, k);
                 //B_new = ISEQ_branching(G, V_new, ISs[0], new_alpha, k);
             } else {
-                if (!IncMaxSat(G, V_new, B_new, ISs[0], k, u)) continue;
-                SATCOL();
+                //if (!IncMaxSat(G, V_new, B_new, ISs[0], k, u)) continue;
+                if (!SATCOL(G, B_new, ISs[0], k)) continue;
             }
         }
 
