@@ -19,9 +19,11 @@ import coloring;
  */
 inline bool IncMaxSat(
     custom_graph& G,
+    const custom_bitset& V,
     custom_bitset& B,
     std::vector<custom_bitset>& ISs,
-    int k
+    int k_start,
+    std::vector<int>& u
 ) {
     static std::vector ISs_copy(G.size(), custom_bitset(G.size()));
     static std::vector<std::pair<custom_bitset::reference, int>> S;
@@ -32,7 +34,11 @@ inline bool IncMaxSat(
 
     auto orig_size = G.size();
 
+    auto last_ui = 0;
+    auto k = k_start;
+
     for (const auto ui : B) {
+        last_ui = ui;
         S.clear();
         bool conflict_found = false;
 
@@ -174,6 +180,14 @@ inline bool IncMaxSat(
         ISs_copy[is].resize(orig_size);
     }
 
+    //if (B.none()) return false;
+
+    // TODO: correct?
+    for (auto a = V.next(last_ui); a < B.back(); a = V.next(a)) {
+        u[a] = std::min(u[a], k_start);
+    }
+
+    //return true;
     return B.any();
 }
 
@@ -335,9 +349,9 @@ inline void FindMaxClique(
 
         // if is a k+1 partite graph
         if (is_k_partite) {
-            // TODO: return or continue?
-            if (!FiltCOL(G, V_new, ISs[0], ISs[depth], new_alpha, k+1, is_k_partite)) return;
-            if (!FiltSAT(G, V_new, ISs[depth], new_alpha, k+1)) return;
+            // It's necessary to continue
+            if (!FiltCOL(G, V_new, ISs[0], ISs[depth], new_alpha, k+1, is_k_partite)) continue;
+            if (!FiltSAT(G, V_new, ISs[depth], new_alpha, k+1)) continue;
             B_new = ISEQ_branching(G, V_new, k);
         } else {
             B_new = ISEQ_branching(G, V_new, ISs[0], new_alpha, k);
@@ -352,7 +366,7 @@ inline void FindMaxClique(
                 B_new = ISEQ_branching(G, V_new, k);
                 //B_new = ISEQ_branching(G, V_new, ISs[0], new_alpha, k);
             } else {
-                if (!IncMaxSat(G, B_new, ISs[0], k)) continue;
+                if (!IncMaxSat(G, V_new, B_new, ISs[0], k, u)) continue;
                 SATCOL();
             }
         }
