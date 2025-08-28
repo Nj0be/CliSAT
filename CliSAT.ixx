@@ -5,6 +5,7 @@ module;
 #include <iostream>
 #include <print>
 #include <chrono>
+#include <ranges>
 
 export module CliSAT;
 
@@ -158,7 +159,6 @@ inline bool IncMaxSat(
     return B.any();
 }
 
-// TODO: implement
 inline bool SATCOL(
     custom_graph& G,
     custom_bitset& B,
@@ -259,10 +259,12 @@ inline bool SATCOL(
         auto first_node = G.size();
 
         G.resize(G.size() + conflicting_clauses.count());
+        unit_is.resize(G.size());
 
         // k+1 for next iteration
         for (auto is = 0; is < k+1; ++is) {
             ISs[is].resize(G.size());
+            ISs_copy[is].resize(G.size());
         }
 
         auto last_node = first_node;
@@ -286,8 +288,10 @@ inline bool SATCOL(
     }
 
     G.resize(orig_size);
+    unit_is.resize(orig_size);
     for (auto is = 0; is < k+1; ++is) {
         ISs[is].resize(orig_size);
+        ISs_copy[is].resize(orig_size);
     }
     for (auto is = 0; is < k_B; ++is) {
         ISs_B[is].resize(orig_size);
@@ -352,34 +356,79 @@ inline bool FiltCOL(
 inline bool FiltSAT(
     const custom_graph& G,  // graph
     custom_bitset& V, // vertices set
-    std::vector<custom_bitset>& ISs_t,
+    std::vector<custom_bitset>& ISs,
     std::vector<std::size_t>& alpha,
     const int k_max
 ) {
+    static std::vector ISs_copy(G.size(), custom_bitset(G.size()));
+    static std::vector<std::pair<custom_bitset::reference, int>> S;
+    static custom_bitset already_added(G.size());
+    static custom_bitset already_visited(G.size());
+
+    for (auto i = 0; i < k_max; ++i) {
+        ISs_copy[i] = ISs[i];
+    }
+
     // we apply FL (Failed Literal) to every vertex of each IS of Ct-alpha
     //for (int i = 0; i < k_max; ++i) {
     for (int i = k_max-1; i >= 0; --i) {
-        for (auto u : ISs_t[i]) {
-            auto is_connected = true;
+        for (auto ui : ISs[i]) {
+            S.clear();
+            bool conflict_found = false;
 
-            // check if u is not connected to another is
-            //for (int j = 0; j < k_max; ++j) {
-            for (int j = k_max-1; j >= 0; --j) {
-                if (i == j) continue;
-                is_connected = G.get_neighbor_set(u).intersects(ISs_t[j]);
-                if (!is_connected) break;
-            }
-            if (!is_connected) {
-                ISs_t[i].reset(u);
-                if (ISs_t[i].none()) {
-                    return false;
+            S.emplace_back(ui, k_max); // we add the current vertex ui to the stack S
+
+            already_added.reset();
+            already_visited.reset();
+
+            // for each Unit IS
+            while (!S.empty()) {
+                const auto [u, u_is] = S.back();
+                already_visited.set(u_is);
+                S.pop_back();
+
+                // use only with already_visited
+                ISs[u_is].reset(u);
+
+                // useless to iterate over r+1 that contains only u;
+                for (auto j = 0; j < k_max; ++j) {
+                    // if D is the unit IS set that we are setting to true, we continue
+                    //if (i == u_is) continue;
+                    if (j == i || j == u_is || already_visited[j]) continue;
+
+                    auto& D = ISs[j];
+
+                    // remove vertices non adjacent to u
+                    D &= G.get_neighbor_set(u);
+                    auto di = D.front();
+
+                    if (di == custom_bitset::npos) { // empty IS, conflict detected
+                        conflict_found = true;
+                        V.reset(ui);
+                        ISs[i].reset(ui);
+                        ISs_copy[i].reset(ui);
+
+                        // more than one conflict can be found, but it's redundant
+                        break;
+                    }
+                    if (!already_added[j] && D.next(di) == custom_bitset::npos) { // Unit IS
+                        already_added.set(j);
+                        S.emplace_back(di, j);
+                    }
                 }
-                V.reset(u);
-            } else {
-                // update alpha with the biggest node not removed so far
-                alpha[i] = u;
+
+                // empty IS has been derived, we break
+                if (conflict_found) break;
+            }
+
+            if (!conflict_found) alpha[i] = ui;
+
+            for (auto is = 0; is < k_max; ++is) {
+                //if (is == i) continue;
+                ISs[is] = ISs_copy[is];
             }
         }
+        if (ISs[i].none()) return false;
     }
     return true;
 }
@@ -406,12 +455,11 @@ inline void FindMaxClique(
     steps++;
 
     for (auto bi : B) {
-
         // if bi == 0, u[bi] always == 1!
         u[bi] = 1;
 
         custom_bitset::get_prev_neighbor_set(G.get_neighbor_set(bi), V, bi, prev_neighb_set);
-        for (const auto neighbor : prev_neighb_set) {
+        for (const auto neighbor : std::ranges::reverse_view(prev_neighb_set)) {
             u[bi] = std::max(u[bi], 1+u[neighbor]);
             // no point continue searching, we will overwrite this anyway with a potentially lower value
             if (u[bi] + curr-1 > lb) break;
@@ -452,7 +500,9 @@ inline void FindMaxClique(
             // It's necessary to continue
             if (!FiltCOL(G, V_new, ISs[0], ISs[depth], new_alpha, k+1, is_k_partite)) continue;
             if (!FiltSAT(G, V_new, ISs[depth], new_alpha, k+1)) continue;
-            B_new = ISEQ_branching(G, V_new, k);
+            B_new = ISs[depth][k];
+            //B_new = ISEQ_branching(G, V_new, k);
+            //if (!IncMaxSat(G, V_new, B_new, ISs[0], k, u)) continue;
         } else {
             B_new = ISEQ_branching(G, V_new, ISs[0], new_alpha, k);
             if (B_new.none()) continue;
@@ -463,11 +513,12 @@ inline void FindMaxClique(
                 // if we could return here, huge gains... damn
                 if (!FiltSAT(G, V_new, ISs[0], new_alpha, k+1)) continue;
                 // TODO: which one?
-                B_new = ISEQ_branching(G, V_new, k);
-                //B_new = ISEQ_branching(G, V_new, ISs[0], new_alpha, k);
-            } else {
+                B_new = ISs[0][k];
+                //B_new = ISEQ_branching(G, V_new, k);
                 //if (!IncMaxSat(G, V_new, B_new, ISs[0], k, u)) continue;
+            } else {
                 if (!SATCOL(G, B_new, ISs[0], k)) continue;
+                if (!IncMaxSat(G, V_new, B_new, ISs[0], k, u)) continue;
             }
         }
 
