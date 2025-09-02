@@ -294,7 +294,7 @@ public:
             res._bits[block] = ((V._bits[block] - B._bits[block]) & neigh_set._bits[block]) | (neigh_set._bits[block] & V._bits[block]);
             non_empty |= (res._bits[block] != 0);
         }
-        res._bits[block] = ((V._bits[block] - B._bits[block]) & neigh_set._bits[block]) | ((neigh_set._bits[block] & below_mask(bi)) & V._bits[block]);
+        res._bits[block] = ((V._bits[block] - B._bits[block]) & neigh_set._bits[block]) | ((neigh_set._bits[block] & below_mask(bi.bit)) & V._bits[block]);
         non_empty |= (res._bits[block] != 0);
         for (++block; block < res._bits.size(); ++block) {
             res._bits[block] = ((V._bits[block] - B._bits[block]) & neigh_set._bits[block]);
@@ -310,7 +310,7 @@ public:
             res._bits[block] = (P._bits[block] & neigh_set._bits[block]) | (neigh_set._bits[block] & V._bits[block]);
             non_empty |= (res._bits[block] != 0);
         }
-        res._bits[block] = (P._bits[block] & neigh_set._bits[block]) | ((neigh_set._bits[block] & below_mask(bi)) & V._bits[block]);
+        res._bits[block] = (P._bits[block] & neigh_set._bits[block]) | ((neigh_set._bits[block] & below_mask(bi.bit)) & V._bits[block]);
         non_empty |= (res._bits[block] != 0);
         for (++block; block < res._bits.size(); ++block) {
             res._bits[block] = (P._bits[block] & neigh_set._bits[block]);
@@ -326,7 +326,7 @@ public:
             res._bits[block] = V._bits[block] & neigh_set._bits[block];
             non_empty |= (res._bits[block] != 0);
         }
-        res._bits[block] = (V._bits[block] - (B._bits[block] & after_mask(bi))) & neigh_set._bits[block];
+        res._bits[block] = (V._bits[block] - (B._bits[block] & after_mask(bi.bit))) & neigh_set._bits[block];
         non_empty |= (res._bits[block] != 0);
         for (++block; block < res._bits.size(); ++block) {
             res._bits[block] = (V._bits[block] - B._bits[block]) & neigh_set._bits[block];
@@ -340,7 +340,7 @@ public:
         for (; block < bi.block; ++block) {
             res._bits[block] = neigh_set._bits[block] & V._bits[block];
         }
-        res._bits[block] = (neigh_set._bits[block] & below_mask(bi)) & V._bits[block];
+        res._bits[block] = (neigh_set._bits[block] & below_mask(bi.bit)) & V._bits[block];
         for (++block; block < res._bits.size(); ++block) {
             res._bits[block] = 0;
         }
@@ -350,7 +350,7 @@ public:
         for (; block < bi.block; ++block) {
             res._bits[block] = neigh_set._bits[block];
         }
-        res._bits[block] = (neigh_set._bits[block] & below_mask(bi));
+        res._bits[block] = (neigh_set._bits[block] & below_mask(bi.bit));
         for (++block; block < res._bits.size(); ++block) {
             res._bits[block] = 0;
         }
