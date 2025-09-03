@@ -114,14 +114,20 @@ inline const custom_bitset & custom_graph::operator[](const size_type pos) const
 
 // Rest of the implementation follows the same pattern as custom_graph
 inline void custom_graph::add_edge(const size_type u, const size_type v) {
-    if (u >= size() || v >= size() || _graph[u][v]) return;
+    assert (u < size());
+    assert (v < size());
+    [[assume(u < size())]];
+    [[assume(v < size())]];
 
     _graph[u].set(v);
     _graph[v].set(u);
 }
 
 inline void custom_graph::remove_edge(const size_type u, const size_type v) {
-    if (u >= size() || v >= size() || !_graph[u][v]) return;
+    assert (u < size());
+    assert (v < size());
+    [[assume(u < size())]];
+    [[assume(v < size())]];
 
     _graph[u].reset(v);
     _graph[v].reset(u);

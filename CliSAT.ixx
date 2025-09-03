@@ -4,7 +4,6 @@ module;
 #include <iostream>
 #include <print>
 #include <chrono>
-#include <ranges>
 
 export module CliSAT;
 
@@ -14,188 +13,40 @@ import custom_graph;
 import sorting;
 import coloring;
 
-/**
- *
- */
-bool IncMaxSat(
-    custom_graph& G,
-    const custom_bitset& V,
-    custom_bitset& B,
-    std::vector<custom_bitset>& ISs,
-    const int k_start,
-    std::vector<int>& u
-) {
-    static std::vector ISs_copy(G.size(), custom_bitset(G.size()));
-    static std::vector<std::pair<custom_bitset::reference, int>> S;
-    static custom_bitset already_added(G.size());
-    static custom_bitset already_visited(G.size());
-    static custom_bitset unit_is(G.size());
-    static custom_bitset conflicting_clauses(G.size());
-
-    auto orig_size = G.size();
-
-    auto last_ui = 0;
-    auto k = k_start;
-
-    for (const auto ui : B) {
-        last_ui = ui;
-        S.clear();
-        bool conflict_found = false;
-
-        unit_is.set(ui); // we create a unit independent set with the current vertex ui
-        ISs[k] = unit_is; // we add the unit independent set to ISs
-        unit_is.reset(ui);
-
-        S.emplace_back(ui, k); // we add the current vertex ui to the stack S
-
-        k++;
-
-        for (auto i = 0; i < k; ++i) {
-            ISs_copy[i] = ISs[i];
-        }
-
-        already_added.reset();
-        already_visited.reset();
-
-        conflicting_clauses.reset();
-
-        // for each Unit IS
-        while (!S.empty()) {
-            const auto [u, u_is] = S.back();
-            already_visited.set(u_is);
-            S.pop_back();
-
-            // insert current node to the culprit_ISs
-            conflicting_clauses.set(u_is);
-
-            // use only with already_visited
-            ISs[u_is].reset(u);
-
-            // useless to iterate over r+1 that contains only u;
-            for (auto i = 0; i < k; ++i) {
-                // if D is the unit IS set that we are setting to true, we continue
-                //if (i == u_is) continue;
-                if (i == u_is || already_visited[i]) continue;
-
-                auto& D = ISs[i];
-
-                // remove vertices non adjacent to u
-                D &= G.get_neighbor_set(u);
-                auto di = D.front();
-
-                if (di == custom_bitset::npos) { // empty IS, conflict detected
-                    conflicting_clauses.set(i); // we have derived an empty independent set
-                    conflict_found = true;
-                    B.reset(ui);
-
-                    // more than one conflict can be found, but it's redundant
-                    break;
-                }
-                if (!already_added[i] && D.next(di) == custom_bitset::npos) { // Unit IS
-                    already_added.set(i);
-                    S.emplace_back(di, i);
-                }
-            }
-
-            // empty IS has been derived, we break
-            if (conflict_found) break;
-        }
-
-        for (auto i = 0; i < k; ++i) {
-            ISs[i] = ISs_copy[i];
-        }
-
-        if (!conflict_found) break;
-
-        auto first_node = G.size();
-
-        G.resize(G.size() + conflicting_clauses.count());
-        unit_is.resize(G.size());
-
-        // k+1 for next iteration
-        for (auto is = 0; is < k+1; ++is) {
-            ISs[is].resize(G.size());
-            ISs_copy[is].resize(G.size());
-        }
-
-        auto last_node = first_node;
-
-        for (const auto is : conflicting_clauses) {
-            for (auto curr_is = 0; curr_is < k; ++curr_is) {
-                if (static_cast<std::size_t>(curr_is) == is) continue; // skip the current IS
-
-                for (auto v : ISs[curr_is]) {
-                    if (v >= first_node) break; // skip new vertices
-                    G.add_edge(last_node, v);
-                }
-            }
-            for (auto v : B) {
-                G.add_edge(last_node, v);
-            }
-
-            ISs[is].set(last_node); // add the new vertex to the is
-            ++last_node;
-        }
-
-        if (B.none()) break;
-    }
-
-    G.resize(orig_size);
-    unit_is.resize(orig_size);
-    for (auto is = 0; is < k+1; ++is) {
-        ISs[is].resize(orig_size);
-        ISs_copy[is].resize(orig_size);
-    }
-
-    //if (B.none()) return false;
-
-    // TODO: correct?
-    for (auto a = V.next(last_ui); a < B.back(); a = V.next(a)) {
-        u[a] = std::min(u[a], k_start);
-    }
-
-    //return true;
-    return B.any();
-}
-
 bool SATCOL(
     custom_graph& G,
     custom_bitset& B,
     std::vector<custom_bitset>& ISs,
     int k
 ) {
-    static std::vector ISs_copy(G.size(), custom_bitset(G.size()));
     static std::vector<std::pair<custom_bitset::reference, int>> S;
     static custom_bitset already_added(G.size());
     static custom_bitset already_visited(G.size());
-    static custom_bitset unit_is(G.size());
     static custom_bitset conflicting_clauses(G.size());
-    static std::vector ISs_B(G.size(), custom_bitset(G.size()));
-    const auto k_B = ISEQ_all(G, B, ISs_B);
+    static custom_bitset IS_B(G.size());
+    static custom_bitset neighbors(G.size());
+    static custom_bitset D(G.size());
 
     const auto orig_size = G.size();
+    conflicting_clauses.reset();
 
-    for (auto B_is = 0; B_is < k_B; B_is++) {
-        ISs_B[B_is].resize(G.size());
+    // SATCOL iterates until:
+    //  - it fails to find a conflict
+    //  - B is empty
+    do {
+        ISEQ_one(G, B, IS_B);
         bool conflict_found = false;
 
-        conflicting_clauses.reset();
-        for (auto ui : ISs_B[B_is]) {
+        for (const auto ui : IS_B) {
             S.clear();
             conflict_found = false;
 
-            unit_is.set(ui); // we create a unit independent set with the current vertex ui
-            ISs[k] = unit_is; // we add the unit independent set to ISs
-            unit_is.reset(ui);
-
             S.emplace_back(ui, k); // we add the current vertex ui to the stack S
-
-            for (auto i = 0; i <= k; ++i) {
-                ISs_copy[i] = ISs[i];
-            }
 
             already_added.reset();
             already_visited.reset();
+
+            neighbors.set();
 
             // for each Unit IS
             while (!S.empty()) {
@@ -206,19 +57,16 @@ bool SATCOL(
                 // insert current node to the culprit_ISs
                 conflicting_clauses.set(u_is);
 
-                // use only with already_visited
-                ISs[u_is].reset(u);
+                neighbors &= G.get_neighbor_set(u);
 
                 // useless to iterate over r+1 that contains only u;
-                for (auto i = 0; i < k; ++i) {
+                //for (auto i = 0; i < k; ++i) {
+                for (auto i = k-1; i >= 0; --i) {
                     // if D is the unit IS set that we are setting to true, we continue
-                    //if (i == u_is) continue;
                     if (i == u_is || already_visited[i]) continue;
 
-                    auto& D = ISs[i];
-
                     // remove vertices non adjacent to u
-                    D &= G.get_neighbor_set(u);
+                    custom_bitset::AND(ISs[i], neighbors, D);
                     auto di = D.front();
 
                     if (di == custom_bitset::npos) { // empty IS, conflict detected
@@ -239,62 +87,63 @@ bool SATCOL(
                 if (conflict_found) break;
             }
 
-            for (auto i = 0; i < k; ++i) {
-                ISs[i] = ISs_copy[i];
-            }
             if (!conflict_found) break;
         }
 
+        // TODO: break or continue?
         if (!conflict_found) break;
 
-        ISs[k] = ISs_B[B_is]; // we add the unit independent set to ISs
+        ISs[k] = IS_B; // we add the unit independent set to ISs
 
         // conflict found!
-        for (auto v : ISs_B[B_is]) B.reset(v);
+        B -= IS_B;
         if (B.none()) break;
 
         k++;
 
-        auto first_node = G.size();
+        const auto first_node = G.size();
 
         G.resize(G.size() + conflicting_clauses.count());
-        unit_is.resize(G.size());
+        B.resize(G.size());
+        neighbors.resize(G.size());
+        D.resize(G.size());
+        IS_B.resize(G.size());
 
         // k+1 for next iteration
-        for (auto is = 0; is < k+1; ++is) {
+        for (auto is = 0; is < k+1; ++is)
             ISs[is].resize(G.size());
-            ISs_copy[is].resize(G.size());
-        }
 
         auto last_node = first_node;
 
-        for (const auto is : conflicting_clauses) {
+        // we reset conflicting_clauses while scanning it
+        for (auto is = conflicting_clauses.pop_front(); is != custom_bitset::npos; is = conflicting_clauses.pop_next(is)) {
             for (auto curr_is = 0; curr_is <= k; ++curr_is) {
                 if (static_cast<std::size_t>(curr_is) == is) continue; // skip the current IS
 
-                for (auto v : ISs[curr_is]) {
+                for (const auto v : ISs[curr_is]) {
                     if (v >= first_node) break; // skip new vertices
                     G.add_edge(last_node, v);
                 }
             }
-            for (auto v : B) {
+            // add edge also to future nodes
+            for (const auto v : B) {
                 G.add_edge(last_node, v);
             }
 
             ISs[is].set(last_node); // add the new vertex to the is
             ++last_node;
         }
-    }
+    } while (true);
 
     G.resize(orig_size);
-    unit_is.resize(orig_size);
-    for (auto is = 0; is < k+1; ++is) {
+    B.resize(orig_size);
+    neighbors.resize(orig_size);
+    D.resize(orig_size);
+    IS_B.resize(orig_size);
+
+    for (auto is = 0; is < k+1; ++is)
         ISs[is].resize(orig_size);
-        ISs_copy[is].resize(orig_size);
-    }
-    for (auto is = 0; is < k_B; ++is) {
-        ISs_B[is].resize(orig_size);
-    }
+
 
     return B.any();
 }
@@ -365,7 +214,7 @@ bool FiltSAT(
     // we apply FL (Failed Literal) to every vertex of each IS of Ct-alpha
     //for (int i = 0; i < k_max; ++i) {
     for (int i = k_max-1; i >= 0; --i) {
-        for (auto ui : ISs[i]) {
+        for (const auto ui : ISs[i]) {
             S.clear();
             bool conflict_found = false;
 
@@ -451,7 +300,7 @@ void FindMaxClique(
     // bitset containing all elements of P and all elements of B up to j
     auto P_Bj = V - B;
 
-    for (auto bi : B) {
+    for (const auto bi : B) {
         P_Bj.set(bi);
         // if bi == 0, u[bi] always == 1!
         u[bi] = 1;
@@ -518,7 +367,6 @@ void FindMaxClique(
                 //B_new = ISEQ_branching(G, V_new, k);
             } else {
                 if (!SATCOL(G, B_new, ISs[depth], k)) continue;
-                if (!IncMaxSat(G, V_new, B_new, ISs[depth], k, u)) continue;
             }
         }
 

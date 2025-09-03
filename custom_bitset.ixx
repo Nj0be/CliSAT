@@ -332,6 +332,7 @@ public:
     [[nodiscard]] size_type degree() const noexcept { return count(); };
 
     void flip() noexcept;
+    void set() noexcept;
     void reset() noexcept;
 
     [[nodiscard]] size_type size() const noexcept { return _size; }
@@ -371,7 +372,7 @@ inline std::ostream& operator<<(std::ostream &stream, const custom_bitset &bb) {
     stream << '[';
     std::size_t tot = 0;
 
-    for (auto v : bb) {
+    for (const auto v : bb) {
         stream << v << ' ';
         ++tot;
     }
@@ -712,6 +713,13 @@ inline void custom_bitset::reset(const reference &ref) {
     [[assume(ref < _size)]];
 
     _bits[ref.block] &= ~mask_bit(ref.bit);
+}
+
+inline void custom_bitset::set() noexcept {
+    const auto a = _bits.data();
+
+    for (size_type i = 0; i < _bits.size(); i++)
+        a[i] = std::numeric_limits<block_type>::max();
 }
 
 inline void custom_bitset::reset() noexcept {

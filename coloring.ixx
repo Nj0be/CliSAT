@@ -110,6 +110,7 @@ export custom_bitset ISEQ_branching(
     return Ubb;
 }
 
+// methods that tries to create the largest number of independent sets
 export int ISEQ_all(
     const custom_graph& g,
     custom_bitset Ubb,
@@ -126,6 +127,19 @@ export int ISEQ_all(
         }
     }
     return k;
+}
+
+// methods that tries to create the largest number of independent sets
+export inline void ISEQ_one(
+    const custom_graph& g,
+    const custom_bitset &Ubb,
+    custom_bitset& IS
+) {
+    IS = Ubb;
+    for (const auto v : IS) {
+        // at most, we can remove vertices, so we don't need to start a new scan
+        IS -= g.get_neighbor_set(v);
+    }
 }
 
 export bool is_IS(
