@@ -14,7 +14,7 @@ import custom_bitset;
 
 // Independent Set Sequential
 // computes the chromatic number of a graph using a greedy strategy (heuristic)
-export inline int ISEQ(const custom_graph& g, custom_bitset Ubb) {
+export int ISEQ(const custom_graph& g, custom_bitset Ubb) {
     custom_bitset Qbb(Ubb.size());
     int k = 0;
     for (k = 0; Ubb.any(); ++k) {
@@ -30,7 +30,7 @@ export inline int ISEQ(const custom_graph& g, custom_bitset Ubb) {
 }
 
 // Used to get the independent sets from ISEQ
-export inline std::vector<custom_bitset> ISEQ_sets(const custom_graph& g, custom_bitset Ubb) {
+export std::vector<custom_bitset> ISEQ_sets(const custom_graph& g, custom_bitset Ubb) {
     std::vector<custom_bitset> independent_sets;
     custom_bitset Qbb(Ubb.size());
 
@@ -47,7 +47,7 @@ export inline std::vector<custom_bitset> ISEQ_sets(const custom_graph& g, custom
     return independent_sets;
 }
 
-export inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const int k_max) {
+export custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const int k_max) {
     custom_bitset pruned(g.size());
     custom_bitset Qbb(Ubb.size());
     int k = 0;
@@ -65,10 +65,11 @@ export inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb
 }
 
 // if we can't generate k independent sets, Ubb will be empty so then node will be fathomed (B empty)
-export inline custom_bitset ISEQ_branching(
+export custom_bitset ISEQ_branching(
     const custom_graph& g,
     custom_bitset Ubb,
     std::vector<custom_bitset>& ISs,
+    std::vector<int>& color_class,
     std::vector<std::size_t>& alpha,
     const int k_max
 ) {
@@ -82,6 +83,7 @@ export inline custom_bitset ISEQ_branching(
             last_v = v;
             // at most, we can remove vertices, so we don't need to start a new scan
             ISs[k] -= g.get_neighbor_set(v);
+            color_class[v] = k;
             Ubb.reset(v);
         }
         alpha[k] = last_v;
@@ -89,7 +91,7 @@ export inline custom_bitset ISEQ_branching(
     return Ubb;
 }
 
-export inline custom_bitset ISEQ_branching(
+export custom_bitset ISEQ_branching(
     const custom_graph& g,
     custom_bitset Ubb,
     const int k_max
@@ -108,7 +110,7 @@ export inline custom_bitset ISEQ_branching(
     return Ubb;
 }
 
-export inline int ISEQ_all(
+export int ISEQ_all(
     const custom_graph& g,
     custom_bitset Ubb,
     std::vector<custom_bitset>& ISs
@@ -126,7 +128,7 @@ export inline int ISEQ_all(
     return k;
 }
 
-export inline bool is_IS(
+export bool is_IS(
     const custom_graph& g,
     const custom_bitset& Ubb
 ) {

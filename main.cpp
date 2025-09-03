@@ -8,8 +8,10 @@
 import CliSAT;
 import custom_graph;
 import custom_bitset;
+import instructions;
 
 int main(int argc, char *argv[]) {
+    initialize();
     /*
     custom_bitset a(64, true);
     std::cout << a << std::endl;
@@ -31,7 +33,7 @@ int main(int argc, char *argv[]) {
     //auto filename = "../../CliSAT_instances/dimacs/san1000.clq"; //15
     //auto filename = "../../CliSAT_instances/dimacs/san200_0.9_1.clq"; //70
     //auto filename = "../../CliSAT_instances/dimacs/san200_0.9_2.clq"; //60
-     auto filename = "../../CliSAT_instances/dimacs/san400_0.7_1.clq"; //40
+    auto filename = "../../CliSAT_instances/dimacs/san400_0.7_1.clq"; //40
     //auto filename = "../../CliSAT_instances/dimacs/san400_0.7_3.clq"; //22
     //auto filename = "../../CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
     //auto filename = "../../CliSAT_instances/dimacs/sanr200_0.7.clq"; //18

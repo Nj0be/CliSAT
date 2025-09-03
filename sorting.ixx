@@ -19,7 +19,7 @@ import BBMC;
 import coloring;
 
 // Minimum Weight Sort
-inline std::vector<uint64_t> MWS(custom_graph g) {
+std::vector<uint64_t> MWS(custom_graph g) {
     std::vector<uint64_t> vertices(g.size());
     std::vector<uint64_t> degrees(g.size());
     std::vector<uint64_t> neighb_deg(g.size());
@@ -63,7 +63,7 @@ inline std::vector<uint64_t> MWS(custom_graph g) {
 
 // DEG_SORT
 // Minimum Weight Sort with Initial sorting
-inline std::vector<std::size_t> MWSI(custom_graph g, const int p=3) {
+std::vector<std::size_t> MWSI(custom_graph g, const int p=3) {
     std::vector<std::size_t> vertices(g.size());
     std::vector<std::size_t> degrees(g.size());
     std::vector<std::size_t> neighb_deg(g.size());
@@ -112,7 +112,7 @@ inline std::vector<std::size_t> MWSI(custom_graph g, const int p=3) {
     return vertices;
 }
 
-inline std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
+std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
     const auto g_complement = g.get_complement();
 
     std::vector<std::size_t> Ocolor;
@@ -136,7 +136,7 @@ inline std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& 
     return {Ocolor, k};
 }
 
-export inline std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=3) {
+export std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=3) {
     auto Odeg = MWSI(g, p);
     auto [Ocolor, k] = COLOUR_SORT(g);
 

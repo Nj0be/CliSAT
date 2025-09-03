@@ -25,6 +25,7 @@ target_sources(CliSAT
             CliSAT.ixx
             sorting.ixx
             coloring.ixx
+            instructions.ixx
 )
 
 target_include_directories(CliSAT PUBLIC
