@@ -446,7 +446,7 @@ export custom_bitset CliSAT(const custom_graph& g) {
 
     for (std::size_t i = lb; i < ordered_g.size(); ++i) {
         auto begin = std::chrono::steady_clock::now();
-        auto V = custom_bitset::before(ordered_g.get_neighbor_set(i), custom_bitset::reference(i));
+        auto V = custom_bitset::before(ordered_g.get_neighbor_set(i), i);
         B = V;
 
         // we pruned first lb vertices of V (they can't improve the solution on they own)

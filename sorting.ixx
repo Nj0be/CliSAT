@@ -52,8 +52,8 @@ std::vector<uint64_t> MWS(custom_graph g) {
         for (auto cursor = g[*v_min].pop_front();
              cursor != custom_bitset::npos;
              cursor = g[*v_min].pop_next(cursor)) {
-            degrees[*cursor]--;
-            g[*cursor].reset(*v_min);
+            degrees[cursor]--;
+            g[cursor].reset(*v_min);
         }
         std::iter_swap(v_min, std::prev(vertices.end(), static_cast<std::ptrdiff_t>(i)));
     }

@@ -35,7 +35,7 @@ inline bool BB_ReCol(const custom_graph& g, const uint64_t v, std::vector<custom
         if (inters.next(w) == inters.size()) {  // |set| = 1 -> double swap
             for (int64_t k2 = k1+1; k2 < k_min; ++k2) {
                 inters = C_sets[k2];
-                inters &= g.get_neighbor_set(*w);
+                inters &= g.get_neighbor_set(w);
                 // if the intersection between Ck2 and N(w) = 0 then we can put w in Ck2 and v in Ck1
                 if (inters.none()) {
                     // Ck1 = (Ck1 \ w) U v
@@ -61,16 +61,16 @@ inline void BB_ColorR(const custom_graph& g, custom_bitset Ubb, std::vector<uint
         auto cursor = C_sets[k].front();
 
         while (cursor != C_sets[k].size()) {
-            C_sets[k] -= g.get_neighbor_set(*cursor);
+            C_sets[k] -= g.get_neighbor_set(cursor);
 
             //prefetch next vertex to check if the current one is the last
             const auto next_cursor = C_sets[k].next(cursor);
 
             if (k >= k_min) {
                 // if v is the last element remaining to color
-                if (next_cursor == C_sets[k].size() && BB_ReCol(g, *cursor, C_sets, k_min)) break;
-                C[*cursor] = k;
-                Ul.push_back(*cursor);
+                if (next_cursor == C_sets[k].size() && BB_ReCol(g, cursor, C_sets, k_min)) break;
+                C[cursor] = k;
+                Ul.push_back(cursor);
             }
 
             cursor = next_cursor;
