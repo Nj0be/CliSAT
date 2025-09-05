@@ -15,6 +15,58 @@ import custom_graph;
 import sorting;
 import coloring;
 
+bool fix_unit_iset(
+    custom_graph& G,
+    custom_bitset& already_added,
+    custom_bitset& already_visited,
+    custom_bitset& conflicting_clauses,
+    custom_bitset& neighbors,
+    std::stack<std::pair<custom_bitset::reference, int>>& s,
+    std::vector<custom_bitset>& ISs,
+    int k,
+    int u,
+    int u_is
+) {
+    custom_bitset D(G.size());
+    bool conflict_found = false;
+    // insert current node to the culprit_ISs
+    conflicting_clauses.set(u_is);
+
+    neighbors &= G.get_neighbor_set(u);
+
+    // useless to iterate over r+1 that contains only u;
+    for (auto is = 0; is < k; ++is) {
+        //for (auto i = k-1; i >= 0; --i) {
+        // if D is the unit IS set that we are setting to true, we continue
+        if (is == u_is || already_visited[is]) continue;
+
+        // remove vertices non adjacent to u
+        custom_bitset::AND(ISs[is], neighbors, D);
+        auto di = D.front();
+
+        if (di == custom_bitset::npos) { // empty IS, conflict detected
+            conflicting_clauses.set(is); // we have derived an empty independent set
+            conflict_found = true;
+
+            // more than one conflict can be found, but it's redundant
+            /* TODO: CliSAT paper, page2, says:
+            * In the latter case, the soft clauses (2) in which a positive literal is set to
+            * true, together with the soft clause that becomes empty, determine
+            * a conflict.
+            * So it must continue to find every conflict (empty clause)
+            */
+            //break;
+        }
+        if (!already_added.test(is) && D.next(di) == custom_bitset::npos) { // Unit IS
+            already_added.set(is);
+            s.emplace(di, is);
+        }
+    }
+
+    // empty IS has been derived, we break
+    return conflict_found;
+}
+
 bool SATCOL(
     custom_graph& G,
     custom_bitset& B,
@@ -26,7 +78,6 @@ bool SATCOL(
     static custom_bitset conflicting_clauses(G.size());
     static custom_bitset IS_B(G.size());
     static custom_bitset neighbors(G.size());
-    static custom_bitset D(G.size());
 
     const auto orig_size = G.size();
     conflicting_clauses.reset();
@@ -55,41 +106,7 @@ bool SATCOL(
                 s.pop();
                 already_visited.set(u_is);
 
-                // insert current node to the culprit_ISs
-                conflicting_clauses.set(u_is);
-
-                neighbors &= G.get_neighbor_set(u);
-
-                // useless to iterate over r+1 that contains only u;
-                for (auto is = 0; is < k; ++is) {
-                //for (auto i = k-1; i >= 0; --i) {
-                    // if D is the unit IS set that we are setting to true, we continue
-                    if (is == u_is || already_visited[is]) continue;
-
-                    // remove vertices non adjacent to u
-                    custom_bitset::AND(ISs[is], neighbors, D);
-                    auto di = D.front();
-
-                    if (di == custom_bitset::npos) { // empty IS, conflict detected
-                        conflicting_clauses.set(is); // we have derived an empty independent set
-                        conflict_found = true;
-
-                        // more than one conflict can be found, but it's redundant
-                        /* TODO: CliSAT paper, page2, says:
-                        * In the latter case, the soft clauses (2) in which a positive literal is set to
-                        * true, together with the soft clause that becomes empty, determine
-                        * a conflict.
-                        * So it must continue to find every conflict (empty clause)
-                        */
-                        //break;
-                    }
-                    if (!already_added.test(is) && D.next(di) == custom_bitset::npos) { // Unit IS
-                        already_added.set(is);
-                        s.emplace(di, is);
-                    }
-                }
-
-                // empty IS has been derived, we break
+                conflict_found = fix_unit_iset(G, already_added, already_visited, conflicting_clauses, neighbors, s, ISs, k, u, u_is);
                 if (conflict_found) break;
             }
 
@@ -112,7 +129,6 @@ bool SATCOL(
         G.resize(G.size() + conflicting_clauses.count());
         B.resize(G.size());
         neighbors.resize(G.size());
-        D.resize(G.size());
         IS_B.resize(G.size());
 
         // k+1 for next iteration
@@ -143,7 +159,6 @@ bool SATCOL(
     G.resize(orig_size);
     B.resize(orig_size);
     neighbors.resize(orig_size);
-    D.resize(orig_size);
     IS_B.resize(orig_size);
 
     for (auto is = 0; is < k+1; ++is)

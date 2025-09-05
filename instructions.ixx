@@ -88,7 +88,7 @@ export inline bool bit_test(const uint_fast32_t x, const std::size_t n) {
     return (x >> n) & 1;
 }
 
-export void initialize() {
+export inline void initialize() {
     popcount_func = has_popcnt() ? popcnt_hw : popcnt_sw;
 }
 

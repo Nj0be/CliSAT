@@ -106,11 +106,11 @@ inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<uint
 
                 // select v from V\S such that d[v] < integer part of k*p
                 auto new_v = S_neg.front();
-                while (new_v != S_neg.size()) {
+                while (new_v != custom_bitset::npos) {
                     if (d[new_v] < static_cast<uint64_t>(k*g.get_density())) break;
                     new_v = S_neg.next(new_v);
                 }
-                if (new_v != S_neg.size()) {
+                if (new_v != custom_bitset::npos) {
                     u = new_u;
                     v = new_v;
                 }
@@ -163,7 +163,7 @@ export inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const u
 
         auto v = S_neg.front();
         auto selected_v = v;
-        while (v != S_neg.size()) {
+        while (v != custom_bitset::npos) {
             auto v_edges = (g.get_neighbor_set(v) & S).count();
             if (v_edges > OutMaxEdge) {
                 OutMaxEdge = v_edges;

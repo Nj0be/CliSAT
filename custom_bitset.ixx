@@ -30,7 +30,7 @@ public:
 
     public:
         constexpr reference(const size_type block, const size_type bit): block(block), bit(bit) {}
-        inline explicit reference(const size_type pos) : block(get_block(pos)), bit(get_block_bit(pos)) {}
+        constexpr explicit reference(const size_type pos) : block(get_block(pos)), bit(get_block_bit(pos)) {}
 
         inline bool operator==(const reference& other) const { return block == other.block && bit == other.bit; }
 
@@ -62,7 +62,7 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        consteval explicit iterator() : bs(nullptr), ref(0, 0) {}
+        inline explicit iterator() : bs(nullptr), ref(0, 0) {}
         inline iterator(custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
         inline iterator(custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
 
@@ -73,21 +73,15 @@ public:
             return *this;
         }
 
-        // Conversion to bool for reading
         inline explicit operator bool() const { return bs->test(ref); }
 
-        // prefix increment
         inline iterator& operator++() { ref = bs->next(ref); return *this; }
-        // postfix increment
         inline iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
-        // prefix decrement
         inline iterator& operator--() { ref = bs->prev(ref); return *this; }
-        // postfix decrement
         inline iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
         inline bool operator==(const iterator& other) const { return bs == other.bs && ref == other.ref; }
-        //bool operator!=(const iterator& other) const { return !(*this == other); }
 
         friend class custom_bitset;
     };
@@ -102,33 +96,25 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        consteval explicit const_iterator() : bs(nullptr), ref(0, 0) {}
+        inline explicit const_iterator() : bs(nullptr), ref(0, 0) {}
         inline const_iterator(const custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
         inline const_iterator(const custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
         inline explicit const_iterator(const iterator& it) : bs(it.bs), ref(it.ref) {}
 
         inline reference operator*() const { return ref; }
 
-        inline explicit operator bool() const {
-            return bs->test(ref);
-        }
+        inline explicit operator bool() const { return bs->test(ref); }
 
-        // prefix increment
         inline const_iterator& operator++() { ref = bs->next(ref); return *this; }
-        // postfix increment
         inline const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
-        // prefix decrement
         inline const_iterator& operator--() { ref = bs->prev(ref); return *this; }
-        // postfix decrement
         inline const_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
         inline bool operator==(const const_iterator& other) const { return bs == other.bs && ref == other.ref; }
-        //bool operator!=(const const_iterator& other) const { return !(*this == other); }
 
         friend class custom_bitset;
     };
-
 
     class reverse_iterator {
         custom_bitset* bs;
@@ -140,7 +126,7 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        consteval explicit reverse_iterator() : bs(nullptr), ref(0, 0) {}
+        inline explicit reverse_iterator() : bs(nullptr), ref(0, 0) {}
         inline reverse_iterator(custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
         inline reverse_iterator(custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
 
@@ -151,21 +137,15 @@ public:
             return *this;
         }
 
-        // Conversion to bool for reading
         inline explicit operator bool() const { return bs->test(ref); }
 
-        // prefix increment
         inline reverse_iterator& operator--() { ref = bs->next(ref); return *this; }
-        // postfix increment
         inline reverse_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
-        // prefix decrement
         inline reverse_iterator& operator++() { ref = bs->prev(ref); return *this; }
-        // postfix decrement
         inline reverse_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
         inline bool operator==(const reverse_iterator& other) const { return bs == other.bs && ref == other.ref; }
-        //bool operator!=(const iterator& other) const { return !(*this == other); }
 
         friend class custom_bitset;
     };
@@ -180,29 +160,22 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        consteval explicit reverse_const_iterator() : bs(nullptr), ref(0, 0) {}
+        inline explicit reverse_const_iterator() : bs(nullptr), ref(0, 0) {}
         inline reverse_const_iterator(const custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
         inline reverse_const_iterator(const custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
         inline explicit reverse_const_iterator(const iterator& it) : bs(it.bs), ref(it.ref) {}
 
         inline reference operator*() const { return ref; }
 
-        inline explicit operator bool() const {
-            return bs->test(ref);
-        }
+        inline explicit operator bool() const { return bs->test(ref); }
 
-        // prefix increment
         inline reverse_const_iterator& operator++() { ref = bs->next(ref); return *this; }
-        // postfix increment
         inline reverse_const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
-        // prefix decrement
         inline reverse_const_iterator& operator--() { ref = bs->prev(ref); return *this; }
-        // postfix decrement
         inline reverse_const_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
         inline bool operator==(const reverse_const_iterator& other) const { return bs == other.bs && ref == other.ref; }
-        //bool operator!=(const const_iterator& other) const { return !(*this == other); }
 
         friend class custom_bitset;
     };
@@ -223,9 +196,7 @@ private:
     size_type _size;
     std::vector<block_type> _bits;
 
-    //static size_type get_block(const size_type pos) { return pos/block_size; };
     static constexpr size_type get_block(const size_type pos) noexcept { return pos >> block_size_log2; };
-    //static size_type get_block_bit(const size_type pos) { return pos%block_size; }
     static constexpr size_type get_block_bit(const size_type pos) noexcept { return pos & below_mask(block_size_log2); }
 
     // Used to allocate at least one block regardless of size
@@ -234,11 +205,11 @@ private:
     // it's necessary because even if size it's 0, we still have a block inside bits vector
     static constexpr size_type get_last_block(const size_type size) noexcept { return get_block(size + block_size-1) - (size != 0); }
 
-    static constexpr block_type mask_bit(const size_type bit) noexcept { return block_type{1} << bit; }
-    static constexpr block_type below_mask(const size_type bit) noexcept { return ~from_mask(bit); }
-    static constexpr block_type until_mask(const size_type bit) noexcept { return ~after_mask(bit); }
-    static constexpr block_type from_mask(const size_type bit) noexcept { return ~block_type{0} << bit; }
-    static constexpr block_type after_mask(const size_type bit) noexcept { return ~block_type{1} << bit; }
+    static constexpr block_type mask_bit(size_type bit) noexcept;
+    static constexpr block_type below_mask(size_type bit) noexcept;
+    static constexpr block_type until_mask(size_type bit) noexcept;
+    static constexpr block_type from_mask(size_type bit) noexcept;
+    static constexpr block_type after_mask(size_type bit) noexcept;
 
     template <bool pop>
     reference front_impl(this auto&& self) noexcept;
@@ -253,7 +224,7 @@ private:
     reference prev_impl(this auto&& self, reference ref);
 
 public:
-    consteval custom_bitset() : custom_bitset(0) {}
+    inline custom_bitset() : custom_bitset(0) {}
     explicit custom_bitset(size_type size);
     custom_bitset(size_type size, bool default_value);
     custom_bitset(custom_bitset other, size_type size);
@@ -329,13 +300,13 @@ public:
     [[nodiscard]] inline reference prev(const size_type pos) const { return prev(reference(pos)); }
     inline reference pop_prev(const reference& ref) { return prev_impl<true>(ref); }
 
-    [[nodiscard]] size_type degree() const noexcept { return count(); };
+    [[nodiscard]] inline size_type degree() const noexcept { return count(); };
 
     void flip() noexcept;
     void set() noexcept;
     void reset() noexcept;
 
-    [[nodiscard]] size_type size() const noexcept { return _size; }
+    [[nodiscard]] inline size_type size() const noexcept { return _size; }
     [[nodiscard]] size_type count() const noexcept;
 
     void swap(custom_bitset& other) noexcept;
@@ -359,11 +330,40 @@ public:
     void clear_from(size_type pos);
 };
 
+constexpr custom_bitset::block_type custom_bitset::mask_bit(const size_type bit) noexcept {
+    assert(bit < block_size);
+    [[assume(bit < block_size)]];
+
+    return block_type{1} << bit;
+}
+
+constexpr custom_bitset::block_type custom_bitset::below_mask(const size_type bit) noexcept {
+    return ~from_mask(bit);
+}
+
+constexpr custom_bitset::block_type custom_bitset::until_mask(const size_type bit) noexcept {
+    return ~after_mask(bit);
+}
+
+constexpr custom_bitset::block_type custom_bitset::from_mask(const size_type bit) noexcept {
+    assert(bit < block_size);
+    [[assume(bit < block_size)]];
+
+    return ~block_type{0} << bit;
+}
+
+constexpr custom_bitset::block_type custom_bitset::after_mask(const size_type bit) noexcept {
+    assert(bit < block_size);
+    [[assume(bit < block_size)]];
+
+    return ~block_type{1} << bit;
+}
+
 constexpr custom_bitset::reference custom_bitset::npos(std::numeric_limits<custom_bitset::block_type>::max(), 0);
 
 template <>
 struct std::formatter<custom_bitset::reference> : std::formatter<custom_bitset::size_type> {
-    auto format(const custom_bitset::reference& id, std::format_context& ctx) const {
+    inline auto format(const custom_bitset::reference& id, std::format_context& ctx) const {
         return std::formatter<custom_bitset::size_type>::format(*id, ctx);
     }
 };
@@ -823,7 +823,7 @@ inline void custom_bitset::flip() noexcept {
     _bits.back() &= below_mask(get_block_bit(_size));
 }
 
-custom_bitset::size_type custom_bitset::count() const noexcept {
+inline custom_bitset::size_type custom_bitset::count() const noexcept {
     size_type sum = 0;
 
     const auto a = _bits.data();
