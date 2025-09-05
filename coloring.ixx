@@ -14,7 +14,7 @@ import custom_bitset;
 
 // Independent Set Sequential
 // computes the chromatic number of a graph using a greedy strategy (heuristic)
-export int ISEQ(const custom_graph& g, custom_bitset Ubb) {
+export inline int ISEQ(const custom_graph& g, custom_bitset Ubb) {
     custom_bitset Qbb(Ubb.size());
     int k = 0;
     for (k = 0; Ubb.any(); ++k) {
@@ -30,7 +30,7 @@ export int ISEQ(const custom_graph& g, custom_bitset Ubb) {
 }
 
 // Used to get the independent sets from ISEQ
-export std::vector<custom_bitset> ISEQ_sets(const custom_graph& g, custom_bitset Ubb) {
+export inline std::vector<custom_bitset> ISEQ_sets(const custom_graph& g, custom_bitset Ubb) {
     std::vector<custom_bitset> independent_sets;
     custom_bitset Qbb(Ubb.size());
 
@@ -47,7 +47,7 @@ export std::vector<custom_bitset> ISEQ_sets(const custom_graph& g, custom_bitset
     return independent_sets;
 }
 
-export custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const int k_max) {
+export inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const int k_max) {
     custom_bitset pruned(g.size());
     custom_bitset Qbb(Ubb.size());
     int k = 0;
@@ -65,33 +65,35 @@ export custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const
 }
 
 // if we can't generate k independent sets, Ubb will be empty so then node will be fathomed (B empty)
-export custom_bitset ISEQ_branching(
+export inline void ISEQ_branching(
     const custom_graph& g,
-    custom_bitset Ubb,
+    const custom_bitset& Ubb,
     std::vector<custom_bitset>& ISs,
     std::vector<int>& color_class,
     std::vector<std::size_t>& alpha,
-    const int k_max
+    const int k_max,
+    custom_bitset& B
 ) {
     int k = 0;
     alpha = std::vector<std::size_t>(k_max+1);
 
+    B = Ubb;
+
     for (k = 0; k < k_max; ++k) {
-        ISs[k] = Ubb;
+        ISs[k] = B;
         auto last_v = 0;
         for (const auto v : ISs[k]) {
             last_v = v;
             // at most, we can remove vertices, so we don't need to start a new scan
             ISs[k] -= g.get_neighbor_set(v);
             color_class[v] = k;
-            Ubb.reset(v);
+            B.reset(v);
         }
         alpha[k] = last_v;
     }
-    return Ubb;
 }
 
-export custom_bitset ISEQ_branching(
+export inline custom_bitset ISEQ_branching(
     const custom_graph& g,
     custom_bitset Ubb,
     const int k_max
@@ -111,7 +113,7 @@ export custom_bitset ISEQ_branching(
 }
 
 // methods that tries to create the largest number of independent sets
-export int ISEQ_all(
+export inline int ISEQ_all(
     const custom_graph& g,
     custom_bitset Ubb,
     std::vector<custom_bitset>& ISs
@@ -142,7 +144,7 @@ export inline void ISEQ_one(
     }
 }
 
-export bool is_IS(
+export inline bool is_IS(
     const custom_graph& g,
     const custom_bitset& Ubb
 ) {

@@ -4,6 +4,8 @@ module;
 #include <iostream>
 #include <print>
 #include <chrono>
+#include <queue>
+#include <stack>
 
 export module CliSAT;
 
@@ -19,7 +21,6 @@ bool SATCOL(
     std::vector<custom_bitset>& ISs,
     int k
 ) {
-    static std::vector<std::pair<custom_bitset::reference, int>> S;
     static custom_bitset already_added(G.size());
     static custom_bitset already_visited(G.size());
     static custom_bitset conflicting_clauses(G.size());
@@ -33,15 +34,15 @@ bool SATCOL(
     // SATCOL iterates until:
     //  - it fails to find a conflict
     //  - B is empty
-    do {
+    while (true) {
         ISEQ_one(G, B, IS_B);
-        bool conflict_found = false;
+        auto conflict_found = false;
 
         for (const auto ui : IS_B) {
-            S.clear();
+            std::stack<std::pair<custom_bitset::reference, int>> s;
             conflict_found = false;
 
-            S.emplace_back(ui, k); // we add the current vertex ui to the stack S
+            s.emplace(ui, k); // we add the current vertex ui to the stack S
 
             already_added.reset();
             already_visited.reset();
@@ -49,10 +50,10 @@ bool SATCOL(
             neighbors.set();
 
             // for each Unit IS
-            while (!S.empty()) {
-                const auto [u, u_is] = S.back();
+            while (!s.empty()) {
+                const auto [u, u_is] = s.top();
+                s.pop();
                 already_visited.set(u_is);
-                S.pop_back();
 
                 // insert current node to the culprit_ISs
                 conflicting_clauses.set(u_is);
@@ -60,26 +61,31 @@ bool SATCOL(
                 neighbors &= G.get_neighbor_set(u);
 
                 // useless to iterate over r+1 that contains only u;
-                //for (auto i = 0; i < k; ++i) {
-                for (auto i = k-1; i >= 0; --i) {
+                for (auto is = 0; is < k; ++is) {
+                //for (auto i = k-1; i >= 0; --i) {
                     // if D is the unit IS set that we are setting to true, we continue
-                    if (i == u_is || already_visited[i]) continue;
+                    if (is == u_is || already_visited[is]) continue;
 
                     // remove vertices non adjacent to u
-                    custom_bitset::AND(ISs[i], neighbors, D);
+                    custom_bitset::AND(ISs[is], neighbors, D);
                     auto di = D.front();
 
                     if (di == custom_bitset::npos) { // empty IS, conflict detected
-                        conflicting_clauses.set(i); // we have derived an empty independent set
+                        conflicting_clauses.set(is); // we have derived an empty independent set
                         conflict_found = true;
-                        //B.reset(ui);
 
                         // more than one conflict can be found, but it's redundant
-                        break;
+                        /* TODO: CliSAT paper, page2, says:
+                        * In the latter case, the soft clauses (2) in which a positive literal is set to
+                        * true, together with the soft clause that becomes empty, determine
+                        * a conflict.
+                        * So it must continue to find every conflict (empty clause)
+                        */
+                        //break;
                     }
-                    if (!already_added[i] && D.next(di) == custom_bitset::npos) { // Unit IS
-                        already_added.set(i);
-                        S.emplace_back(di, i);
+                    if (!already_added.test(is) && D.next(di) == custom_bitset::npos) { // Unit IS
+                        already_added.set(is);
+                        s.emplace(di, is);
                     }
                 }
 
@@ -126,14 +132,13 @@ bool SATCOL(
                 }
             }
             // add edge also to future nodes
-            for (const auto v : B) {
+            for (const auto v : B)
                 G.add_edge(last_node, v);
-            }
 
             ISs[is].set(last_node); // add the new vertex to the is
             ++last_node;
         }
-    } while (true);
+    }
 
     G.resize(orig_size);
     B.resize(orig_size);
@@ -143,7 +148,6 @@ bool SATCOL(
 
     for (auto is = 0; is < k+1; ++is)
         ISs[is].resize(orig_size);
-
 
     return B.any();
 }
@@ -354,7 +358,7 @@ void FindMaxClique(
             B_new = ISs[depth][k];
             //B_new = ISEQ_branching(G, V_new, k);
         } else {
-            B_new = ISEQ_branching(G, V_new, ISs[depth], color_class, new_alpha, k);
+            ISEQ_branching(G, V_new, ISs[depth], color_class, new_alpha, k, B_new);
             if (B_new.none()) continue;
             if (is_IS(G, B_new)) {
                 ISs[depth][k] = B_new;
