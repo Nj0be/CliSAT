@@ -71,26 +71,34 @@ export inline void ISEQ_branching(
     std::vector<custom_bitset>& ISs,
     std::vector<int>& color_class,
     std::vector<std::size_t>& alpha,
-    const int k_max,
-    custom_bitset& B
+    const int k_max
 ) {
     int k = 0;
     alpha = std::vector<std::size_t>(k_max+1);
 
-    B = Ubb;
+    ISs[k_max] = Ubb;
 
     for (k = 0; k < k_max; ++k) {
-        ISs[k] = B;
+        ISs[k] = ISs[k_max];
         auto last_v = 0;
         for (const auto v : ISs[k]) {
             last_v = v;
             // at most, we can remove vertices, so we don't need to start a new scan
             ISs[k] -= g.get_neighbor_set(v);
             color_class[v] = k;
-            B.reset(v);
+            ISs[k_max].reset(v);
         }
         alpha[k] = last_v;
     }
+
+    // we fill ISs, color_class and alpha for the last ISs
+    auto last_v = 0;
+    for (const auto v : ISs[k]) {
+        last_v = v;
+        // at most, we can remove vertices, so we don't need to start a new scan
+        color_class[v] = k;
+    }
+    alpha[k] = last_v;
 }
 
 export inline custom_bitset ISEQ_branching(
@@ -148,6 +156,11 @@ export inline bool is_IS(
     const custom_graph& g,
     const custom_bitset& Ubb
 ) {
+    /*
+    for (auto v : Ubb)
+        if (g.get_neighbor_set(v).intersects(Ubb)) return false;
+    return true;
+    */
     // every vertex of Ubb shouldn't be connected to any neighbors of other vertex of Ubb
     return std::ranges::all_of(Ubb, [&g, &Ubb](auto v) { return !g.get_neighbor_set(v).intersects(Ubb); });
 }

@@ -43,10 +43,12 @@ int main(int argc, char *argv[]) {
     //auto filename = "../../CliSAT_instances/misclib/sudoku/gordon_royle_1.txt";
     //auto filename = "../../CliSAT_instances/misclib/vc/vc-exact_005.gr.clqc"; //71
     //auto filename = "../../CliSAT_instances/misclib/vc/vc-exact_006.gr.clqc"; //74
+    //auto filename = "../../CliSAT_instances/misclib/mon/monoton-7.clq"; //19
     //auto filename = "../../CliSAT_instances/csplib/aim_A/aim-50-1-6-sat-1.clq"; //77
     //auto filename = "../../CliSAT_instances/csplib/aim_A/aim-50-1-6-sat-2.clq"; //76
     //auto filename = "../../CliSAT_instances/csplib/aim_A/aim-50-1-6-unsat-1.clq"; //68
     //auto filename = "../../CliSAT_instances/csplib/lat/qcp-10-67-00_X2.clq"; //100
+    //auto filename = "../../CliSAT_instances/bhoshlib/frb30-15-1.clq";
 
     //auto filename = argv[1];
 

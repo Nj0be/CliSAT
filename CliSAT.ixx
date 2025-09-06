@@ -16,7 +16,8 @@ import sorting;
 import coloring;
 
 bool fix_unit_iset(
-    custom_graph& G,
+    const custom_graph& G,
+    custom_bitset& B,
     custom_bitset& already_added,
     custom_bitset& already_visited,
     custom_bitset& conflicting_clauses,
@@ -25,7 +26,8 @@ bool fix_unit_iset(
     std::vector<custom_bitset>& ISs,
     int k,
     int u,
-    int u_is
+    int u_is,
+    int ui
 ) {
     custom_bitset D(G.size());
     bool conflict_found = false;
@@ -46,6 +48,8 @@ bool fix_unit_iset(
 
         if (di == custom_bitset::npos) { // empty IS, conflict detected
             conflicting_clauses.set(is); // we have derived an empty independent set
+            // we can start pruning, even if maybe all the literals in the IS aren't conflicting
+            B.reset(ui);
             conflict_found = true;
 
             // more than one conflict can be found, but it's redundant
@@ -56,6 +60,7 @@ bool fix_unit_iset(
             * So it must continue to find every conflict (empty clause)
             */
             //break;
+            continue;
         }
         if (!already_added.test(is) && D.next(di) == custom_bitset::npos) { // Unit IS
             already_added.set(is);
@@ -106,7 +111,7 @@ bool SATCOL(
                 s.pop();
                 already_visited.set(u_is);
 
-                conflict_found = fix_unit_iset(G, already_added, already_visited, conflicting_clauses, neighbors, s, ISs, k, u, u_is);
+                conflict_found = fix_unit_iset(G, B, already_added, already_visited, conflicting_clauses, neighbors, s, ISs, k, u, u_is, ui);
                 if (conflict_found) break;
             }
 
@@ -119,7 +124,7 @@ bool SATCOL(
         ISs[k] = IS_B; // we add the unit independent set to ISs
 
         // conflict found!
-        B -= IS_B;
+        //B -= IS_B;
         if (B.none()) break;
 
         k++;
@@ -173,20 +178,21 @@ bool FiltCOL(
     const std::vector<custom_bitset>& ISs,
     std::vector<custom_bitset>& ISs_t,
     const std::vector<int>& color_class,
+    std::vector<int>& color_class_t,
     std::vector<std::size_t>& alpha,
     const int k_max
 ) {
     static custom_bitset Ubb(G.size());
     Ubb = V;
-    //auto numbers = std::ranges::iota_view{0, k_max} | std::ranges::to<std::vector>();
 
     for (auto i = 0; i < k_max; ++i) {
         auto v = Ubb.front();
+        // we can't build k+1 IS => we can't improve the solution
         if (v == custom_bitset::npos) return false;
 
         const int k = color_class[v];
+        color_class_t[v] = i;
 
-        //ISs_t[i] = Ubb - G.get_neighbor_set(v);
         custom_bitset::SUB(Ubb, G.get_neighbor_set(v), ISs_t[i]);
         Ubb.reset(v);
 
@@ -194,7 +200,10 @@ bool FiltCOL(
         for (v = ISs_t[i].next(v); v != custom_bitset::npos; v = ISs_t[i].next(v)) {
             // if v isn't part of the original IS
             if (!ISs[k].test(v)) {
+                // v will not be part of the current IS
+                ISs_t[i].reset(v);
                 // if v is greater than every other vertices in the original IS
+                // TODO: doesn't work properly.
                 if (v > alpha[k]) {
                     // removed from V
                     V.reset(v);
@@ -206,6 +215,7 @@ bool FiltCOL(
                 last_v = v;
                 // at most, we can remove vertices, so we don't need to start a new scan
                 ISs_t[i] -= G.get_neighbor_set(v);
+                color_class_t[v] = i;
                 Ubb.reset(v);
             }
         }
@@ -218,63 +228,58 @@ bool FiltSAT(
     const custom_graph& G,  // graph
     custom_bitset& V, // vertices set
     std::vector<custom_bitset>& ISs,
+    const std::vector<int>& color_class,
     std::vector<std::size_t>& alpha,
     const int k_max
 ) {
-    static std::vector ISs_copy(G.size(), custom_bitset(G.size()));
     static std::vector<std::pair<custom_bitset::reference, int>> S;
     static custom_bitset already_added(G.size());
     static custom_bitset already_visited(G.size());
-
-    for (auto i = 0; i < k_max; ++i) {
-        ISs_copy[i] = ISs[i];
-    }
+    static custom_bitset neighbors(G.size());
+    static custom_bitset D(G.size());
 
     // we apply FL (Failed Literal) to every vertex of each IS of Ct-alpha
-    //for (int i = 0; i < k_max; ++i) {
     for (int i = k_max-1; i >= 0; --i) {
         for (const auto ui : ISs[i]) {
-            S.clear();
+            std::stack<custom_bitset::reference> s;
             bool conflict_found = false;
 
-            S.emplace_back(ui, k_max); // we add the current vertex ui to the stack S
+            s.emplace(ui); // we add the current vertex ui to the stack S
 
             already_added.reset();
             already_visited.reset();
 
-            // for each Unit IS
-            while (!S.empty()) {
-                const auto [u, u_is] = S.back();
-                already_visited.set(u_is);
-                S.pop_back();
+            neighbors.set();
 
-                // use only with already_visited
-                ISs[u_is].reset(u);
+            // for each Unit IS
+            while (!s.empty()) {
+                const auto u = s.top();
+                already_visited.set(color_class[u]);
+                s.pop();
+
+                neighbors &= G.get_neighbor_set(u);
 
                 // useless to iterate over r+1 that contains only u;
                 for (auto j = 0; j < k_max; ++j) {
                     // if D is the unit IS set that we are setting to true, we continue
-                    //if (i == u_is) continue;
-                    if (j == i || j == u_is || already_visited[j]) continue;
-
-                    auto& D = ISs[j];
+                    if (j == i || j == color_class[u] || already_visited[j]) continue;
 
                     // remove vertices non adjacent to u
-                    D &= G.get_neighbor_set(u);
+                    custom_bitset::AND(ISs[j], neighbors, D);
                     auto di = D.front();
 
                     if (di == custom_bitset::npos) { // empty IS, conflict detected
                         conflict_found = true;
                         V.reset(ui);
                         ISs[i].reset(ui);
-                        ISs_copy[i].reset(ui);
 
-                        // more than one conflict can be found, but it's redundant
+                        // more than one conflict can be found, but it's redundant in this case
+                        // we are not keeping track of the conflicting clauses
                         break;
                     }
                     if (!already_added[j] && D.next(di) == custom_bitset::npos) { // Unit IS
                         already_added.set(j);
-                        S.emplace_back(di, j);
+                        s.emplace(di);
                     }
                 }
 
@@ -283,11 +288,6 @@ bool FiltSAT(
             }
 
             if (!conflict_found) alpha[i] = ui;
-
-            for (auto is = 0; is < k_max; ++is) {
-                //if (is == i) continue;
-                ISs[is] = ISs_copy[is];
-            }
         }
         if (ISs[i].none()) return false;
     }
@@ -305,12 +305,14 @@ void FindMaxClique(
     int& lb,           // lower bound
     const custom_bitset& V, // vertices set
     custom_bitset& B,       // branching set
-    std::vector<int>& u, // incremental upper bounds,
-    const std::vector<std::size_t> &alpha = {},
-    const int is_k_partite = 0
+    std::vector<int> u, // incremental upper bounds,
+    const bool is_k_partite = false
 ) {
-    static std::vector ISs(G.size(), std::vector(G.size(), custom_bitset(G.size())));
+    static std::vector ISs(G.size(), custom_bitset(G.size()));
+    static std::vector ISs_t(G.size(), custom_bitset(G.size()));
     static std::vector<int> color_class(G.size());
+    static std::vector<int> color_class_t(G.size());
+    static std::vector alphas(G.size(), std::vector<size_t>(G.size()));
     static custom_bitset prev_neighb_set(G.size());
     custom_bitset V_new(G.size());
     custom_bitset B_new(G.size());
@@ -321,11 +323,11 @@ void FindMaxClique(
 
     for (const auto bi : B) {
         P_Bj.set(bi);
+
         // if bi == 0, u[bi] always == 1!
         u[bi] = 1;
 
         // calculate sub-problem
-        //custom_bitset::AND(P_Bj, G.get_neighbor_set(bi), V_new);
         custom_bitset::AND(G.get_neighbor_set(bi), V, prev_neighb_set, bi);
         for (const auto neighbor : prev_neighb_set) {
             u[bi] = std::max(u[bi], 1+u[neighbor]);
@@ -333,17 +335,22 @@ void FindMaxClique(
             if (u[bi] + curr-1 > lb) break;
         }
 
+        //u[bi] = std::min(u[bi], lb-curr);
+        // so if we enter in the following if, we don't overwrite it, otherwise we will replace u[bi] with lb-curr
+
         // if we can't improve, we prune the current branch
         // curr-1 because bi is not part of K yet
         if (u[bi] + curr-1 <= lb) {
+            //std::cout << u[bi] << " " << lb-curr << std::endl;
             pruned++;
             B.reset(bi);
             // lb-curr+1 because we have not added bi to K yet
-            u[bi] = std::min(u[bi], lb-curr+1);
+            //u[bi] = lb-curr+1;
+            //u[bi] = std::min(u[bi], lb-curr);
             continue;
         }
 
-        u[bi] = std::min(u[bi], lb-curr);
+        u[bi] = lb-curr;
 
         custom_bitset::AND(P_Bj, G.get_neighbor_set(bi), V_new);
         // if we are in a leaf
@@ -351,9 +358,9 @@ void FindMaxClique(
             // update best solution
             if (curr > lb) {
                 lb = curr;
-                K.set(bi);
+                // K_max = K U {bi}
                 K_max = K;
-                K.reset(bi);
+                K_max.set(bi);
                 std::cout << "Last incumbent: " << lb << std::endl;
             }
 
@@ -362,72 +369,35 @@ void FindMaxClique(
 
         const int k = lb-curr;
         int next_is_k_partite = is_k_partite;
-        std::vector<std::size_t> new_alpha = alpha;
-        const auto depth = std::max(is_k_partite - k, 0);
+        // TODO: sus, it doesn't seem to work properly. setting random values doesn't change the output
+        alphas[curr] = alphas[curr-1];
 
         // if is a k+1 partite graph
         if (is_k_partite) {
             // It's necessary to continue
-            if (!FiltCOL(G, V_new, ISs[0], ISs[depth], color_class, new_alpha, k+1)) continue;
-            if (!FiltSAT(G, V_new, ISs[depth], new_alpha, k+1)) continue;
-            B_new = ISs[depth][k];
-            //B_new = ISEQ_branching(G, V_new, k);
+            if (!FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alphas[curr], k+1)) continue;
+            if (!FiltSAT(G, V_new, ISs_t, color_class_t, alphas[curr], k+1)) continue;
+            B_new = ISs_t[k];
         } else {
-            ISEQ_branching(G, V_new, ISs[depth], color_class, new_alpha, k, B_new);
+            ISEQ_branching(G, V_new, ISs, color_class, alphas[curr], k);
+            B_new = ISs[k];
             if (B_new.none()) continue;
             if (is_IS(G, B_new)) {
-                ISs[depth][k] = B_new;
-                new_alpha[k] = B_new.back();
-                next_is_k_partite = k+1;
+                next_is_k_partite = true;
                 // if we could return here, huge gains... damn
-                if (!FiltSAT(G, V_new, ISs[depth], new_alpha, k+1)) continue;
-                // TODO: which one?
-                B_new = ISs[depth][k];
-                //B_new = ISEQ_branching(G, V_new, k);
+                if (!FiltSAT(G, V_new, ISs, color_class, alphas[curr], k+1)) continue;
+                B_new = ISs[k];
             } else {
-                if (!SATCOL(G, B_new, ISs[depth], k)) continue;
+                if (!SATCOL(G, B_new, ISs, k)) continue;
             }
         }
 
-        auto u_new = u;
-        /*
-        for (int i = 0; i < k; i++) {
-            for (auto v : ISs[depth][i]) {
-                //u_new[v] = std::min(u_new[v], dist);
-                color_class[v] = i;
-            }
-        }
+        // at this point B is not empty
+        K.set(bi);
+        FindMaxClique(G, K, curr+1, K_max, lb, V_new, B_new, u, next_is_k_partite);
+        K.reset(bi);
 
-        custom_bitset seen(G.size());
-
-        int distinct = 0;
-        for (auto v : V_new) {
-            const int c = color_class[v];
-            if (c < k) {
-                if (!seen.test(c)) {
-                    seen.set(c);
-                    distinct++;
-                }
-            } else {
-                ++distinct;
-            }
-            int ub = std::min(distinct, k);
-            // keep monotone across depths
-            ub = std::min(ub, u[v]);
-            u_new[v] = ub;
-        }
-        */
-
-        // if B is not empty
-        if (B_new.any()) {
-            K.set(bi);
-
-            FindMaxClique(G, K, curr+1, K_max, lb, V_new, B_new, u_new, new_alpha, next_is_k_partite);
-            K.reset(bi);
-        }
-
-        // lb updated!
-        u[bi] = std::min(u[bi], lb-curr);
+        //u[bi] = std::min(u[bi], lb-curr);
     }
 }
 
@@ -470,7 +440,7 @@ export custom_bitset CliSAT(const custom_graph& g) {
 
         // we pruned first lb vertices of V (they can't improve the solution on they own)
         // if we set count to zero, we can't possibly improve the solution because the B set can become empty even tough
-        // it should be possible to improve, lb vertices + 1 from k, but we remove every one from the 23
+        // it should be possible to improve, lb vertices + 1 from k, but we remove every one from the lb ones
         auto count = 1;
         for (const auto v : B) {
             if (count == lb) break;
@@ -478,15 +448,16 @@ export custom_bitset CliSAT(const custom_graph& g) {
             count++;
         }
 
+        auto old_steps = steps;
+
         K.set(i);
-        auto u_new = u;
-        FindMaxClique(ordered_g, K, 2, K_max, lb, V, B, u_new);
+        FindMaxClique(ordered_g, K, 2, K_max, lb, V, B, u);
         K.reset(i);
 
         u[i] = lb;
 
         auto end = std::chrono::steady_clock::now();
-        std::print("{}/{} (max {}) {}ms\n", i+1, ordered_g.size(), K_max.count(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+        std::print("{}/{} (max {}) {}ms -> {} steps\n", i+1, ordered_g.size(), K_max.count(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps);
     }
 
     std::cout << "Steps: " << steps << std::endl;

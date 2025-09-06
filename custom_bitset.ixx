@@ -262,6 +262,11 @@ public:
     static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t end_pos);
     static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& start, const reference& end);
     static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t start_pos, uint64_t end_pos);
+    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest);
+    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& end);
+    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t end_pos);
+    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& start, const reference& end);
+    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t start_pos, uint64_t end_pos);
     static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest);
     static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& end);
     static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t end_pos);
@@ -576,6 +581,79 @@ inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rh
 }
 
 inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
+    const uint64_t start_pos, const uint64_t end_pos) {
+    AND(lhs, rhs, dest, reference(start_pos), reference(end_pos));
+}
+
+inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest) {
+    assert(lhs.size() == rhs.size());
+    assert(rhs.size() == dest.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(rhs.size() == dest.size())]];
+
+    const auto a = lhs._bits.data();
+    const auto b = rhs._bits.data();
+    const auto dst = dest._bits.data();
+
+    for (size_type i = 0; i < dest._bits.size(); ++i)
+        dst[i] = a[i] | b[i];
+}
+
+inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(rhs.size() == dest.size());
+    assert(end <= dest.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(rhs.size() == dest.size())]];
+    [[assume(end <= dest.size())]];
+
+    const auto a = lhs._bits.data();
+    const auto b = rhs._bits.data();
+    const auto dst = dest._bits.data();
+
+    for (size_type i = 0; i < end.block; ++i)
+        dst[i] = a[i] | b[i];
+
+    dst[end.block] = (a[end.block] | b[end.block]) & below_mask(end.bit);
+
+    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
+        dst[i] = a[i];
+}
+
+inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
+    const uint64_t end_pos) {
+    AND(lhs, rhs, dest, reference(end_pos));
+}
+
+inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const reference &start, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(rhs.size() == dest.size());
+    assert(start < dest.size());
+    assert(end <= dest.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(rhs.size() == dest.size())]];
+    [[assume(start < dest.size())]];
+    [[assume(end <= dest.size())]];
+
+    const auto a = lhs._bits.data();
+    const auto b = rhs._bits.data();
+    const auto dst = dest._bits.data();
+
+    for (size_type i = 0; i < start.block; ++i)
+        dst[i] = a[i];
+
+    dst[start.block] = (a[start.block] | b[end.block]) & from_mask(start.bit);
+
+    for (size_type i = start.block+1; i < end.block; ++i)
+        dst[i] = a[i] | b[i];
+
+    dst[end.block] = (a[end.block] | b[end.block]) & below_mask(end.bit);
+
+    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
+        dst[i] = a[i];
+}
+
+inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
     const uint64_t start_pos, const uint64_t end_pos) {
     AND(lhs, rhs, dest, reference(start_pos), reference(end_pos));
 }
