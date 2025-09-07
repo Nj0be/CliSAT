@@ -4,7 +4,6 @@ module;
 #include <iostream>
 #include <print>
 #include <chrono>
-#include <queue>
 #include <stack>
 
 export module CliSAT;
@@ -172,7 +171,7 @@ bool SATCOL(
     return B.any();
 }
 
-bool FiltCOL(
+int FiltCOL(
     const custom_graph& G,  // graph
     custom_bitset& V, // vertices set
     const std::vector<custom_bitset>& ISs,
@@ -188,7 +187,7 @@ bool FiltCOL(
     for (auto i = 0; i < k_max; ++i) {
         auto v = Ubb.front();
         // we can't build k+1 IS => we can't improve the solution
-        if (v == custom_bitset::npos) return false;
+        if (v == custom_bitset::npos) return i;
 
         const int k = color_class[v];
         color_class_t[v] = i;
@@ -221,7 +220,7 @@ bool FiltCOL(
         }
         alpha[k] = last_v;
     }
-    return true;
+    return k_max;
 }
 
 bool FiltSAT(
@@ -304,7 +303,7 @@ void FindMaxClique(
     custom_bitset& K_max,   // max branch
     int& lb,           // lower bound
     const custom_bitset& V, // vertices set
-    custom_bitset& B,       // branching set
+    const custom_bitset& B,       // branching set
     std::vector<int> u, // incremental upper bounds,
     const bool is_k_partite = false
 ) {
@@ -343,7 +342,7 @@ void FindMaxClique(
         if (u[bi] + curr-1 <= lb) {
             //std::cout << u[bi] << " " << lb-curr << std::endl;
             pruned++;
-            B.reset(bi);
+            //B.reset(bi);
             // lb-curr+1 because we have not added bi to K yet
             //u[bi] = lb-curr+1;
             //u[bi] = std::min(u[bi], lb-curr);
@@ -353,6 +352,19 @@ void FindMaxClique(
         u[bi] = lb-curr;
 
         custom_bitset::AND(P_Bj, G.get_neighbor_set(bi), V_new);
+
+        // if V contains less vertices than needed to improve clique, we continue
+        // TODO: lb-curr or lb-curr+1? We could put this condition after every routine that removes vertices from V_new
+        if (V_new.count() < lb - curr + 1) {
+            //std::cout << u[bi] << " " << lb-curr << std::endl;
+            pruned++;
+            //B.reset(bi);
+            // lb-curr+1 because we have not added bi to K yet
+            //u[bi] = lb-curr+1;
+            //u[bi] = std::min(u[bi], lb-curr);
+            continue;
+        }
+
         // if we are in a leaf
         if (V_new.none()) {
             // update best solution
@@ -375,13 +387,24 @@ void FindMaxClique(
         // if is a k+1 partite graph
         if (is_k_partite) {
             // It's necessary to continue
-            if (!FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alphas[curr], k+1)) continue;
+            auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alphas[curr], k+1);
+            // TODO: it's necessary to update u[bi]?
+            if (n_isets < k+1) {
+                u[bi] = n_isets;
+                continue;
+            }
+
             if (!FiltSAT(G, V_new, ISs_t, color_class_t, alphas[curr], k+1)) continue;
             B_new = ISs_t[k];
         } else {
-            ISEQ_branching(G, V_new, ISs, color_class, alphas[curr], k);
+            auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, alphas[curr], k);
+            if (n_isets < k) {
+                u[bi] = n_isets;
+                continue;
+            }
             B_new = ISs[k];
-            if (B_new.none()) continue;
+
+            //if (B_new.none()) continue;
             if (is_IS(G, B_new)) {
                 next_is_k_partite = true;
                 // if we could return here, huge gains... damn

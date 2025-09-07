@@ -65,7 +65,7 @@ export inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb
 }
 
 // if we can't generate k independent sets, Ubb will be empty so then node will be fathomed (B empty)
-export inline void ISEQ_branching(
+export inline int ISEQ_branching(
     const custom_graph& g,
     const custom_bitset& Ubb,
     std::vector<custom_bitset>& ISs,
@@ -79,9 +79,13 @@ export inline void ISEQ_branching(
     ISs[k_max] = Ubb;
 
     for (k = 0; k < k_max; ++k) {
+        auto v = ISs[k_max].front();
+        if (v == custom_bitset::npos) return k;
+
         ISs[k] = ISs[k_max];
-        auto last_v = 0;
-        for (const auto v : ISs[k]) {
+
+        auto last_v = v;
+        for (; v != custom_bitset::npos; v = ISs[k].next(v)) {
             last_v = v;
             // at most, we can remove vertices, so we don't need to start a new scan
             ISs[k] -= g.get_neighbor_set(v);
@@ -99,6 +103,8 @@ export inline void ISEQ_branching(
         color_class[v] = k;
     }
     alpha[k] = last_v;
+
+    return k;
 }
 
 export inline custom_bitset ISEQ_branching(
