@@ -46,14 +46,18 @@ public:
     [[nodiscard]] custom_bitset get_neighbor_set(size_type v, size_type threshold) const;
     [[nodiscard]] custom_bitset get_prev_neighbor_set(size_type v) const;
     [[nodiscard]] custom_bitset get_prev_neighbor_set(size_type v, const custom_bitset& set) const;
-    [[nodiscard]] custom_bitset get_anti_neighbor_set(size_type v) const;
-    [[nodiscard]] custom_bitset get_anti_neighbor_set(size_type v, const custom_bitset& set) const;
+    [[nodiscard]] custom_bitset get_complement_neighbor_set(size_type v) const;
+    [[nodiscard]] custom_bitset get_complement_neighbor_set(size_type v, const custom_bitset& set) const;
 
     [[nodiscard]] size_type degree() const noexcept;
+    [[nodiscard]] size_type complement_degree() const noexcept;
+    [[nodiscard]] size_type degree(size_type v) const noexcept;
+    [[nodiscard]] size_type complement_degree(size_type v) const noexcept;
     [[nodiscard]] size_type vertex_degree(size_type v) const;
     [[nodiscard]] float get_density() const noexcept;
 
     [[nodiscard]] std::vector<size_type> convert_back_set(const std::vector<size_type> &v) const;
+    [[nodiscard]] std::vector<int> convert_back_set(const std::vector<int> &v) const;
     [[nodiscard]] custom_bitset convert_back_set(const custom_bitset &bb) const;
     [[nodiscard]] custom_graph get_complement() const;
     [[nodiscard]] custom_graph change_order(const std::vector<size_type>& order) const;
@@ -167,15 +171,15 @@ inline custom_bitset custom_graph::get_prev_neighbor_set(const size_type v, cons
     return get_prev_neighbor_set(v) & set;
 }
 
-inline custom_bitset custom_graph::get_anti_neighbor_set(const size_type v) const {
+inline custom_bitset custom_graph::get_complement_neighbor_set(const size_type v) const {
     assert(v < size());
     [[assume(v < size())]];
 
     return ~_graph[v];
 }
 
-inline custom_bitset custom_graph::get_anti_neighbor_set(const size_type v, const custom_bitset& set) const {
-    return get_anti_neighbor_set(v) & set;
+inline custom_bitset custom_graph::get_complement_neighbor_set(const size_type v, const custom_bitset& set) const {
+    return get_complement_neighbor_set(v) & set;
 }
 
 inline custom_graph::size_type custom_graph::degree() const noexcept {
@@ -183,6 +187,18 @@ inline custom_graph::size_type custom_graph::degree() const noexcept {
     for (const auto& edge: _graph)
         degree = std::max(degree, edge.degree());
     return degree;
+}
+
+inline custom_graph::size_type custom_graph::complement_degree() const noexcept {
+    return size() - degree() - 1;
+}
+
+inline custom_graph::size_type custom_graph::degree(size_type v) const noexcept {
+    return _graph[v].count();
+}
+
+inline custom_graph::size_type custom_graph::complement_degree(size_type v) const noexcept {
+    return size() - degree(v) - 1;
 }
 
 inline custom_graph::size_type custom_graph::vertex_degree(const size_type v) const {
@@ -196,6 +212,15 @@ inline float custom_graph::get_density() const noexcept {
 
 inline std::vector<custom_graph::size_type> custom_graph::convert_back_set(const std::vector<size_type> &v) const {
     std::vector<size_type> set;
+    set.reserve(v.size());
+    for (const auto vertex : v) {
+        set.push_back(_order_conversion[vertex]);
+    }
+    return set;
+}
+
+inline std::vector<int> custom_graph::convert_back_set(const std::vector<int> &v) const {
+    std::vector<int> set;
     set.reserve(v.size());
     for (const auto vertex : v) {
         set.push_back(_order_conversion[vertex]);

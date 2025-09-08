@@ -298,10 +298,8 @@ uint64_t pruned = 0;
 
 void FindMaxClique(
     custom_graph& G,  // graph
-    custom_bitset& K,       // current branch
-    const int curr,           // lower bound
-    custom_bitset& K_max,   // max branch
-    int& lb,           // lower bound
+    std::vector<int>& K,       // current branch
+    std::vector<int>& K_max,   // max branch
     const custom_bitset& V, // vertices set
     const custom_bitset& B,       // branching set
     std::vector<int> u, // incremental upper bounds,
@@ -311,7 +309,7 @@ void FindMaxClique(
     static std::vector ISs_t(G.size(), custom_bitset(G.size()));
     static std::vector<int> color_class(G.size());
     static std::vector<int> color_class_t(G.size());
-    static std::vector alphas(G.size(), std::vector<size_t>(G.size()));
+    static std::vector alphas(G.size(), std::vector<std::size_t>(G.size()));
     static custom_bitset prev_neighb_set(G.size());
     custom_bitset V_new(G.size());
     custom_bitset B_new(G.size());
@@ -319,8 +317,10 @@ void FindMaxClique(
 
     // bitset containing all elements of P and all elements of B up to j
     auto P_Bj = V - B;
+    const int curr = K.size()+1;
 
     for (const auto bi : B) {
+        const int lb = K_max.size();
         P_Bj.set(bi);
 
         // if bi == 0, u[bi] always == 1!
@@ -369,10 +369,9 @@ void FindMaxClique(
         if (V_new.none()) {
             // update best solution
             if (curr > lb) {
-                lb = curr;
                 // K_max = K U {bi}
                 K_max = K;
-                K_max.set(bi);
+                K_max.push_back(bi);
                 std::cout << "Last incumbent: " << lb << std::endl;
             }
 
@@ -384,6 +383,7 @@ void FindMaxClique(
         // TODO: sus, it doesn't seem to work properly. setting random values doesn't change the output
         alphas[curr] = alphas[curr-1];
 
+        /*
         // if is a k+1 partite graph
         if (is_k_partite) {
             // It's necessary to continue
@@ -411,30 +411,38 @@ void FindMaxClique(
                 if (!FiltSAT(G, V_new, ISs, color_class, alphas[curr], k+1)) continue;
                 B_new = ISs[k];
             } else {
-                if (!SATCOL(G, B_new, ISs, k)) continue;
+                //if (!SATCOL(G, B_new, ISs, k)) continue;
             }
         }
+        */
+
+        auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, alphas[curr], k);
+        if (n_isets < k) {
+            u[bi] = n_isets;
+            continue;
+        }
+        B_new = ISs[k];
 
         // at this point B is not empty
-        K.set(bi);
-        FindMaxClique(G, K, curr+1, K_max, lb, V_new, B_new, u, next_is_k_partite);
-        K.reset(bi);
+        K.push_back(bi);
+        FindMaxClique(G, K, K_max, V_new, B_new, u, next_is_k_partite);
+        K.pop_back();
 
         //u[bi] = std::min(u[bi], lb-curr);
     }
 }
 
-export custom_bitset CliSAT(const custom_graph& g) {
+export std::vector<int> CliSAT(const custom_graph& g) {
     auto [ordering, k] = NEW_SORT(g, 3);
     auto ordered_g = g.change_order(ordering);
 
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
-    custom_bitset K_max(g.size());
-    custom_bitset K(g.size());
+    std::vector<int> K_max;
+    std::vector<int> K;
     custom_bitset B(g.size());
 
-    K_max.set(0);
-    int lb = static_cast<int>(K_max.count());
+    K_max.push_back(0);
+    int lb = static_cast<int>(K_max.size());
 
     // u with default value 1 (minimum)
     std::vector u(g.size(), 1);
@@ -473,14 +481,15 @@ export custom_bitset CliSAT(const custom_graph& g) {
 
         auto old_steps = steps;
 
-        K.set(i);
-        FindMaxClique(ordered_g, K, 2, K_max, lb, V, B, u);
-        K.reset(i);
+        K.push_back(i);
+        FindMaxClique(ordered_g, K, K_max, V, B, u);
+        K.pop_back();
 
-        u[i] = lb;
+        // u[i] = lb
+        u[i] = K_max.size();
 
         auto end = std::chrono::steady_clock::now();
-        std::print("{}/{} (max {}) {}ms -> {} steps\n", i+1, ordered_g.size(), K_max.count(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps);
+        std::print("{}/{} (max {}) {}ms -> {} steps\n", i+1, ordered_g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps);
     }
 
     std::cout << "Steps: " << steps << std::endl;

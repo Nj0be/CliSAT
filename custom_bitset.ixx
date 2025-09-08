@@ -18,6 +18,15 @@ export module custom_bitset;
 
 import instructions;
 
+// Primary concept for integer types
+template<typename T>
+concept Integer = std::integral<T> && !std::same_as<T, bool> && !std::same_as<T, char>;
+
+// Concept for containers that hold integers
+template<typename Container>
+concept IntegerContainer = std::ranges::range<Container> &&
+                          Integer<std::ranges::range_value_t<Container>>;
+
 export class custom_bitset {
 public:
     // 32 bit architecture will use uint32_t, 64 bit will use uint64_t
@@ -225,11 +234,15 @@ private:
 
 public:
     inline custom_bitset() : custom_bitset(0) {}
-    explicit custom_bitset(size_type size);
-    custom_bitset(size_type size, bool default_value);
+    custom_bitset(size_type size, bool default_value = false);
     custom_bitset(custom_bitset other, size_type size);
-    custom_bitset(const std::initializer_list<block_type>& v);
-    custom_bitset(const std::vector<size_type>& v, size_type size);
+
+    template<IntegerContainer Container>
+    explicit custom_bitset(const Container &container);
+
+    template<IntegerContainer Container>
+    explicit custom_bitset(const Container &container, size_type c_size);
+
     custom_bitset(const custom_bitset& other) = default;
     custom_bitset(custom_bitset&& other) noexcept = default;
 
@@ -386,10 +399,11 @@ inline std::ostream& operator<<(std::ostream &stream, const custom_bitset &bb) {
     return stream;
 }
 
-inline custom_bitset::custom_bitset(const size_type size): _size(size), _bits(blocks_needed(size)) {}
-
 // we set everything to 1 or to 0
-inline custom_bitset::custom_bitset(const size_type size, const bool default_value): _size(size), _bits(blocks_needed(size), default_value*~block_type{0}) {
+inline custom_bitset::custom_bitset(const size_type size, const bool default_value)
+        : _size(size),
+          _bits(blocks_needed(size), default_value*std::numeric_limits<block_type>::max())
+{
     // unset last part of last block (if there is one)
     if (get_block_bit(_size)) _bits.back() &= below_mask(get_block_bit(_size));
 }
@@ -398,15 +412,18 @@ inline custom_bitset::custom_bitset(custom_bitset other, const size_type size): 
     this->resize(size);
 }
 
-inline custom_bitset::custom_bitset(const std::initializer_list<block_type> &v): _size(*std::ranges::max_element(v) + 1), _bits(blocks_needed(_size)) {
-    for (const auto pos: v) {
-        set(pos);
-    }
+template<IntegerContainer Container>
+custom_bitset::custom_bitset(const Container &container)
+        : _size(std::ranges::empty(container) ? 0 : static_cast<size_type>(*std::ranges::max_element(container)) + 1),
+          _bits(blocks_needed(_size))
+{
+    for (const auto pos : container) set(static_cast<size_type>(pos));
 }
 
-inline custom_bitset::custom_bitset(const std::vector<size_type> &v, const size_type size): _size(size), _bits(blocks_needed(size)) {
-    for (const auto pos: v) {
-        set(pos);
+template<IntegerContainer Container>
+custom_bitset::custom_bitset(const Container &container, const size_type c_size): custom_bitset(c_size) {
+    for (const auto pos : container) {
+        if (pos < size()) set(static_cast<size_type>(pos));
     }
 }
 
