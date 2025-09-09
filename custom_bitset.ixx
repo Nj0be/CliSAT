@@ -41,20 +41,20 @@ public:
         constexpr reference(const size_type block, const size_type bit): block(block), bit(bit) {}
         constexpr explicit reference(const size_type pos) : block(get_block(pos)), bit(get_block_bit(pos)) {}
 
-        inline bool operator==(const reference& other) const { return block == other.block && bit == other.bit; }
-
         inline size_type operator*() const { return block*block_size + bit; }
         inline operator size_type() const { return **this; };
 
-        // prefix increment
         inline reference& operator++() { *this = reference(*this + 1); return *this; }
-        // postfix increment
         inline reference operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
-        // prefix decrement
         inline reference& operator--() { *this = reference(*this - 1); return *this; }
-        // postfix decrement
         inline reference operator--(int) { const auto tmp = *this; --(*this); return tmp; }
+
+        inline friend bool operator==(const reference& lhs, const reference& rhs) noexcept { return lhs.block == rhs.block && lhs.bit == rhs.bit; }
+        inline friend bool operator< (const reference& lhs, const reference& rhs) noexcept {
+            if (lhs.block != rhs.block) return lhs.block < rhs.block;
+            return lhs.bit < rhs.bit;
+        }
 
         friend class custom_bitset;
     };

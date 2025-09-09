@@ -95,14 +95,15 @@ export inline int ISEQ_branching(
         alpha[k] = last_v;
     }
 
-    // we fill ISs, color_class and alpha for the last ISs
-    auto last_v = 0;
-    for (const auto v : ISs[k]) {
+    auto v = ISs[k_max].front();
+    if (v == custom_bitset::npos) return k-1;
+
+    auto last_v = v;
+    for (; v != custom_bitset::npos; v = ISs[k_max].next(v)) {
         last_v = v;
         // at most, we can remove vertices, so we don't need to start a new scan
         color_class[v] = k;
     }
-    alpha[k] = last_v;
 
     return k;
 }

@@ -300,8 +300,8 @@ void FindMaxClique(
     custom_graph& G,  // graph
     std::vector<int>& K,       // current branch
     std::vector<int>& K_max,   // max branch
-    const custom_bitset& V, // vertices set
-    const custom_bitset& B,       // branching set
+    custom_bitset& P_Bj, // vertices set
+    custom_bitset& B,       // branching set
     std::vector<int> u, // incremental upper bounds,
     const bool is_k_partite = false
 ) {
@@ -310,25 +310,44 @@ void FindMaxClique(
     static std::vector<int> color_class(G.size());
     static std::vector<int> color_class_t(G.size());
     static std::vector alphas(G.size(), std::vector<std::size_t>(G.size()));
-    static custom_bitset prev_neighb_set(G.size());
-    custom_bitset V_new(G.size());
-    custom_bitset B_new(G.size());
+    static custom_bitset V_new(G.size());
+    static std::vector P_Bjs(G.size(), custom_bitset(G.size()));
+    static std::vector B_news(G.size(), custom_bitset(G.size()));
+
     steps++;
 
     // bitset containing all elements of P and all elements of B up to j
-    auto P_Bj = V - B;
     const int curr = K.size()+1;
 
     for (const auto bi : B) {
         const int lb = K_max.size();
         P_Bj.set(bi);
 
+        if (u[bi] + curr-1 <= lb) {
+            u[bi] = K_max.size() - K.size();
+            pruned++;
+            continue;
+        }
+
+        // calculate sub-problem
+        custom_bitset::AND(P_Bj, G.get_neighbor_set(bi), V_new);
+        int V_new_size = V_new.count();
+
+        // if we are in a leaf
+        if (V_new_size == 0) {
+            if (curr > lb) {
+                // K_max = K U {bi}
+                K_max = K;
+                K_max.push_back(bi);
+                std::cout << "Last incumbent: " << K_max.size() << std::endl;
+            }
+            return;
+        }
+
         // if bi == 0, u[bi] always == 1!
         u[bi] = 1;
 
-        // calculate sub-problem
-        custom_bitset::AND(G.get_neighbor_set(bi), V, prev_neighb_set, bi);
-        for (const auto neighbor : prev_neighb_set) {
+        for (auto neighbor = V_new.front(); neighbor < bi; neighbor = V_new.next(neighbor)) {
             u[bi] = std::max(u[bi], 1+u[neighbor]);
             // no point continue searching, we will overwrite this anyway with a potentially lower value
             if (u[bi] + curr-1 > lb) break;
@@ -339,44 +358,15 @@ void FindMaxClique(
 
         // if we can't improve, we prune the current branch
         // curr-1 because bi is not part of K yet
+        // it goes into the pruned set
+
+        u[bi] = std::min(u[bi], V_new_size+1);
         if (u[bi] + curr-1 <= lb) {
-            //std::cout << u[bi] << " " << lb-curr << std::endl;
             pruned++;
-            //B.reset(bi);
-            // lb-curr+1 because we have not added bi to K yet
-            //u[bi] = lb-curr+1;
-            //u[bi] = std::min(u[bi], lb-curr);
             continue;
         }
 
-        u[bi] = lb-curr;
-
-        custom_bitset::AND(P_Bj, G.get_neighbor_set(bi), V_new);
-
-        // if V contains less vertices than needed to improve clique, we continue
-        // TODO: lb-curr or lb-curr+1? We could put this condition after every routine that removes vertices from V_new
-        if (V_new.count() < lb - curr + 1) {
-            //std::cout << u[bi] << " " << lb-curr << std::endl;
-            pruned++;
-            //B.reset(bi);
-            // lb-curr+1 because we have not added bi to K yet
-            //u[bi] = lb-curr+1;
-            //u[bi] = std::min(u[bi], lb-curr);
-            continue;
-        }
-
-        // if we are in a leaf
-        if (V_new.none()) {
-            // update best solution
-            if (curr > lb) {
-                // K_max = K U {bi}
-                K_max = K;
-                K_max.push_back(bi);
-                std::cout << "Last incumbent: " << lb << std::endl;
-            }
-
-            return;
-        }
+        u[bi] = lb-curr+1;
 
         const int k = lb-curr;
         int next_is_k_partite = is_k_partite;
@@ -418,17 +408,17 @@ void FindMaxClique(
 
         auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, alphas[curr], k);
         if (n_isets < k) {
-            u[bi] = n_isets;
+            u[bi] = n_isets+2;
             continue;
         }
-        B_new = ISs[k];
+        B_news[curr] = ISs[k];
 
         // at this point B is not empty
         K.push_back(bi);
-        FindMaxClique(G, K, K_max, V_new, B_new, u, next_is_k_partite);
+        custom_bitset::SUB(V_new, B_news[curr], P_Bjs[curr+1]);
+        FindMaxClique(G, K, K_max, P_Bjs[curr+1], B_news[curr], u, next_is_k_partite);
         K.pop_back();
-
-        //u[bi] = std::min(u[bi], lb-curr);
+        u[bi] = std::min(u[bi], (int)K_max.size() - (int)K.size());
     }
 }
 
@@ -439,7 +429,6 @@ export std::vector<int> CliSAT(const custom_graph& g) {
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     std::vector<int> K_max;
     std::vector<int> K;
-    custom_bitset B(g.size());
 
     K_max.push_back(0);
     int lb = static_cast<int>(K_max.size());
@@ -466,8 +455,10 @@ export std::vector<int> CliSAT(const custom_graph& g) {
 
     for (std::size_t i = lb; i < ordered_g.size(); ++i) {
         auto begin = std::chrono::steady_clock::now();
-        auto V = custom_bitset::before(ordered_g.get_neighbor_set(i), i);
-        B = V;
+        auto B = custom_bitset::before(ordered_g.get_neighbor_set(i), i);
+        auto P = custom_bitset(g.size());
+
+        lb = K_max.size();
 
         // we pruned first lb vertices of V (they can't improve the solution on they own)
         // if we set count to zero, we can't possibly improve the solution because the B set can become empty even tough
@@ -476,13 +467,14 @@ export std::vector<int> CliSAT(const custom_graph& g) {
         for (const auto v : B) {
             if (count == lb) break;
             B.reset(v);
+            P.set(v);
             count++;
         }
 
         auto old_steps = steps;
 
         K.push_back(i);
-        FindMaxClique(ordered_g, K, K_max, V, B, u);
+        FindMaxClique(ordered_g, K, K_max, P, B, u);
         K.pop_back();
 
         // u[i] = lb
@@ -494,6 +486,7 @@ export std::vector<int> CliSAT(const custom_graph& g) {
 
     std::cout << "Steps: " << steps << std::endl;
     std::cout << "Pruned: " << pruned << std::endl;
+    //std::cout << custom_bitset(K_max) << std::endl;
 
     return ordered_g.convert_back_set(K_max);
 }
