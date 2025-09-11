@@ -13,10 +13,12 @@ module;
 #include <vector>
 #include <format>
 #include <iostream>
+#include <memory>
 
 export module custom_bitset;
 
 import instructions;
+import aligned_allocator_module;
 
 // Primary concept for integer types
 template<typename T>
@@ -32,6 +34,7 @@ public:
     // 32 bit architecture will use uint32_t, 64 bit will use uint64_t
     typedef unsigned long long block_type;
     typedef std::size_t size_type;
+    static constexpr size_t alignment = 32;
 
     class reference {
         size_type block;    // current block index
@@ -203,7 +206,7 @@ private:
     static constexpr size_type block_size_log2 = std::countr_zero(block_size);
 
     size_type _size;
-    std::vector<block_type> _bits;
+    std::vector<block_type, aligned_allocator<block_type, alignment>> _bits;
 
     static constexpr size_type get_block(const size_type pos) noexcept { return pos >> block_size_log2; };
     static constexpr size_type get_block_bit(const size_type pos) noexcept { return pos & below_mask(block_size_log2); }
@@ -234,7 +237,7 @@ private:
 
 public:
     inline custom_bitset() : custom_bitset(0) {}
-    custom_bitset(size_type size, bool default_value = false);
+    explicit custom_bitset(size_type size, bool default_value = false);
     custom_bitset(custom_bitset other, size_type size);
 
     template<IntegerContainer Container>
@@ -335,6 +338,7 @@ public:
     [[nodiscard]] bool intersects(const custom_bitset& other) const;
     [[nodiscard]] bool is_subset_of(const custom_bitset &other) const;
     [[nodiscard]] bool is_superset_of(const custom_bitset &other) const;
+    [[nodiscard]] custom_bitset::reference front_difference(const custom_bitset &other) const;
 
     void resize(size_type new_size);
 
@@ -492,8 +496,8 @@ inline bool custom_bitset::operator==(const custom_bitset &other) const {
     if (this == &other) return true;
     if (_size != other._size) return false;
 
-    const auto a = _bits.data();
-    const auto b = other._bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
 
     for (size_type i = 0; i < _bits.size(); i++)
         if (a[i] != b[i]) return false;
@@ -505,8 +509,8 @@ inline custom_bitset & custom_bitset::operator=(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
-    const auto a = _bits.data();
-    const auto b = other._bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
 
     for (size_type i = 0; i < _bits.size(); ++i)
         a[i] = b[i];
@@ -520,8 +524,8 @@ inline custom_bitset& custom_bitset::operator&=(const custom_bitset &other) {
 
     // used for vectorization
     // TODO: clean that shit
-    const auto a = _bits.data();
-    const auto b = other._bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
 
     for (size_type i = 0; i < _bits.size(); ++i)
         a[i] &= b[i];
@@ -535,9 +539,9 @@ inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset& rh
     [[assume(lhs.size() == rhs.size())]];
     [[assume(rhs.size() == dest.size())]];
 
-    const auto a = lhs._bits.data();
-    const auto b = rhs._bits.data();
-    const auto dst = dest._bits.data();
+    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
+    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
 
     for (size_type i = 0; i < dest._bits.size(); ++i)
         dst[i] = a[i] & b[i];
@@ -551,9 +555,9 @@ inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rh
     [[assume(rhs.size() == dest.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto a = lhs._bits.data();
-    const auto b = rhs._bits.data();
-    const auto dst = dest._bits.data();
+    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
+    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
 
     for (size_type i = 0; i < end.block; ++i)
         dst[i] = a[i] & b[i];
@@ -579,9 +583,9 @@ inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rh
     [[assume(start < dest.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto a = lhs._bits.data();
-    const auto b = rhs._bits.data();
-    const auto dst = dest._bits.data();
+    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
+    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
 
     for (size_type i = 0; i < start.block; ++i)
         dst[i] = 0;
@@ -608,9 +612,9 @@ inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset& rhs
     [[assume(lhs.size() == rhs.size())]];
     [[assume(rhs.size() == dest.size())]];
 
-    const auto a = lhs._bits.data();
-    const auto b = rhs._bits.data();
-    const auto dst = dest._bits.data();
+    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
+    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
 
     for (size_type i = 0; i < dest._bits.size(); ++i)
         dst[i] = a[i] | b[i];
@@ -624,9 +628,9 @@ inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs
     [[assume(rhs.size() == dest.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto a = lhs._bits.data();
-    const auto b = rhs._bits.data();
-    const auto dst = dest._bits.data();
+    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
+    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
 
     for (size_type i = 0; i < end.block; ++i)
         dst[i] = a[i] | b[i];
@@ -652,9 +656,9 @@ inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs
     [[assume(start < dest.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto a = lhs._bits.data();
-    const auto b = rhs._bits.data();
-    const auto dst = dest._bits.data();
+    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
+    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
 
     for (size_type i = 0; i < start.block; ++i)
         dst[i] = a[i];
@@ -681,9 +685,9 @@ inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rh
     [[assume(lhs.size() == rhs.size())]];
     [[assume(rhs.size() == dest.size())]];
 
-    const auto a = lhs._bits.data();
-    const auto b = rhs._bits.data();
-    const auto dst = dest._bits.data();
+    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
+    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
 
     for (size_type i = 0; i < dest._bits.size(); ++i)
         dst[i] = a[i] & ~b[i];
@@ -697,9 +701,9 @@ inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rh
     [[assume(rhs.size() == dest.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto a = lhs._bits.data();
-    const auto b = rhs._bits.data();
-    const auto dst = dest._bits.data();
+    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
+    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
 
     for (size_type i = 0; i < end.block; ++i)
         dst[i] = a[i] & ~b[i];
@@ -724,9 +728,9 @@ inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rh
     [[assume(start < dest.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto a = lhs._bits.data();
-    const auto b = rhs._bits.data();
-    const auto dst = dest._bits.data();
+    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
+    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
 
     for (size_type i = 0; i < start.block; ++i)
         dst[i] = 0;
@@ -751,8 +755,11 @@ inline custom_bitset& custom_bitset::operator|=(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
+
     for (size_type i = 0; i < _bits.size(); ++i)
-        _bits[i] |= other._bits[i];
+        a[i] |= b[i];
 
     return *this;
 }
@@ -761,8 +768,11 @@ inline custom_bitset& custom_bitset::operator^=(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
+
     for (size_type i = 0; i < _bits.size(); ++i)
-        _bits[i] ^= other._bits[i];
+        a[i] ^= b[i];
 
     return *this;
 }
@@ -771,8 +781,8 @@ inline custom_bitset& custom_bitset::operator-=(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
-    const auto a = _bits.data();
-    const auto b = other._bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
 
     for (size_t i = 0; i < _bits.size(); ++i)
         a[i] &= ~b[i];
@@ -811,14 +821,14 @@ inline void custom_bitset::reset(const reference &ref) {
 }
 
 inline void custom_bitset::set() noexcept {
-    const auto a = _bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
 
     for (size_type i = 0; i < _bits.size(); i++)
         a[i] = std::numeric_limits<block_type>::max();
 }
 
 inline void custom_bitset::reset() noexcept {
-    const auto a = _bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
 
     for (size_type i = 0; i < _bits.size(); i++)
         a[i] = 0;
@@ -918,10 +928,10 @@ inline void custom_bitset::flip() noexcept {
     _bits.back() &= below_mask(get_block_bit(_size));
 }
 
-inline custom_bitset::size_type custom_bitset::count() const noexcept {
+custom_bitset::size_type custom_bitset::count() const noexcept {
     size_type sum = 0;
 
-    const auto a = _bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
 
     for (size_type i = 0; i < _bits.size(); ++i)
         sum += popcount(a[i]);
@@ -991,7 +1001,7 @@ inline bool custom_bitset::all() const noexcept {
 }
 
 inline bool custom_bitset::any() const noexcept {
-    const auto a = _bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
 
     for (size_type i = 0; i < _bits.size(); i++)
         if (a[i]) return true;
@@ -1000,7 +1010,7 @@ inline bool custom_bitset::any() const noexcept {
 }
 
 inline bool custom_bitset::none() const noexcept {
-    const auto a = _bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
 
     for (size_type i = 0; i < _bits.size(); i++)
         if (a[i]) return false;
@@ -1012,8 +1022,8 @@ inline bool custom_bitset::intersects(const custom_bitset &other) const {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
-    const auto a = _bits.data();
-    const auto b = other._bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
 
     for (size_type i = 0; i < _bits.size(); i++)
         if (a[i] & b[i]) return true;
@@ -1025,8 +1035,8 @@ inline bool custom_bitset::is_subset_of(const custom_bitset &other) const {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
-    const auto a = _bits.data();
-    const auto b = other._bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
 
     for (size_type i = 0; i < _bits.size(); i++)
         if (a[i] & ~b[i]) return false;
@@ -1038,13 +1048,30 @@ inline bool custom_bitset::is_superset_of(const custom_bitset &other) const {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
-    const auto a = _bits.data();
-    const auto b = other._bits.data();
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
 
     for (size_type i = 0; i < _bits.size(); i++)
         if (b[i] & ~a[i]) return false;
 
     return true;
+}
+
+
+inline custom_bitset::reference custom_bitset::front_difference(const custom_bitset &other) const {
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
+
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
+
+    for (size_type i = 0; i < _bits.size(); i++)
+        if (a[i] & ~b[i]) {
+            auto bit = bit_scan_forward(a[i] & ~b[i]);
+            return {i, bit};
+        }
+
+    return npos;
 }
 
 // Needed to allow std::views::reverse and std::ranges::reverse_view compatibility

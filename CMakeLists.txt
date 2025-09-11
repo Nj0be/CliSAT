@@ -4,7 +4,8 @@ set(CMAKE_CXX_STANDARD 23)
 
 project(CliSAT LANGUAGES CXX)
 
-add_executable(CliSAT)
+add_executable(CliSAT
+        aligned_allocator.ixx)
 
 # Add main.cpp as a normal source
 target_sources(CliSAT
@@ -26,6 +27,7 @@ target_sources(CliSAT
             sorting.ixx
             coloring.ixx
             instructions.ixx
+            aligned_allocator.ixx
 )
 
 target_include_directories(CliSAT PUBLIC

@@ -51,9 +51,10 @@ public:
 
     [[nodiscard]] size_type degree() const noexcept;
     [[nodiscard]] size_type complement_degree() const noexcept;
-    [[nodiscard]] size_type degree(size_type v) const noexcept;
-    [[nodiscard]] size_type complement_degree(size_type v) const noexcept;
+    [[nodiscard]] size_type degree(size_type v) const;
+    [[nodiscard]] size_type complement_degree(size_type v) const;
     [[nodiscard]] size_type vertex_degree(size_type v) const;
+    [[nodiscard]] size_type adjacent(size_type u, size_type v) const;
     [[nodiscard]] float get_density() const noexcept;
 
     [[nodiscard]] std::vector<size_type> convert_back_set(const std::vector<size_type> &v) const;
@@ -193,16 +194,35 @@ inline custom_graph::size_type custom_graph::complement_degree() const noexcept 
     return size() - degree() - 1;
 }
 
-inline custom_graph::size_type custom_graph::degree(size_type v) const noexcept {
+inline custom_graph::size_type custom_graph::degree(size_type v) const {
+    assert(v < size());
+    [[assume(v < size())]];
+
     return _graph[v].count();
 }
 
-inline custom_graph::size_type custom_graph::complement_degree(size_type v) const noexcept {
+inline custom_graph::size_type custom_graph::complement_degree(const size_type v) const {
+    assert(v < size());
+    [[assume(v < size())]];
+
     return size() - degree(v) - 1;
 }
 
 inline custom_graph::size_type custom_graph::vertex_degree(const size_type v) const {
+    assert(v < size());
+    [[assume(v < size())]];
+
     return _graph[v].count();
+}
+
+
+inline custom_graph::size_type custom_graph::adjacent(const size_type u, const size_type v) const {
+    assert(u < size());
+    [[assume(u < size())]];
+    assert(v < size());
+    [[assume(v < size())]];
+
+    return _graph[u].test(v);
 }
 
 inline float custom_graph::get_density() const noexcept {
