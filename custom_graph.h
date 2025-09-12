@@ -2,19 +2,14 @@
 // Created by Beniamino Vagnarelli on 02/04/25.
 //
 
-module;
+#pragma once
 
 #include <fstream>
 #include <numeric>
-#include <cassert>
-#include <sstream>
-#include <ranges>
 
-export module custom_graph;
+#include "custom_bitset.h"
 
-import custom_bitset;
-
-export class custom_graph {
+class custom_graph {
     typedef custom_bitset::size_type size_type;
 
     std::vector<custom_bitset> _graph;

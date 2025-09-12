@@ -2,13 +2,9 @@
 // Created by benia on 02/09/2025.
 //
 
-module;
+#pragma once
 
-#include<cstdint>
-#include<bit>
-#include <iostream>
-
-export module instructions;
+// TODO: support MSVC. Use intrinsics instead of inline asm for MSVC
 
 namespace instructions {
     struct features {
@@ -20,8 +16,8 @@ namespace instructions {
         bool avx512f = false;
     };
 
-    inline void cpuid(uint32_t basic_leaf, uint32_t extended_leaf,
-                      uint32_t& eax, uint32_t& ebx, uint32_t& ecx, uint32_t& edx) noexcept {
+    inline void cpuid(std::uint32_t basic_leaf, std::uint32_t extended_leaf,
+                      std::uint32_t& eax, std::uint32_t& ebx, std::uint32_t& ecx, std::uint32_t& edx) noexcept {
         asm volatile("cpuid"
             : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
             : "a"(basic_leaf), "c"(extended_leaf));
@@ -32,10 +28,10 @@ namespace instructions {
         unsigned eax=0, ebx=0, ecx=0, edx=0;
 
         cpuid(0, 0, eax, ebx, ecx, edx);
-        const uint32_t max_basic_leaf = eax;
+        const std::uint32_t max_basic_leaf = eax;
 
         cpuid(0x80000000, 0, eax, ebx, ecx, edx);
-        const uint32_t max_extended_leaf = eax;
+        const std::uint32_t max_extended_leaf = eax;
 
         if (max_basic_leaf == 0) return cpu_supports;
         cpuid(1, 0, eax, ebx, ecx, edx);
@@ -55,28 +51,28 @@ namespace instructions {
 
     features cpu_supports = cpu_supports_impl();
 
-    unsigned constexpr popcnt32_sw(const uint32_t x) noexcept { return std::popcount(x); }
-    unsigned constexpr popcnt64_sw(const uint64_t x) noexcept { return std::popcount(x); }
+    unsigned constexpr popcnt32_sw(const std::uint32_t x) noexcept { return std::popcount(x); }
+    unsigned constexpr popcnt64_sw(const std::uint64_t x) noexcept { return std::popcount(x); }
     unsigned constexpr popcnt128_sw(const __uint128_t x) noexcept { return std::popcount(x); }
 
-    unsigned constexpr popcnt32_hw(const uint32_t x) noexcept {
-        uint32_t result;
+    unsigned constexpr popcnt32_hw(const std::uint32_t x) noexcept {
+        std::uint32_t result;
         asm ("popcnt %1, %0" : "=r"(result) : "r"(x));
         return result;
     }
-    unsigned constexpr popcnt64_hw(const uint64_t x) noexcept {
-        uint64_t result;
+    unsigned constexpr popcnt64_hw(const std::uint64_t x) noexcept {
+        std::uint64_t result;
         asm ("popcnt %1, %0" : "=r"(result) : "r"(x));
         return result;
     }
     unsigned constexpr popcnt128_hw(const __uint128_t x) noexcept {
-        auto hi = static_cast<uint64_t>(x >> 64);
-        auto lo = static_cast<uint64_t>(x);
+        auto hi = static_cast<std::uint64_t>(x >> 64);
+        auto lo = static_cast<std::uint64_t>(x);
         return popcnt64_hw(lo) + popcnt64_hw(hi);
     }
 
-    inline uint32_t bsf32(const uint32_t x) {
-        uint32_t result;
+    inline std::uint32_t bsf32(const std::uint32_t x) {
+        std::uint32_t result;
         asm ("bsf %1, %0"
             : "=r"(result)
             : "r"(x)
@@ -85,7 +81,7 @@ namespace instructions {
         return result;
     }
 
-    inline uint64_t bsf64(const uint64_t x) {
+    inline std::uint64_t bsf64(const std::uint64_t x) {
         std::size_t result;
         asm ("bsfq %1, %0"
             : "=r"(result)
@@ -95,15 +91,15 @@ namespace instructions {
         return result;
     }
 
-    inline uint64_t bsf128(const __uint128_t x) {
-        auto hi = static_cast<uint64_t>(x >> 64);
-        auto lo = static_cast<uint64_t>(x);
+    inline std::uint64_t bsf128(const __uint128_t x) {
+        auto hi = static_cast<std::uint64_t>(x >> 64);
+        auto lo = static_cast<std::uint64_t>(x);
         if (lo) return bsf64(lo);
         return 64 + bsf64(hi);
     }
 
-    inline uint32_t bsr32(const uint32_t x) {
-        uint32_t result;
+    inline std::uint32_t bsr32(const std::uint32_t x) {
+        std::uint32_t result;
         asm ("bsr %1, %0"
             : "=r"(result)
             : "r"(x)
@@ -112,7 +108,7 @@ namespace instructions {
         return result;
     }
 
-    inline uint64_t bsr64(const uint64_t x) {
+    inline std::uint64_t bsr64(const std::uint64_t x) {
         std::size_t result;
         asm ("bsrq %1, %0"
             : "=r"(result)
@@ -122,37 +118,37 @@ namespace instructions {
         return result;
     }
 
-    inline uint64_t bsr128(const __uint128_t x) {
-        auto hi = static_cast<uint64_t>(x >> 64);
-        auto lo = static_cast<uint64_t>(x);
+    inline std::uint64_t bsr128(const __uint128_t x) {
+        auto hi = static_cast<std::uint64_t>(x >> 64);
+        auto lo = static_cast<std::uint64_t>(x);
         if (hi) return 64 + bsr64(hi);
         return bsr64(lo);
     }
 
-    export template <std::unsigned_integral T>
+    template <std::unsigned_integral T>
     unsigned popcount(T x) noexcept {
         if (cpu_supports.popcnt) {
-            if constexpr (sizeof(T) <= 4) return popcnt32_hw(static_cast<uint32_t>(x));
-            else if constexpr (sizeof(T) == 8) return popcnt64_hw(static_cast<uint64_t>(x));
+            if constexpr (sizeof(T) <= 4) return popcnt32_hw(static_cast<std::uint32_t>(x));
+            else if constexpr (sizeof(T) == 8) return popcnt64_hw(static_cast<std::uint64_t>(x));
             else return popcnt128_hw(static_cast<__uint128_t>(x));
         } else {
-            if constexpr (sizeof(T) <= 4) return popcnt32_sw(static_cast<uint32_t>(x));
-            else if constexpr (sizeof(T) == 8) return popcnt64_sw(static_cast<uint64_t>(x));
+            if constexpr (sizeof(T) <= 4) return popcnt32_sw(static_cast<std::uint32_t>(x));
+            else if constexpr (sizeof(T) == 8) return popcnt64_sw(static_cast<std::uint64_t>(x));
             else return popcnt128_sw(static_cast<__uint128_t>(x));
         }
     }
 
-    export template <std::unsigned_integral T>
+    template <std::unsigned_integral T>
     std::size_t bit_scan_forward(T x) {
-        if constexpr (sizeof(T) <= 4) return bsf32(static_cast<uint32_t>(x));
-        else if constexpr (sizeof(T) == 8) return bsf64(static_cast<uint64_t>(x));
+        if constexpr (sizeof(T) <= 4) return bsf32(static_cast<std::uint32_t>(x));
+        else if constexpr (sizeof(T) == 8) return bsf64(static_cast<std::uint64_t>(x));
         else if constexpr (sizeof(T) == 16) return bsf128(static_cast<__uint128_t>(x));
     }
 
-    export template <std::unsigned_integral T>
+    template <std::unsigned_integral T>
     std::size_t bit_scan_reverse(T x) {
-        if constexpr (sizeof(T) <= 4) return bsr32(static_cast<uint32_t>(x));
-        else if constexpr (sizeof(T) == 8) return bsr64(static_cast<uint64_t>(x));
+        if constexpr (sizeof(T) <= 4) return bsr32(static_cast<std::uint32_t>(x));
+        else if constexpr (sizeof(T) == 8) return bsr64(static_cast<std::uint64_t>(x));
         else if constexpr (sizeof(T) == 16) return bsr128(static_cast<__uint128_t>(x));
     }
 }

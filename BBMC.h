@@ -2,19 +2,17 @@
 // Created by Beniamino Vagnarelli on 03/04/25.
 //
 
-module;
+#pragma once
 
-#include <vector>
 #include <cstdint>
+#include <vector>
 
-export module BBMC;
+#include "custom_bitset.h"
+#include "custom_graph.h"
 
-import custom_graph;
-import custom_bitset;
-
-inline void BB_Color(const custom_graph& g, custom_bitset Ubb, std::vector<uint64_t>& Ul, std::vector<uint64_t>& C, const int64_t k_min=0) {
+inline void BB_Color(const custom_graph& g, custom_bitset Ubb, std::vector<std::uint64_t>& Ul, std::vector<std::uint64_t>& C, const std::int64_t k_min=0) {
     static custom_bitset Qbb(g.size());
-    for (int64_t k = 0; Ubb.any(); ++k) {
+    for (std::int64_t k = 0; Ubb.any(); ++k) {
         Qbb = Ubb;
 
         for (const auto v : Qbb) {
@@ -30,9 +28,9 @@ inline void BB_Color(const custom_graph& g, custom_bitset Ubb, std::vector<uint6
     }
 }
 
-inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vector<uint64_t>>& Ul,
-                std::vector<std::vector<uint64_t>>& C, custom_bitset& S, custom_bitset& S_max,
-                const uint64_t depth=0) {
+inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vector<std::uint64_t>>& Ul,
+                std::vector<std::vector<std::uint64_t>>& C, custom_bitset& S, custom_bitset& S_max,
+                const std::uint64_t depth=0) {
     while (!Ul[depth].empty()) {
         const auto v = Ul[depth].back();
         Ul[depth].pop_back();
@@ -48,7 +46,7 @@ inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vec
             auto candidates = Ubb & g.get_neighbor_set(v);
             if (candidates.any()) {
                 Ul[depth+1].clear();
-                const int64_t k_min = S_max_bits - S_bits;
+                const std::int64_t k_min = S_max_bits - S_bits;
 
                 BB_Color(g, candidates, Ul[depth+1], C[depth+1], k_min);
 
@@ -62,16 +60,16 @@ inline void BBMC(const custom_graph& g, custom_bitset& Ubb, std::vector<std::vec
     }
 }
 
-export inline custom_bitset run_BBMC(const custom_graph &g, custom_bitset Ubb) {
+inline custom_bitset run_BBMC(const custom_graph &g, custom_bitset Ubb) {
     // initialize Ul
-    std::vector<std::vector<uint64_t>> Ul(g.size());
+    std::vector<std::vector<std::uint64_t>> Ul(g.size());
 
     // max branching set
     custom_bitset S(g.size());
     custom_bitset S_max(g.size());
 
     // coloring
-    std::vector C(g.size(), std::vector<uint64_t>(g.size()));
+    std::vector C(g.size(), std::vector<std::uint64_t>(g.size()));
 
     BB_Color(g, Ubb, Ul[0], C[0]);
 
@@ -80,6 +78,6 @@ export inline custom_bitset run_BBMC(const custom_graph &g, custom_bitset Ubb) {
     return g.convert_back_set(S_max);
 }
 
-export inline custom_bitset run_BBMC(const custom_graph &g) {
+inline custom_bitset run_BBMC(const custom_graph &g) {
     return run_BBMC(g, custom_bitset(g.size(), true));
 }

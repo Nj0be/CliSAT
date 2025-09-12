@@ -2,13 +2,15 @@
 // Created by Beniamino Vagnarelli on 31/03/25.
 //
 
-#include <iostream>
 #include <chrono>
+#include <cstdint>
+#include <iostream>
+#include <string>
+#include <vector>
 
-import CliSAT;
-import custom_graph;
-import custom_bitset;
-import instructions;
+#include "CliSAT.h"
+#include "custom_bitset.h"
+#include "custom_graph.h"
 
 int main(int argc, char *argv[]) {
     //auto filename = "../../CliSAT_instances/dimacs/c-fat200-1.clq"; //12

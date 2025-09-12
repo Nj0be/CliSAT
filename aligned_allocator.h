@@ -2,16 +2,11 @@
 // Created by benia on 11/09/2025.
 //
 
-module;
+#pragma once
 
+#include <bit>
 #include <cstddef>
-#include <cstdint>
-#include <limits>
-#include <new>
-#include <type_traits>
-#include <vector>
 
-export module aligned_allocator_module;
 
 // C++23 aligned allocator for standard containers.
 // Usage:
@@ -25,7 +20,7 @@ consteval bool is_power_of_two(std::size_t x) {
 }
 
 // Primary allocator
-export template <class T, std::size_t alignment>
+template <class T, std::size_t alignment>
 // has_single_bit => power of 2
 requires (alignment >= alignof(T)) && (std::has_single_bit(alignment))
 class aligned_allocator {

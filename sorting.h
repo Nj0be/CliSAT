@@ -2,33 +2,22 @@
 // Created by Beniamino Vagnarelli on 09/04/25.
 //
 
-module;
+#pragma once
 
-#include <algorithm>
-#include <chrono>
-#include <vector>
-#include <cstdint>
-#include <iostream>
-#include <numeric>
-
-export module sorting;
-
-import custom_graph;
-import custom_bitset;
-import BBMC;
-import coloring;
+#include "BBMC.h"
+#include "custom_graph.h"
 
 // Minimum Weight Sort
-std::vector<uint64_t> MWS(custom_graph g) {
-    std::vector<uint64_t> vertices(g.size());
-    std::vector<uint64_t> degrees(g.size());
-    std::vector<uint64_t> neighb_deg(g.size());
+std::vector<std::size_t> MWS(custom_graph g) {
+    std::vector<std::size_t> vertices(g.size());
+    std::vector<std::size_t> degrees(g.size());
+    std::vector<std::size_t> neighb_deg(g.size());
     std::iota(vertices.begin(), vertices.end(), 0);
 
-    for (uint64_t i = 0; i < g.size(); i++) {
+    for (std::size_t i = 0; i < g.size(); i++) {
         degrees[i] = g[i].degree();
     }
-    for (uint64_t i = 0; i < g.size(); i++) {
+    for (std::size_t i = 0; i < g.size(); i++) {
         for (const auto v : g[i]) {
             neighb_deg[i] += degrees[v];
         }
@@ -43,7 +32,7 @@ std::vector<uint64_t> MWS(custom_graph g) {
             }
         }
         auto v_min = std::ranges::min_element(vertices.begin(), std::prev(vertices.end(), static_cast<std::ptrdiff_t>(i)),
-            [=](const uint64_t a, const uint64_t b) {
+            [=](const std::size_t a, const std::size_t b) {
                 if (degrees[a] != degrees[b]) return degrees[a] < degrees[b];
                 return neighb_deg[a] < neighb_deg[b];
             });
@@ -136,7 +125,7 @@ std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
     return {Ocolor, k};
 }
 
-export std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=3) {
+std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=3) {
     auto Odeg = MWSI(g, p);
     auto [Ocolor, k] = COLOUR_SORT(g);
 

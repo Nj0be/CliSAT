@@ -1,18 +1,17 @@
-module;
+//
+// Created by Beniamino Vagnarelli on 03/04/25.
+//
 
-#include <vector>
-#include <iostream>
-#include <print>
-#include <chrono>
+#pragma once
+
+#include <cassert>
 #include <stack>
+#include <print>
 
-export module CliSAT;
-
-import AMTS;
-import custom_bitset;
-import custom_graph;
-import sorting;
-import coloring;
+#include "coloring.h"
+#include "custom_bitset.h"
+#include "custom_graph.h"
+#include "sorting.h"
 
 bool fix_unit_iset(
     const custom_graph& G,
@@ -58,8 +57,8 @@ bool fix_unit_iset(
             * a conflict.
             * So it must continue to find every conflict (empty clause)
             */
-            //break;
-            continue;
+            break;
+            //continue;
         }
         if (!already_added.test(is) && D.next(di) == custom_bitset::npos) { // Unit IS
             already_added.set(is);
@@ -75,6 +74,7 @@ bool SATCOL(
     custom_graph& G,
     custom_bitset& B,
     std::vector<custom_bitset>& ISs,
+    std::vector<int>& color_class,
     int k
 ) {
     static custom_bitset already_added(G.size());
@@ -293,8 +293,8 @@ bool FiltSAT(
     return true;
 }
 
-uint64_t steps = 0;
-uint64_t pruned = 0;
+std::uint64_t steps = 0;
+std::uint64_t pruned = 0;
 
 void FindMaxClique(
     custom_graph& G,  // graph
@@ -401,6 +401,11 @@ void FindMaxClique(
                 if (!FiltSAT(G, V_new, ISs, color_class, alphas[curr], k+1)) continue;
                 B_new = ISs[k];
             } else {
+                //if (!cut_by_inc_maxsat_eliminate_first(G, V_new, B_new, ISs, u, k)) {
+                //    // TODO: correct?
+                //    u[bi] = lb - curr - 1;
+                //}
+
                 //if (!SATCOL(G, B_new, ISs, k)) continue;
             }
         }
@@ -408,10 +413,13 @@ void FindMaxClique(
 
         auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, alphas[curr], k);
         if (n_isets < k) {
+            // TODO: why +2 and not +1?
             u[bi] = n_isets+2;
             continue;
         }
         B_news[curr] = ISs[k];
+        assert(B_news[curr].any());
+        //if (!SATCOL(G, B_news[curr], ISs, color_class, k)) continue;
 
         // at this point B is not empty
         K.push_back(bi);
@@ -422,7 +430,7 @@ void FindMaxClique(
     }
 }
 
-export std::vector<int> CliSAT(const custom_graph& g) {
+std::vector<int> CliSAT(const custom_graph& g) {
     auto [ordering, k] = NEW_SORT(g, 3);
     auto ordered_g = g.change_order(ordering);
 

@@ -1,24 +1,15 @@
 //
 // Created by Beniamino Vagnarelli on 01/04/25.
 //
-
-module;
+#pragma once
 
 #include <algorithm>
-#include <bitset>
 #include <cassert>
-#include <numeric>
+#include <concepts>
 #include <ranges>
-#include <utility>
-#include <vector>
-#include <format>
-#include <iostream>
-#include <memory>
 
-export module custom_bitset;
-
-import instructions;
-import aligned_allocator_module;
+#include "aligned_allocator.h"
+#include "instructions.h"
 
 // Primary concept for integer types
 template<typename T>
@@ -29,12 +20,12 @@ template<typename Container>
 concept IntegerContainer = std::ranges::range<Container> &&
                           Integer<std::ranges::range_value_t<Container>>;
 
-export class custom_bitset {
+class custom_bitset {
 public:
     // 32 bit architecture will use uint32_t, 64 bit will use uint64_t
     typedef unsigned long long block_type;
     typedef std::size_t size_type;
-    static constexpr size_t alignment = 32;
+    static constexpr size_type alignment = 64;
 
     class reference {
         size_type block;    // current block index
@@ -784,7 +775,7 @@ inline custom_bitset& custom_bitset::operator-=(const custom_bitset &other) {
     const auto a = std::assume_aligned<alignment>(_bits.data());
     const auto b = std::assume_aligned<alignment>(other._bits.data());
 
-    for (size_t i = 0; i < _bits.size(); ++i)
+    for (std::size_t i = 0; i < _bits.size(); ++i)
         a[i] &= ~b[i];
 
     return *this;
