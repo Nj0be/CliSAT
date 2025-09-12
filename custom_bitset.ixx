@@ -275,19 +275,19 @@ public:
 
     static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest);
     static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& end);
-    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t end_pos);
+    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type end_pos);
     static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& start, const reference& end);
-    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t start_pos, uint64_t end_pos);
+    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type start_pos, size_type end_pos);
     static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest);
     static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& end);
-    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t end_pos);
+    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type end_pos);
     static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& start, const reference& end);
-    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t start_pos, uint64_t end_pos);
+    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type start_pos, size_type end_pos);
     static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest);
     static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& end);
-    static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t end_pos);
+    static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type end_pos);
     static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& start, const reference& end);
-    static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, uint64_t start_pos, uint64_t end_pos);
+    static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type start_pos, size_type end_pos);
 
     inline bool operator[](const reference& ref) const { return test(ref); };
     inline bool operator[](const size_type pos) const { return test(pos); };
@@ -381,7 +381,7 @@ constexpr custom_bitset::block_type custom_bitset::after_mask(const size_type bi
     return ~block_type{1} << bit;
 }
 
-constexpr custom_bitset::reference custom_bitset::npos(std::numeric_limits<custom_bitset::block_type>::max(), 0);
+constexpr custom_bitset::reference custom_bitset::npos(std::numeric_limits<custom_bitset::size_type>::max(), 0);
 
 template <>
 struct std::formatter<custom_bitset::reference> : std::formatter<custom_bitset::size_type> {
@@ -569,7 +569,7 @@ inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rh
 }
 
 inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const uint64_t end_pos) {
+    const size_type end_pos) {
     AND(lhs, rhs, dest, reference(end_pos));
 }
 
@@ -602,7 +602,7 @@ inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rh
 }
 
 inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const uint64_t start_pos, const uint64_t end_pos) {
+    const size_type start_pos, const size_type end_pos) {
     AND(lhs, rhs, dest, reference(start_pos), reference(end_pos));
 }
 
@@ -642,7 +642,7 @@ inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs
 }
 
 inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const uint64_t end_pos) {
+    const size_type end_pos) {
     AND(lhs, rhs, dest, reference(end_pos));
 }
 
@@ -675,7 +675,7 @@ inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs
 }
 
 inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const uint64_t start_pos, const uint64_t end_pos) {
+    const size_type start_pos, const size_type end_pos) {
     AND(lhs, rhs, dest, reference(start_pos), reference(end_pos));
 }
 
@@ -714,7 +714,7 @@ inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rh
         dst[i] = 0;
 }
 
-inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const uint64_t end_pos) {
+inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const size_type end_pos) {
     SUB(lhs, rhs, dest, reference(end_pos));
 }
 
@@ -747,7 +747,7 @@ inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rh
 }
 
 inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const uint64_t start_pos, const uint64_t end_pos) {
+    const size_type start_pos, const size_type end_pos) {
     SUB(lhs, rhs, dest, reference(start_pos), reference(end_pos));
 }
 
@@ -852,7 +852,7 @@ template <bool pop>
 custom_bitset::reference custom_bitset::front_impl(this auto&& self) noexcept {
     for (auto ref = reference{0, 0}; ref.block < self._bits.size(); ++ref.block) {
         if (self._bits[ref.block] != 0) {
-            ref.bit = bit_scan_forward(self._bits[ref.block]);
+            ref.bit = instructions::bit_scan_forward(self._bits[ref.block]);
             if constexpr (pop) self.reset(ref);
             return ref;
         }
@@ -870,14 +870,14 @@ custom_bitset::reference custom_bitset::next_impl(this auto&& self, reference re
     // the resulting shift is all 1's shifted by back+1
     const auto masked_number = self._bits[ref.block] & after_mask(ref.bit);
     if (masked_number != 0) {
-        ref.bit = bit_scan_forward(masked_number);
+        ref.bit = instructions::bit_scan_forward(masked_number);
         if constexpr (pop) self.reset(ref);
         return ref;
     }
 
     for (++ref.block; ref.block < self._bits.size(); ++ref.block) {
         if (self._bits[ref.block] != 0) {
-            ref.bit = bit_scan_forward(self._bits[ref.block]);
+            ref.bit = instructions::bit_scan_forward(self._bits[ref.block]);
             if constexpr (pop) self.reset(ref);
             return ref;
         }
@@ -891,7 +891,7 @@ custom_bitset::reference custom_bitset::back_impl(this auto&& self) noexcept {
     reference ref(self._size-1);
     do {
         if (self._bits[ref.block] != 0) {
-            ref.bit = bit_scan_reverse(self._bits[ref.block]);
+            ref.bit = instructions::bit_scan_reverse(self._bits[ref.block]);
             if constexpr (pop) self.reset(ref);
             return ref;
         }
@@ -907,14 +907,14 @@ custom_bitset::reference custom_bitset::prev_impl(this auto&& self, reference re
 
     const auto masked_number = self._bits[ref.block] & below_mask(ref.bit);
     if (masked_number != 0) {
-        ref.bit = bit_scan_reverse(masked_number);
+        ref.bit = instructions::bit_scan_reverse(masked_number);
         if constexpr (pop) self.reset(ref);
         return ref;
     }
 
     while (ref.block-- > 0) {
         if (self._bits[ref.block] != 0) {
-            ref.bit = bit_scan_reverse(self._bits[ref.block]);
+            ref.bit = instructions::bit_scan_reverse(self._bits[ref.block]);
             if constexpr (pop) self.reset(ref);
             return ref;
         }
@@ -934,7 +934,7 @@ custom_bitset::size_type custom_bitset::count() const noexcept {
     const auto a = std::assume_aligned<alignment>(_bits.data());
 
     for (size_type i = 0; i < _bits.size(); ++i)
-        sum += popcount(a[i]);
+        sum += instructions::popcount(a[i]);
 
     return sum;
 }
@@ -1067,7 +1067,7 @@ inline custom_bitset::reference custom_bitset::front_difference(const custom_bit
 
     for (size_type i = 0; i < _bits.size(); i++)
         if (a[i] & ~b[i]) {
-            auto bit = bit_scan_forward(a[i] & ~b[i]);
+            auto bit = instructions::bit_scan_forward(a[i] & ~b[i]);
             return {i, bit};
         }
 

@@ -11,13 +11,6 @@ import custom_bitset;
 import instructions;
 
 int main(int argc, char *argv[]) {
-    initialize();
-    /*
-    custom_bitset a(64, true);
-    std::cout << a << std::endl;
-    exit(1);
-    */
-
     //auto filename = "../../CliSAT_instances/dimacs/c-fat200-1.clq"; //12
     //auto filename = "../../CliSAT_instances/dimacs/brock200_1.clq"; //21
     //auto filename = "../../CliSAT_instances/dimacs/MANN_a45.clq"; //345
