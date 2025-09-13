@@ -7,17 +7,12 @@
 #include <bit>
 #include <cstddef>
 
-
 // C++23 aligned allocator for standard containers.
 // Usage:
 //   aligned_vector<std::uint64_t, 32> v(1000);
 //   auto* p = std::assume_aligned<32>(v.data()); // Safe: allocator guarantees alignment
 //
 // Guarantees: v.data() is aligned to at least std::max(Align, alignof(T)).
-
-consteval bool is_power_of_two(std::size_t x) {
-    return x != 0 && (x & (x - 1)) == 0;
-}
 
 // Primary allocator
 template <class T, std::size_t alignment>
@@ -37,7 +32,7 @@ public:
     template <class U>
     constexpr explicit aligned_allocator(const aligned_allocator<U, alignment>&) noexcept {}
 
-    [[nodiscard]] value_type* allocate(size_type n) {
+    [[nodiscard]] value_type* allocate(const size_type n) {
         if (n == 0) return nullptr;
         if (n > max_size()) throw std::bad_array_new_length();
 
@@ -81,7 +76,3 @@ public:
         return false;
     }
 };
-
-// Convenience alias
-//template <class T, std::size_t Align>
-//using aligned_vector = std::vector<T, aligned_allocator<T, Align>>;

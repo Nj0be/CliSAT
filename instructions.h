@@ -51,91 +51,50 @@ namespace instructions {
 
     features cpu_supports = cpu_supports_impl();
 
-    unsigned constexpr popcnt32_sw(const std::uint32_t x) noexcept { return std::popcount(x); }
-    unsigned constexpr popcnt64_sw(const std::uint64_t x) noexcept { return std::popcount(x); }
-    unsigned constexpr popcnt128_sw(const __uint128_t x) noexcept { return std::popcount(x); }
+    inline std::size_t bsf32(std::uint32_t x) {
+        assert (x != 0);
+        [[assume(x != 0)]];
 
-    unsigned constexpr popcnt32_hw(const std::uint32_t x) noexcept {
-        std::uint32_t result;
-        asm ("popcnt %1, %0" : "=r"(result) : "r"(x));
-        return result;
-    }
-    unsigned constexpr popcnt64_hw(const std::uint64_t x) noexcept {
-        std::uint64_t result;
-        asm ("popcnt %1, %0" : "=r"(result) : "r"(x));
-        return result;
-    }
-    unsigned constexpr popcnt128_hw(const __uint128_t x) noexcept {
-        auto hi = static_cast<std::uint64_t>(x >> 64);
-        auto lo = static_cast<std::uint64_t>(x);
-        return popcnt64_hw(lo) + popcnt64_hw(hi);
+        asm ("bsf %0, %0" : "=r" (x) : "0" (x));
+        return x;
     }
 
-    inline std::uint32_t bsf32(const std::uint32_t x) {
-        std::uint32_t result;
-        asm ("bsf %1, %0"
-            : "=r"(result)
-            : "r"(x)
-            : "cc"
-        );
-        return result;
+    inline std::size_t bsf64(std::uint64_t x) {
+        assert (x != 0);
+        [[assume(x != 0)]];
+
+        asm ("bsfq %0, %0" : "=r" (x) : "0" (x));
+        return x;
     }
 
-    inline std::uint64_t bsf64(const std::uint64_t x) {
-        std::size_t result;
-        asm ("bsfq %1, %0"
-            : "=r"(result)
-            : "r"(x)
-            : "cc"
-        );
-        return result;
-    }
-
-    inline std::uint64_t bsf128(const __uint128_t x) {
-        auto hi = static_cast<std::uint64_t>(x >> 64);
-        auto lo = static_cast<std::uint64_t>(x);
+    inline std::size_t bsf128(const __uint128_t x) {
+        const auto hi = static_cast<std::uint64_t>(x >> 64);
+        const auto lo = static_cast<std::uint64_t>(x);
         if (lo) return bsf64(lo);
         return 64 + bsf64(hi);
     }
 
-    inline std::uint32_t bsr32(const std::uint32_t x) {
-        std::uint32_t result;
-        asm ("bsr %1, %0"
-            : "=r"(result)
-            : "r"(x)
-            : "cc"
-        );
-        return result;
+    inline std::size_t bsr32(std::uint32_t x) {
+        assert (x != 0);
+        [[assume(x != 0)]];
+
+        asm ("bsr %0, %0" : "=r" (x) : "0" (x));
+        return x;
     }
 
-    inline std::uint64_t bsr64(const std::uint64_t x) {
-        std::size_t result;
-        asm ("bsrq %1, %0"
-            : "=r"(result)
-            : "r"(x)
-            : "cc"
-        );
-        return result;
+    inline std::size_t bsr64(std::uint64_t x) {
+        assert (x != 0);
+        [[assume(x != 0)]];
+
+        asm ("bsrl %0, %0" : "=r" (x) : "0" (x));
+        return x;
     }
 
-    inline std::uint64_t bsr128(const __uint128_t x) {
-        auto hi = static_cast<std::uint64_t>(x >> 64);
-        auto lo = static_cast<std::uint64_t>(x);
+    inline std::size_t bsr128(const __uint128_t x) {
+        const auto hi = static_cast<std::uint64_t>(x >> 64);
+        const auto lo = static_cast<std::uint64_t>(x);
         if (hi) return 64 + bsr64(hi);
         return bsr64(lo);
-    }
-
-    template <std::unsigned_integral T>
-    unsigned popcount(T x) noexcept {
-        if (cpu_supports.popcnt) {
-            if constexpr (sizeof(T) <= 4) return popcnt32_hw(static_cast<std::uint32_t>(x));
-            else if constexpr (sizeof(T) == 8) return popcnt64_hw(static_cast<std::uint64_t>(x));
-            else return popcnt128_hw(static_cast<__uint128_t>(x));
-        } else {
-            if constexpr (sizeof(T) <= 4) return popcnt32_sw(static_cast<std::uint32_t>(x));
-            else if constexpr (sizeof(T) == 8) return popcnt64_sw(static_cast<std::uint64_t>(x));
-            else return popcnt128_sw(static_cast<__uint128_t>(x));
-        }
     }
 
     template <std::unsigned_integral T>
@@ -150,5 +109,112 @@ namespace instructions {
         if constexpr (sizeof(T) <= 4) return bsr32(static_cast<std::uint32_t>(x));
         else if constexpr (sizeof(T) == 8) return bsr64(static_cast<std::uint64_t>(x));
         else if constexpr (sizeof(T) == 16) return bsr128(static_cast<__uint128_t>(x));
+    }
+
+    std::size_t constexpr popcnt32_sw(const std::uint32_t x) noexcept { return std::popcount(x); }
+    std::size_t constexpr popcnt64_sw(const std::uint64_t x) noexcept { return std::popcount(x); }
+    std::size_t constexpr popcnt128_sw(const __uint128_t x) noexcept { return std::popcount(x); }
+
+    std::size_t constexpr popcnt32_hw(std::uint32_t x) noexcept {
+        asm ("popcnt %0, %0" : "=r"(x) : "r"(x));
+        return x;
+    }
+
+    std::size_t constexpr popcnt64_hw(std::uint64_t x) noexcept {
+        asm ("popcnt %0, %0" : "=r"(x) : "r"(x));
+        return x;
+    }
+
+    std::size_t constexpr popcnt128_hw(const __uint128_t x) noexcept {
+        const auto hi = static_cast<std::uint64_t>(x >> 64);
+        const auto lo = static_cast<std::uint64_t>(x);
+        return popcnt64_hw(lo) + popcnt64_hw(hi);
+    }
+
+    template <std::unsigned_integral T>
+    std::size_t popcount(T x) noexcept {
+        if (cpu_supports.popcnt) {
+            if constexpr (sizeof(T) <= 4) return popcnt32_hw(static_cast<std::uint32_t>(x));
+            else if constexpr (sizeof(T) == 8) return popcnt64_hw(static_cast<std::uint64_t>(x));
+            else return popcnt128_hw(static_cast<__uint128_t>(x));
+        } else {
+            if constexpr (sizeof(T) <= 4) return popcnt32_sw(static_cast<std::uint32_t>(x));
+            else if constexpr (sizeof(T) == 8) return popcnt64_sw(static_cast<std::uint64_t>(x));
+            else return popcnt128_sw(static_cast<__uint128_t>(x));
+        }
+    }
+
+    template <std::size_t alignment>
+    std::size_t popcount(const std::uint64_t* src, const std::size_t n) noexcept {
+        src = std::assume_aligned<alignment>(src);
+
+        std::size_t sum = 0;
+        std::size_t i = 0;
+
+        if (cpu_supports.popcnt)
+            for (; i < n; ++i)
+                sum += popcnt64_hw(src[i]);
+        else
+            for (; i < n; ++i)
+                sum += popcnt64_sw(src[i]);
+
+        return sum;
+    }
+
+    template <std::size_t alignment>
+    void and_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = 0; i < n; ++i)
+            lhs[i] &= rhs[i];
+    }
+
+    template <std::size_t alignment>
+    void diff_store(std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = 0; i < n; ++i)
+            dest[i] = src1[i] & ~src2[i];
+    }
+
+    template <std::size_t alignment>
+    void and_store(std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = 0; i < n; ++i)
+            dest[i] = src1[i] & src2[i];
+    }
+
+    template <std::size_t alignment>
+    void or_store(std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = 0; i < n; ++i)
+            dest[i] = src1[i] | src2[i];
+    }
+
+    template <std::size_t alignment>
+    void or_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = 0; i < n; ++i)
+            lhs[i] |= rhs[i];
+    }
+
+    template <std::size_t alignment>
+    void diff_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = 0; i < n; ++i)
+            lhs[i] &= ~rhs[i];
     }
 }

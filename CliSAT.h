@@ -13,7 +13,7 @@
 #include "custom_graph.h"
 #include "sorting.h"
 
-bool fix_unit_iset(
+inline bool fix_unit_iset(
     const custom_graph& G,
     custom_bitset& B,
     custom_bitset& already_added,
@@ -41,7 +41,7 @@ bool fix_unit_iset(
         if (is == u_is || already_visited[is]) continue;
 
         // remove vertices non adjacent to u
-        custom_bitset::AND(ISs[is], neighbors, D);
+        custom_bitset::AND(D, ISs[is], neighbors);
         auto di = D.front();
 
         if (di == custom_bitset::npos) { // empty IS, conflict detected
@@ -70,7 +70,7 @@ bool fix_unit_iset(
     return conflict_found;
 }
 
-bool SATCOL(
+inline bool SATCOL(
     custom_graph& G,
     custom_bitset& B,
     std::vector<custom_bitset>& ISs,
@@ -171,7 +171,7 @@ bool SATCOL(
     return B.any();
 }
 
-int FiltCOL(
+inline int FiltCOL(
     const custom_graph& G,  // graph
     custom_bitset& V, // vertices set
     const std::vector<custom_bitset>& ISs,
@@ -192,7 +192,7 @@ int FiltCOL(
         const int k = color_class[v];
         color_class_t[v] = i;
 
-        custom_bitset::SUB(Ubb, G.get_neighbor_set(v), ISs_t[i]);
+        custom_bitset::DIFF(ISs_t[i], Ubb, G.get_neighbor_set(v));
         Ubb.reset(v);
 
         auto last_v = v;
@@ -223,7 +223,7 @@ int FiltCOL(
     return k_max;
 }
 
-bool FiltSAT(
+inline bool FiltSAT(
     const custom_graph& G,  // graph
     custom_bitset& V, // vertices set
     std::vector<custom_bitset>& ISs,
@@ -264,7 +264,7 @@ bool FiltSAT(
                     if (j == i || j == color_class[u] || already_visited[j]) continue;
 
                     // remove vertices non adjacent to u
-                    custom_bitset::AND(ISs[j], neighbors, D);
+                    custom_bitset::AND(D, ISs[j], neighbors);
                     auto di = D.front();
 
                     if (di == custom_bitset::npos) { // empty IS, conflict detected
@@ -296,7 +296,8 @@ bool FiltSAT(
 std::uint64_t steps = 0;
 std::uint64_t pruned = 0;
 
-void FindMaxClique(
+//__attribute__((target_clones("default", "popcnt")))
+inline void FindMaxClique(
     custom_graph& G,  // graph
     std::vector<int>& K,       // current branch
     std::vector<int>& K_max,   // max branch
@@ -330,7 +331,7 @@ void FindMaxClique(
         }
 
         // calculate sub-problem
-        custom_bitset::AND(P_Bj, G.get_neighbor_set(bi), V_new);
+        custom_bitset::AND(V_new, P_Bj, G.get_neighbor_set(bi));
         int V_new_size = V_new.count();
 
         // if we are in a leaf
@@ -423,14 +424,14 @@ void FindMaxClique(
 
         // at this point B is not empty
         K.push_back(bi);
-        custom_bitset::SUB(V_new, B_news[curr], P_Bjs[curr+1]);
+        custom_bitset::DIFF(P_Bjs[curr+1], V_new, B_news[curr]);
         FindMaxClique(G, K, K_max, P_Bjs[curr+1], B_news[curr], u, next_is_k_partite);
         K.pop_back();
         u[bi] = std::min(u[bi], (int)K_max.size() - (int)K.size());
     }
 }
 
-std::vector<int> CliSAT(const custom_graph& g) {
+inline std::vector<int> CliSAT(const custom_graph& g) {
     auto [ordering, k] = NEW_SORT(g, 3);
     auto ordered_g = g.change_order(ordering);
 

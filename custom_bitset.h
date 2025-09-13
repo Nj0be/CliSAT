@@ -17,35 +17,33 @@ concept Integer = std::integral<T> && !std::same_as<T, bool> && !std::same_as<T,
 
 // Concept for containers that hold integers
 template<typename Container>
-concept IntegerContainer = std::ranges::range<Container> &&
-                          Integer<std::ranges::range_value_t<Container>>;
+concept IntegerContainer = std::ranges::range<Container> && Integer<std::ranges::range_value_t<Container>>;
 
 class custom_bitset {
 public:
-    // 32 bit architecture will use uint32_t, 64 bit will use uint64_t
-    typedef unsigned long long block_type;
+    typedef std::uint64_t block_type;
+    typedef std::size_t bit_type;
     typedef std::size_t size_type;
-    static constexpr size_type alignment = 64;
 
     class reference {
         size_type block;    // current block index
-        size_type bit;            // bit position inside block
+        bit_type bit;            // bit position inside block
 
     public:
-        constexpr reference(const size_type block, const size_type bit): block(block), bit(bit) {}
+        constexpr reference(const size_type block, const bit_type bit): block(block), bit(bit) {}
         constexpr explicit reference(const size_type pos) : block(get_block(pos)), bit(get_block_bit(pos)) {}
 
-        inline size_type operator*() const { return block*block_size + bit; }
-        inline operator size_type() const { return **this; };
+        size_type operator*() const { return block*block_size + bit; }
+        operator size_type() const { return **this; };
 
-        inline reference& operator++() { *this = reference(*this + 1); return *this; }
-        inline reference operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
+        reference& operator++() { *this = reference(*this + 1); return *this; }
+        reference operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
-        inline reference& operator--() { *this = reference(*this - 1); return *this; }
-        inline reference operator--(int) { const auto tmp = *this; --(*this); return tmp; }
+        reference& operator--() { *this = reference(*this - 1); return *this; }
+        reference operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
-        inline friend bool operator==(const reference& lhs, const reference& rhs) noexcept { return lhs.block == rhs.block && lhs.bit == rhs.bit; }
-        inline friend bool operator< (const reference& lhs, const reference& rhs) noexcept {
+        friend bool operator==(const reference& lhs, const reference& rhs) noexcept { return lhs.block == rhs.block && lhs.bit == rhs.bit; }
+        friend bool operator< (const reference& lhs, const reference& rhs) noexcept {
             if (lhs.block != rhs.block) return lhs.block < rhs.block;
             return lhs.bit < rhs.bit;
         }
@@ -65,26 +63,26 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        inline explicit iterator() : bs(nullptr), ref(0, 0) {}
-        inline iterator(custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
-        inline iterator(custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
+        explicit iterator() : bs(nullptr), ref(0, 0) {}
+        iterator(custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
+        iterator(custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
 
-        inline reference operator*() const { return ref; }
+        reference operator*() const { return ref; }
 
-        inline iterator& operator=(const bool value) {
+        iterator& operator=(const bool value) {
             bs->set(ref, value);
             return *this;
         }
 
-        inline explicit operator bool() const { return bs->test(ref); }
+        explicit operator bool() const { return bs->test(ref); }
 
-        inline iterator& operator++() { ref = bs->next(ref); return *this; }
-        inline iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
+        iterator& operator++() { ref = bs->next(ref); return *this; }
+        iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
-        inline iterator& operator--() { ref = bs->prev(ref); return *this; }
-        inline iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
+        iterator& operator--() { ref = bs->prev(ref); return *this; }
+        iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
-        inline bool operator==(const iterator& other) const { return bs == other.bs && ref == other.ref; }
+        bool operator==(const iterator& other) const { return bs == other.bs && ref == other.ref; }
 
         friend class custom_bitset;
     };
@@ -99,22 +97,22 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        inline explicit const_iterator() : bs(nullptr), ref(0, 0) {}
-        inline const_iterator(const custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
-        inline const_iterator(const custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
-        inline explicit const_iterator(const iterator& it) : bs(it.bs), ref(it.ref) {}
+        explicit const_iterator() : bs(nullptr), ref(0, 0) {}
+        const_iterator(const custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
+        const_iterator(const custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
+        explicit const_iterator(const iterator& it) : bs(it.bs), ref(it.ref) {}
 
-        inline reference operator*() const { return ref; }
+        reference operator*() const { return ref; }
 
-        inline explicit operator bool() const { return bs->test(ref); }
+        explicit operator bool() const { return bs->test(ref); }
 
-        inline const_iterator& operator++() { ref = bs->next(ref); return *this; }
-        inline const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
+        const_iterator& operator++() { ref = bs->next(ref); return *this; }
+        const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
-        inline const_iterator& operator--() { ref = bs->prev(ref); return *this; }
-        inline const_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
+        const_iterator& operator--() { ref = bs->prev(ref); return *this; }
+        const_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
-        inline bool operator==(const const_iterator& other) const { return bs == other.bs && ref == other.ref; }
+        bool operator==(const const_iterator& other) const { return bs == other.bs && ref == other.ref; }
 
         friend class custom_bitset;
     };
@@ -129,26 +127,26 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        inline explicit reverse_iterator() : bs(nullptr), ref(0, 0) {}
-        inline reverse_iterator(custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
-        inline reverse_iterator(custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
+        explicit reverse_iterator() : bs(nullptr), ref(0, 0) {}
+        reverse_iterator(custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
+        reverse_iterator(custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
 
-        inline reference operator*() const { return ref; }
+        reference operator*() const { return ref; }
 
-        inline reverse_iterator& operator=(const bool value) {
+        reverse_iterator& operator=(const bool value) {
             bs->set(ref, value);
             return *this;
         }
 
-        inline explicit operator bool() const { return bs->test(ref); }
+        explicit operator bool() const { return bs->test(ref); }
 
-        inline reverse_iterator& operator--() { ref = bs->next(ref); return *this; }
-        inline reverse_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
+        reverse_iterator& operator--() { ref = bs->next(ref); return *this; }
+        reverse_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
-        inline reverse_iterator& operator++() { ref = bs->prev(ref); return *this; }
-        inline reverse_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
+        reverse_iterator& operator++() { ref = bs->prev(ref); return *this; }
+        reverse_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
-        inline bool operator==(const reverse_iterator& other) const { return bs == other.bs && ref == other.ref; }
+        bool operator==(const reverse_iterator& other) const { return bs == other.bs && ref == other.ref; }
 
         friend class custom_bitset;
     };
@@ -163,38 +161,39 @@ public:
         using iterator_category = std::bidirectional_iterator_tag;
         using iterator_concept  = std::bidirectional_iterator_tag;
 
-        inline explicit reverse_const_iterator() : bs(nullptr), ref(0, 0) {}
-        inline reverse_const_iterator(const custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
-        inline reverse_const_iterator(const custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
-        inline explicit reverse_const_iterator(const iterator& it) : bs(it.bs), ref(it.ref) {}
+        explicit reverse_const_iterator() : bs(nullptr), ref(0, 0) {}
+        reverse_const_iterator(const custom_bitset* bitset, const size_type pos) : bs(bitset), ref(pos) {}
+        reverse_const_iterator(const custom_bitset* bitset, const reference& ref) : bs(bitset), ref(ref) {}
+        explicit reverse_const_iterator(const iterator& it) : bs(it.bs), ref(it.ref) {}
 
-        inline reference operator*() const { return ref; }
+        reference operator*() const { return ref; }
 
-        inline explicit operator bool() const { return bs->test(ref); }
+        explicit operator bool() const { return bs->test(ref); }
 
-        inline reverse_const_iterator& operator++() { ref = bs->next(ref); return *this; }
-        inline reverse_const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
+        reverse_const_iterator& operator++() { ref = bs->next(ref); return *this; }
+        reverse_const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
 
-        inline reverse_const_iterator& operator--() { ref = bs->prev(ref); return *this; }
-        inline reverse_const_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
+        reverse_const_iterator& operator--() { ref = bs->prev(ref); return *this; }
+        reverse_const_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
 
-        inline bool operator==(const reverse_const_iterator& other) const { return bs == other.bs && ref == other.ref; }
+        bool operator==(const reverse_const_iterator& other) const { return bs == other.bs && ref == other.ref; }
 
         friend class custom_bitset;
     };
 
-    [[nodiscard]] inline iterator begin() { return {this, front()}; }
-    [[nodiscard]] inline const_iterator begin() const { return {this, front()}; }
-    [[nodiscard]] inline iterator end() { return {this, npos}; }
-    [[nodiscard]] inline const_iterator end() const { return {this, npos}; }
-    [[nodiscard]] inline reverse_iterator rbegin() { return {this, back()}; }
-    [[nodiscard]] inline reverse_const_iterator rbegin() const { return {this, back()}; }
-    [[nodiscard]] inline reverse_iterator rend() { return {this, npos}; }
-    [[nodiscard]] inline reverse_const_iterator rend() const { return {this, npos}; }
+    [[nodiscard]] iterator begin() { return {this, front()}; }
+    [[nodiscard]] const_iterator begin() const { return {this, front()}; }
+    [[nodiscard]] iterator end() { return {this, npos}; }
+    [[nodiscard]] const_iterator end() const { return {this, npos}; }
+    [[nodiscard]] reverse_iterator rbegin() { return {this, back()}; }
+    [[nodiscard]] reverse_const_iterator rbegin() const { return {this, back()}; }
+    [[nodiscard]] reverse_iterator rend() { return {this, npos}; }
+    [[nodiscard]] reverse_const_iterator rend() const { return {this, npos}; }
 
 private:
     static constexpr size_type block_size = std::numeric_limits<block_type>::digits;
     static constexpr size_type block_size_log2 = std::countr_zero(block_size);
+    static constexpr size_type alignment = 32;
 
     size_type _size;
     std::vector<block_type, aligned_allocator<block_type, alignment>> _bits;
@@ -208,11 +207,11 @@ private:
     // it's necessary because even if size it's 0, we still have a block inside bits vector
     static constexpr size_type get_last_block(const size_type size) noexcept { return get_block(size + block_size-1) - (size != 0); }
 
-    static constexpr block_type mask_bit(size_type bit) noexcept;
-    static constexpr block_type below_mask(size_type bit) noexcept;
-    static constexpr block_type until_mask(size_type bit) noexcept;
-    static constexpr block_type from_mask(size_type bit) noexcept;
-    static constexpr block_type after_mask(size_type bit) noexcept;
+    static constexpr block_type mask_bit(bit_type bit) noexcept;
+    static constexpr block_type below_mask(bit_type bit) noexcept;
+    static constexpr block_type until_mask(bit_type bit) noexcept;
+    static constexpr block_type from_mask(bit_type bit) noexcept;
+    static constexpr block_type after_mask(bit_type bit) noexcept;
 
     template <bool pop>
     reference front_impl(this auto&& self) noexcept;
@@ -227,7 +226,7 @@ private:
     reference prev_impl(this auto&& self, reference ref);
 
 public:
-    inline custom_bitset() : custom_bitset(0) {}
+    custom_bitset() : custom_bitset(0) {}
     explicit custom_bitset(size_type size, bool default_value = false);
     custom_bitset(custom_bitset other, size_type size);
 
@@ -264,61 +263,61 @@ public:
     custom_bitset& operator^=(const custom_bitset &other);
     custom_bitset& operator-=(const custom_bitset& other);
 
-    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest);
-    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& end);
-    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type end_pos);
-    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& start, const reference& end);
-    static void AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type start_pos, size_type end_pos);
-    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest);
-    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& end);
-    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type end_pos);
-    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& start, const reference& end);
-    static void OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type start_pos, size_type end_pos);
-    static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest);
-    static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& end);
-    static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type end_pos);
-    static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, const reference& start, const reference& end);
-    static void SUB(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest, size_type start_pos, size_type end_pos);
+    static void AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
+    static void AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
+    static void AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
+    static void AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
+    static void AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
+    static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
+    static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
+    static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
+    static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
+    static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
+    static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
+    static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
+    static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
+    static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
+    static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
 
-    inline bool operator[](const reference& ref) const { return test(ref); };
-    inline bool operator[](const size_type pos) const { return test(pos); };
-    inline iterator operator[](const reference& ref) { return {this, ref}; };
-    inline iterator operator[](const size_type pos) { return {this, pos}; };
+    bool operator[](const reference& ref) const { return test(ref); };
+    bool operator[](const size_type pos) const { return test(pos); };
+    iterator operator[](const reference& ref) { return {this, ref}; };
+    iterator operator[](const size_type pos) { return {this, pos}; };
     friend std::ostream& operator<<(std::ostream& stream, const custom_bitset& bb);
     explicit operator std::vector<size_type>() const;
 
     void set(const reference& ref);
-    inline void set(const size_type pos) { set(reference(pos)); }
+    void set(const size_type pos) { set(reference(pos)); }
     void set(const reference& ref, bool value);
-    inline void set(const size_type pos, const bool value) { set(reference(pos), value); }
+    void set(const size_type pos, const bool value) { set(reference(pos), value); }
     void reset(const reference& ref);
-    inline void reset(const size_type pos) { reset(reference(pos)); }
+    void reset(const size_type pos) { reset(reference(pos)); }
     void flip(const reference& ref);
-    inline void flip(const size_type pos) { flip(reference(pos)); }
+    void flip(const size_type pos) { flip(reference(pos)); }
     [[nodiscard]] bool test(const reference& ref) const;
-    [[nodiscard]] inline bool test(const size_type pos) const { return test(reference(pos)); }
+    [[nodiscard]] bool test(const size_type pos) const { return test(reference(pos)); }
 
-    [[nodiscard]] inline reference front() const noexcept { return front_impl<false>(); }
+    [[nodiscard]] reference front() const noexcept { return front_impl<false>(); }
     inline reference pop_front() noexcept { return front_impl<true>(); }
 
-    [[nodiscard]] inline reference next(const reference& ref) const { return next_impl<false>(ref); }
-    [[nodiscard]] inline reference next(const size_type pos) const { return next(reference(pos)); }
+    [[nodiscard]] reference next(const reference& ref) const { return next_impl<false>(ref); }
+    [[nodiscard]] reference next(const size_type pos) const { return next(reference(pos)); }
     inline reference pop_next(const reference& ref) { return next_impl<true>(ref); }
 
-    [[nodiscard]] inline reference back() const noexcept { return back_impl<false>(); }
+    [[nodiscard]] reference back() const noexcept { return back_impl<false>(); }
     inline reference pop_back() noexcept { return back_impl<true>(); }
 
-    [[nodiscard]] inline reference prev(const reference& ref) const { return prev_impl<false>(ref); }
-    [[nodiscard]] inline reference prev(const size_type pos) const { return prev(reference(pos)); }
+    [[nodiscard]] reference prev(const reference& ref) const { return prev_impl<false>(ref); }
+    [[nodiscard]] reference prev(const size_type pos) const { return prev(reference(pos)); }
     inline reference pop_prev(const reference& ref) { return prev_impl<true>(ref); }
 
-    [[nodiscard]] inline size_type degree() const noexcept { return count(); };
+    [[nodiscard]] size_type degree() const noexcept { return count(); };
 
     void flip() noexcept;
     void set() noexcept;
     void reset() noexcept;
 
-    [[nodiscard]] inline size_type size() const noexcept { return _size; }
+    [[nodiscard]] size_type size() const noexcept { return _size; }
     [[nodiscard]] size_type count() const noexcept;
 
     void swap(custom_bitset& other) noexcept;
@@ -329,7 +328,7 @@ public:
     [[nodiscard]] bool intersects(const custom_bitset& other) const;
     [[nodiscard]] bool is_subset_of(const custom_bitset &other) const;
     [[nodiscard]] bool is_superset_of(const custom_bitset &other) const;
-    [[nodiscard]] custom_bitset::reference front_difference(const custom_bitset &other) const;
+    [[nodiscard]] reference front_difference(const custom_bitset &other) const;
 
     void resize(size_type new_size);
 
@@ -343,40 +342,40 @@ public:
     void clear_from(size_type pos);
 };
 
-constexpr custom_bitset::block_type custom_bitset::mask_bit(const size_type bit) noexcept {
+constexpr custom_bitset::block_type custom_bitset::mask_bit(const bit_type bit) noexcept {
     assert(bit < block_size);
     [[assume(bit < block_size)]];
 
     return block_type{1} << bit;
 }
 
-constexpr custom_bitset::block_type custom_bitset::below_mask(const size_type bit) noexcept {
+constexpr custom_bitset::block_type custom_bitset::below_mask(const bit_type bit) noexcept {
     return ~from_mask(bit);
 }
 
-constexpr custom_bitset::block_type custom_bitset::until_mask(const size_type bit) noexcept {
+constexpr custom_bitset::block_type custom_bitset::until_mask(const bit_type bit) noexcept {
     return ~after_mask(bit);
 }
 
-constexpr custom_bitset::block_type custom_bitset::from_mask(const size_type bit) noexcept {
+constexpr custom_bitset::block_type custom_bitset::from_mask(const bit_type bit) noexcept {
     assert(bit < block_size);
     [[assume(bit < block_size)]];
 
     return ~block_type{0} << bit;
 }
 
-constexpr custom_bitset::block_type custom_bitset::after_mask(const size_type bit) noexcept {
+constexpr custom_bitset::block_type custom_bitset::after_mask(const bit_type bit) noexcept {
     assert(bit < block_size);
     [[assume(bit < block_size)]];
 
     return ~block_type{1} << bit;
 }
 
-constexpr custom_bitset::reference custom_bitset::npos(std::numeric_limits<custom_bitset::size_type>::max(), 0);
+constexpr custom_bitset::reference custom_bitset::npos(std::numeric_limits<size_type>::max(), 0);
 
 template <>
 struct std::formatter<custom_bitset::reference> : std::formatter<custom_bitset::size_type> {
-    inline auto format(const custom_bitset::reference& id, std::format_context& ctx) const {
+    auto format(const custom_bitset::reference& id, std::format_context& ctx) const {
         return std::formatter<custom_bitset::size_type>::format(*id, ctx);
     }
 };
@@ -496,7 +495,7 @@ inline bool custom_bitset::operator==(const custom_bitset &other) const {
     return true;
 }
 
-inline custom_bitset & custom_bitset::operator=(const custom_bitset &other) {
+custom_bitset & custom_bitset::operator=(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
@@ -513,244 +512,16 @@ inline custom_bitset& custom_bitset::operator&=(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
-    // used for vectorization
-    // TODO: clean that shit
-    const auto a = std::assume_aligned<alignment>(_bits.data());
-    const auto b = std::assume_aligned<alignment>(other._bits.data());
-
-    for (size_type i = 0; i < _bits.size(); ++i)
-        a[i] &= b[i];
+    instructions::and_inplace<alignment>(_bits.data(), other._bits.data(), _bits.size());
 
     return *this;
-}
-
-inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest) {
-    assert(lhs.size() == rhs.size());
-    assert(rhs.size() == dest.size());
-    [[assume(lhs.size() == rhs.size())]];
-    [[assume(rhs.size() == dest.size())]];
-
-    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
-    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-
-    for (size_type i = 0; i < dest._bits.size(); ++i)
-        dst[i] = a[i] & b[i];
-}
-
-inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const reference &end) {
-    assert(lhs.size() == rhs.size());
-    assert(rhs.size() == dest.size());
-    assert(end <= dest.size());
-    [[assume(lhs.size() == rhs.size())]];
-    [[assume(rhs.size() == dest.size())]];
-    [[assume(end <= dest.size())]];
-
-    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
-    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-
-    for (size_type i = 0; i < end.block; ++i)
-        dst[i] = a[i] & b[i];
-
-    dst[end.block] = (a[end.block] & b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = 0;
-}
-
-inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const size_type end_pos) {
-    AND(lhs, rhs, dest, reference(end_pos));
-}
-
-inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const reference &start, const reference &end) {
-    assert(lhs.size() == rhs.size());
-    assert(rhs.size() == dest.size());
-    assert(start < dest.size());
-    assert(end <= dest.size());
-    [[assume(lhs.size() == rhs.size())]];
-    [[assume(rhs.size() == dest.size())]];
-    [[assume(start < dest.size())]];
-    [[assume(end <= dest.size())]];
-
-    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
-    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-
-    for (size_type i = 0; i < start.block; ++i)
-        dst[i] = 0;
-
-    dst[start.block] = (a[start.block] & b[end.block]) & from_mask(start.bit);
-
-    for (size_type i = start.block+1; i < end.block; ++i)
-        dst[i] = a[i] & b[i];
-
-    dst[end.block] = (a[end.block] & b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = 0;
-}
-
-inline void custom_bitset::AND(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const size_type start_pos, const size_type end_pos) {
-    AND(lhs, rhs, dest, reference(start_pos), reference(end_pos));
-}
-
-inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset& rhs, custom_bitset& dest) {
-    assert(lhs.size() == rhs.size());
-    assert(rhs.size() == dest.size());
-    [[assume(lhs.size() == rhs.size())]];
-    [[assume(rhs.size() == dest.size())]];
-
-    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
-    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-
-    for (size_type i = 0; i < dest._bits.size(); ++i)
-        dst[i] = a[i] | b[i];
-}
-
-inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const reference &end) {
-    assert(lhs.size() == rhs.size());
-    assert(rhs.size() == dest.size());
-    assert(end <= dest.size());
-    [[assume(lhs.size() == rhs.size())]];
-    [[assume(rhs.size() == dest.size())]];
-    [[assume(end <= dest.size())]];
-
-    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
-    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-
-    for (size_type i = 0; i < end.block; ++i)
-        dst[i] = a[i] | b[i];
-
-    dst[end.block] = (a[end.block] | b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = a[i];
-}
-
-inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const size_type end_pos) {
-    AND(lhs, rhs, dest, reference(end_pos));
-}
-
-inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const reference &start, const reference &end) {
-    assert(lhs.size() == rhs.size());
-    assert(rhs.size() == dest.size());
-    assert(start < dest.size());
-    assert(end <= dest.size());
-    [[assume(lhs.size() == rhs.size())]];
-    [[assume(rhs.size() == dest.size())]];
-    [[assume(start < dest.size())]];
-    [[assume(end <= dest.size())]];
-
-    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
-    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-
-    for (size_type i = 0; i < start.block; ++i)
-        dst[i] = a[i];
-
-    dst[start.block] = (a[start.block] | b[end.block]) & from_mask(start.bit);
-
-    for (size_type i = start.block+1; i < end.block; ++i)
-        dst[i] = a[i] | b[i];
-
-    dst[end.block] = (a[end.block] | b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = a[i];
-}
-
-inline void custom_bitset::OR(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const size_type start_pos, const size_type end_pos) {
-    AND(lhs, rhs, dest, reference(start_pos), reference(end_pos));
-}
-
-inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest) {
-    assert(lhs.size() == rhs.size());
-    assert(rhs.size() == dest.size());
-    [[assume(lhs.size() == rhs.size())]];
-    [[assume(rhs.size() == dest.size())]];
-
-    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
-    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-
-    for (size_type i = 0; i < dest._bits.size(); ++i)
-        dst[i] = a[i] & ~b[i];
-}
-
-inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const reference &end) {
-    assert(lhs.size() == rhs.size());
-    assert(rhs.size() == dest.size());
-    assert(end <= dest.size());
-    [[assume(lhs.size() == rhs.size())]];
-    [[assume(rhs.size() == dest.size())]];
-    [[assume(end <= dest.size())]];
-
-    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
-    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-
-    for (size_type i = 0; i < end.block; ++i)
-        dst[i] = a[i] & ~b[i];
-
-    dst[end.block] = (a[end.block] & ~b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = 0;
-}
-
-inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const size_type end_pos) {
-    SUB(lhs, rhs, dest, reference(end_pos));
-}
-
-inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest, const reference &start, const reference &end) {
-    assert(lhs.size() == rhs.size());
-    assert(rhs.size() == dest.size());
-    assert(start < dest.size());
-    assert(end <= dest.size());
-    [[assume(lhs.size() == rhs.size())]];
-    [[assume(rhs.size() == dest.size())]];
-    [[assume(start < dest.size())]];
-    [[assume(end <= dest.size())]];
-
-    const auto a = std::assume_aligned<alignment>(lhs._bits.data());
-    const auto b = std::assume_aligned<alignment>(rhs._bits.data());
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-
-    for (size_type i = 0; i < start.block; ++i)
-        dst[i] = 0;
-
-    dst[start.block] = (a[start.block] & ~b[end.block]) & from_mask(start.bit);
-
-    for (size_type i = start.block+1; i < end.block; ++i)
-        dst[i] = a[i] & ~b[i];
-
-    dst[end.block] = (a[end.block] & ~b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = 0;
-}
-
-inline void custom_bitset::SUB(const custom_bitset &lhs, const custom_bitset &rhs, custom_bitset &dest,
-    const size_type start_pos, const size_type end_pos) {
-    SUB(lhs, rhs, dest, reference(start_pos), reference(end_pos));
 }
 
 inline custom_bitset& custom_bitset::operator|=(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
-    const auto a = std::assume_aligned<alignment>(_bits.data());
-    const auto b = std::assume_aligned<alignment>(other._bits.data());
-
-    for (size_type i = 0; i < _bits.size(); ++i)
-        a[i] |= b[i];
+    instructions::or_inplace<alignment>(_bits.data(), other._bits.data(), _bits.size());
 
     return *this;
 }
@@ -772,13 +543,212 @@ inline custom_bitset& custom_bitset::operator-=(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
-    const auto a = std::assume_aligned<alignment>(_bits.data());
-    const auto b = std::assume_aligned<alignment>(other._bits.data());
-
-    for (std::size_t i = 0; i < _bits.size(); ++i)
-        a[i] &= ~b[i];
+    instructions::diff_inplace<alignment>(_bits.data(), other._bits.data(), _bits.size());
 
     return *this;
+}
+
+inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+
+    instructions::and_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), dest._bits.size());
+}
+
+inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(end <= dest.size())]];
+
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
+    const auto a = std::assume_aligned<alignment>(src1._bits.data());
+    const auto b = std::assume_aligned<alignment>(src2._bits.data());
+
+    for (size_type i = 0; i < end.block; ++i)
+        dst[i] = a[i] & b[i];
+
+    dst[end.block] = (a[end.block] & b[end.block]) & below_mask(end.bit);
+
+    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
+        dst[i] = 0;
+}
+
+inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
+    const size_type end_pos) {
+    AND(dest, src1, src2, reference(end_pos));
+}
+
+inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &start, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(start < dest.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(start < dest.size())]];
+    [[assume(end <= dest.size())]];
+
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
+    const auto a = std::assume_aligned<alignment>(src1._bits.data());
+    const auto b = std::assume_aligned<alignment>(src2._bits.data());
+
+    for (size_type i = 0; i < start.block; ++i)
+        dst[i] = 0;
+
+    dst[start.block] = (a[start.block] & b[end.block]) & from_mask(start.bit);
+
+    for (size_type i = start.block+1; i < end.block; ++i)
+        dst[i] = a[i] & b[i];
+
+    dst[end.block] = (a[end.block] & b[end.block]) & below_mask(end.bit);
+
+    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
+        dst[i] = 0;
+}
+
+inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
+    const size_type start_pos, const size_type end_pos) {
+    AND(dest, src1, src2, reference(start_pos), reference(end_pos));
+}
+
+inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+
+    instructions::or_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), dest._bits.size());
+}
+
+inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(end <= dest.size())]];
+
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
+    const auto a = std::assume_aligned<alignment>(src1._bits.data());
+    const auto b = std::assume_aligned<alignment>(src2._bits.data());
+
+    for (size_type i = 0; i < end.block; ++i)
+        dst[i] = a[i] | b[i];
+
+    dst[end.block] = (a[end.block] | b[end.block]) & below_mask(end.bit);
+
+    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
+        dst[i] = a[i];
+}
+
+inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
+    const size_type end_pos) {
+    OR(dest, src1, src2, reference(end_pos));
+}
+
+inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &start, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(start < dest.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(start < dest.size())]];
+    [[assume(end <= dest.size())]];
+
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
+    const auto a = std::assume_aligned<alignment>(src1._bits.data());
+    const auto b = std::assume_aligned<alignment>(src2._bits.data());
+
+    for (size_type i = 0; i < start.block; ++i)
+        dst[i] = a[i];
+
+    dst[start.block] = (a[start.block] | b[end.block]) & from_mask(start.bit);
+
+    for (size_type i = start.block+1; i < end.block; ++i)
+        dst[i] = a[i] | b[i];
+
+    dst[end.block] = (a[end.block] | b[end.block]) & below_mask(end.bit);
+
+    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
+        dst[i] = a[i];
+}
+
+inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
+    const size_type start_pos, const size_type end_pos) {
+    OR(dest, src1, src2, reference(start_pos), reference(end_pos));
+}
+
+inline void custom_bitset::DIFF(custom_bitset &dest, const custom_bitset &src1, const custom_bitset &src2) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+
+    instructions::diff_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), dest._bits.size());
+}
+
+inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(end <= dest.size())]];
+
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
+    const auto a = std::assume_aligned<alignment>(src1._bits.data());
+    const auto b = std::assume_aligned<alignment>(src2._bits.data());
+
+    for (size_type i = 0; i < end.block; ++i)
+        dst[i] = a[i] & ~b[i];
+
+    dst[end.block] = (a[end.block] & ~b[end.block]) & below_mask(end.bit);
+
+    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
+        dst[i] = 0;
+}
+
+inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const size_type end_pos) {
+    DIFF(dest, src1, src2, reference(end_pos));
+}
+
+inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &start, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(start < dest.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(start < dest.size())]];
+    [[assume(end <= dest.size())]];
+
+    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
+    const auto a = std::assume_aligned<alignment>(src1._bits.data());
+    const auto b = std::assume_aligned<alignment>(src2._bits.data());
+
+    for (size_type i = 0; i < start.block; ++i)
+        dst[i] = 0;
+
+    dst[start.block] = (a[start.block] & ~b[end.block]) & from_mask(start.bit);
+
+    for (size_type i = start.block+1; i < end.block; ++i)
+        dst[i] = a[i] & ~b[i];
+
+    dst[end.block] = (a[end.block] & ~b[end.block]) & below_mask(end.bit);
+
+    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
+        dst[i] = 0;
+}
+
+inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
+    const size_type start_pos, const size_type end_pos) {
+    DIFF(dest, src1, src2, reference(start_pos), reference(end_pos));
 }
 
 inline custom_bitset::operator std::vector<size_type>() const {
@@ -915,19 +885,15 @@ custom_bitset::reference custom_bitset::prev_impl(this auto&& self, reference re
 }
 
 inline void custom_bitset::flip() noexcept {
-    std::ranges::transform(_bits.begin(), _bits.end(), _bits.begin(), std::bit_not<>{});
-    _bits.back() &= below_mask(get_block_bit(_size));
-}
-
-custom_bitset::size_type custom_bitset::count() const noexcept {
-    size_type sum = 0;
-
     const auto a = std::assume_aligned<alignment>(_bits.data());
 
-    for (size_type i = 0; i < _bits.size(); ++i)
-        sum += instructions::popcount(a[i]);
+    for (size_type i = 0; i < _bits.size()-1; i++)
+        a[i] = ~a[i];
+    a[_bits.size()-1] &= below_mask(get_block_bit(_size));
+}
 
-    return sum;
+inline custom_bitset::size_type custom_bitset::count() const noexcept {
+    return instructions::popcount<alignment>(_bits.data(), _bits.size());
 }
 
 inline void custom_bitset::swap(custom_bitset &other) noexcept {
@@ -946,8 +912,11 @@ inline void custom_bitset::clear_before(const reference& ref) {
     assert(ref < _size);
     [[assume(ref < _size)]];
 
-    std::ranges::fill_n(_bits.begin(), static_cast<std::ptrdiff_t>(ref.block), 0);
-    _bits[ref.block] &= from_mask(ref.bit);
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+
+    for (size_type i = 0; i < ref.block; i++)
+        a[i] = 0;
+    a[ref.block] &= from_mask(ref.bit);
 }
 
 inline void custom_bitset::clear_before(const size_type pos) {
@@ -974,8 +943,11 @@ inline void custom_bitset::clear_from(const reference& ref) {
     assert(ref < _size);
     [[assume(ref < _size)]];
 
-    _bits[ref.block] &= below_mask(ref.bit);
-    std::ranges::fill(std::next(_bits.begin(), static_cast<std::ptrdiff_t>(ref.block) + 1), _bits.end(), 0);
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+
+    a[ref.block] &= below_mask(ref.bit);
+    for (auto i = ref.block+1; i < _bits.size(); i++)
+        a[i] = 0;
 }
 
 inline void custom_bitset::clear_from(const size_type pos) {
@@ -1076,7 +1048,7 @@ namespace std::ranges {
         custom_bitset* base_;
 
     public:
-        inline explicit reverse_view(custom_bitset& base) : base_(&base) {}
+        explicit reverse_view(custom_bitset& base) : base_(&base) {}
 
         // Use the container's actual rbegin/rend instead of make_reverse_iterator
         /*
@@ -1085,9 +1057,9 @@ namespace std::ranges {
         auto begin() const { return std::make_reverse_iterator(base_->rbegin()); }
         auto end() const { return std::make_reverse_iterator(base_->rend()); }
     */
-        inline auto begin() { return base_->rbegin(); }
-        inline auto end() { return base_->rend(); }
-        [[nodiscard]] inline auto begin() const { return base_->rbegin(); }
-        [[nodiscard]] inline auto end() const { return base_->rend(); }
+        auto begin() { return base_->rbegin(); }
+        auto end() { return base_->rend(); }
+        [[nodiscard]] auto begin() const { return base_->rbegin(); }
+        [[nodiscard]] auto end() const { return base_->rend(); }
     };
 }
