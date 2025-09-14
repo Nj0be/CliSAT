@@ -120,7 +120,7 @@ inline void BBMCR(const custom_graph& g, custom_bitset& Ubb, std::vector<std::ve
     }
 }
 
-export inline custom_bitset run_BBMCR(const custom_graph& g, custom_bitset Ubb) {
+inline custom_bitset run_BBMCR(const custom_graph& g, custom_bitset Ubb) {
     // initialize Ul
     std::vector<std::vector<std::uint64_t>> Ul(g.size());
 
@@ -138,6 +138,6 @@ export inline custom_bitset run_BBMCR(const custom_graph& g, custom_bitset Ubb) 
     return g.convert_back_set(S_max);
 }
 
-export inline custom_bitset run_BBMCR(const custom_graph &g) {
+inline custom_bitset run_BBMCR(const custom_graph &g) {
     return run_BBMCR(g, custom_bitset(g.size(), true));
 }

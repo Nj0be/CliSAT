@@ -193,7 +193,7 @@ public:
 private:
     static constexpr size_type block_size = std::numeric_limits<block_type>::digits;
     static constexpr size_type block_size_log2 = std::countr_zero(block_size);
-    static constexpr size_type alignment = 32;
+    static constexpr size_type alignment = 32; //bytes
 
     size_type _size;
     std::vector<block_type, aligned_allocator<block_type, alignment>> _bits;
@@ -273,6 +273,11 @@ public:
     static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
     static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
     static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
+    static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
+    static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
+    static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
+    static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
+    static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
     static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
     static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
     static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
@@ -495,9 +500,13 @@ inline bool custom_bitset::operator==(const custom_bitset &other) const {
     return true;
 }
 
-custom_bitset & custom_bitset::operator=(const custom_bitset &other) {
+inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
+
+    // using this functions results in a call to memcpy, slower than manual loop
+    // few elements. -fno-tree-loop-distribute-patterns could resolve it
+    //instructions::memcpy<alignment>(_bits.data(), other._bits.data(), _bits.size());
 
     const auto a = std::assume_aligned<alignment>(_bits.data());
     const auto b = std::assume_aligned<alignment>(other._bits.data());
@@ -565,17 +574,9 @@ inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, c
     [[assume(src1.size() == src2.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-    const auto a = std::assume_aligned<alignment>(src1._bits.data());
-    const auto b = std::assume_aligned<alignment>(src2._bits.data());
-
-    for (size_type i = 0; i < end.block; ++i)
-        dst[i] = a[i] & b[i];
-
-    dst[end.block] = (a[end.block] & b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = 0;
+    instructions::and_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), end.block);
+    dest._bits[end.block] = (src1._bits[end.block] & src2._bits[end.block]) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
 inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
@@ -593,22 +594,11 @@ inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, c
     [[assume(start < dest.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-    const auto a = std::assume_aligned<alignment>(src1._bits.data());
-    const auto b = std::assume_aligned<alignment>(src2._bits.data());
-
-    for (size_type i = 0; i < start.block; ++i)
-        dst[i] = 0;
-
-    dst[start.block] = (a[start.block] & b[end.block]) & from_mask(start.bit);
-
-    for (size_type i = start.block+1; i < end.block; ++i)
-        dst[i] = a[i] & b[i];
-
-    dst[end.block] = (a[end.block] & b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = 0;
+    instructions::memset<alignment>(dest._bits.data(), 0, start.block);
+    dest._bits[start.block] = (src1._bits[start.block] & src2._bits[end.block]) & from_mask(start.bit);
+    instructions::and_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), start.block+1, end.block);
+    dest._bits[end.block] = (src1._bits[end.block] & src2._bits[end.block]) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
 inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
@@ -633,17 +623,9 @@ inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, co
     [[assume(src1.size() == src2.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-    const auto a = std::assume_aligned<alignment>(src1._bits.data());
-    const auto b = std::assume_aligned<alignment>(src2._bits.data());
-
-    for (size_type i = 0; i < end.block; ++i)
-        dst[i] = a[i] | b[i];
-
-    dst[end.block] = (a[end.block] | b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = a[i];
+    instructions::or_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), end.block);
+    dest._bits[end.block] = (src1._bits[end.block] | src2._bits[end.block]) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
 inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
@@ -661,27 +643,65 @@ inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, co
     [[assume(start < dest.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-    const auto a = std::assume_aligned<alignment>(src1._bits.data());
-    const auto b = std::assume_aligned<alignment>(src2._bits.data());
-
-    for (size_type i = 0; i < start.block; ++i)
-        dst[i] = a[i];
-
-    dst[start.block] = (a[start.block] | b[end.block]) & from_mask(start.bit);
-
-    for (size_type i = start.block+1; i < end.block; ++i)
-        dst[i] = a[i] | b[i];
-
-    dst[end.block] = (a[end.block] | b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = a[i];
+    instructions::memset<alignment>(dest._bits.data(), 0, start.block);
+    dest._bits[start.block] = (src1._bits[start.block] | src2._bits[end.block]) & from_mask(start.bit);
+    instructions::or_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), start.block+1, end.block);
+    dest._bits[end.block] = (src1._bits[end.block] | src2._bits[end.block]) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
 inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
     const size_type start_pos, const size_type end_pos) {
     OR(dest, src1, src2, reference(start_pos), reference(end_pos));
+}
+
+inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+
+    instructions::xor_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), dest._bits.size());
+}
+
+inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(end <= dest.size())]];
+
+    instructions::xor_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), end.block);
+    dest._bits[end.block] = (src1._bits[end.block] ^ src2._bits[end.block]) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
+}
+
+inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
+    const size_type end_pos) {
+    XOR(dest, src1, src2, reference(end_pos));
+}
+
+inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &start, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(start < dest.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(start < dest.size())]];
+    [[assume(end <= dest.size())]];
+
+    instructions::memset<alignment>(dest._bits.data(), 0, start.block);
+    dest._bits[start.block] = (src1._bits[start.block] ^ src2._bits[end.block]) & from_mask(start.bit);
+    instructions::xor_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), start.block+1, end.block);
+    dest._bits[end.block] = (src1._bits[end.block] ^ src2._bits[end.block]) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
+}
+
+inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
+    const size_type start_pos, const size_type end_pos) {
+    XOR(dest, src1, src2, reference(start_pos), reference(end_pos));
 }
 
 inline void custom_bitset::DIFF(custom_bitset &dest, const custom_bitset &src1, const custom_bitset &src2) {
@@ -701,17 +721,9 @@ inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, 
     [[assume(src1.size() == src2.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-    const auto a = std::assume_aligned<alignment>(src1._bits.data());
-    const auto b = std::assume_aligned<alignment>(src2._bits.data());
-
-    for (size_type i = 0; i < end.block; ++i)
-        dst[i] = a[i] & ~b[i];
-
-    dst[end.block] = (a[end.block] & ~b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = 0;
+    instructions::diff_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), end.block);
+    dest._bits[end.block] = (src1._bits[end.block] & ~src2._bits[end.block]) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
 inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const size_type end_pos) {
@@ -728,22 +740,11 @@ inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, 
     [[assume(start < dest.size())]];
     [[assume(end <= dest.size())]];
 
-    const auto dst = std::assume_aligned<alignment>(dest._bits.data());
-    const auto a = std::assume_aligned<alignment>(src1._bits.data());
-    const auto b = std::assume_aligned<alignment>(src2._bits.data());
-
-    for (size_type i = 0; i < start.block; ++i)
-        dst[i] = 0;
-
-    dst[start.block] = (a[start.block] & ~b[end.block]) & from_mask(start.bit);
-
-    for (size_type i = start.block+1; i < end.block; ++i)
-        dst[i] = a[i] & ~b[i];
-
-    dst[end.block] = (a[end.block] & ~b[end.block]) & below_mask(end.bit);
-
-    for (size_type i = end.block+1; i < dest._bits.size(); ++i)
-        dst[i] = 0;
+    instructions::memset<alignment>(dest._bits.data(), 0, start.block);
+    dest._bits[start.block] = (src1._bits[start.block] & ~src2._bits[end.block]) & from_mask(start.bit);
+    instructions::diff_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), start.block+1, end.block);
+    dest._bits[end.block] = (src1._bits[end.block] & ~src2._bits[end.block]) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
 inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
@@ -782,17 +783,11 @@ inline void custom_bitset::reset(const reference &ref) {
 }
 
 inline void custom_bitset::set() noexcept {
-    const auto a = std::assume_aligned<alignment>(_bits.data());
-
-    for (size_type i = 0; i < _bits.size(); i++)
-        a[i] = std::numeric_limits<block_type>::max();
+    instructions::memset<alignment>(_bits.data(), std::numeric_limits<block_type>::max(), _bits.size());
 }
 
 inline void custom_bitset::reset() noexcept {
-    const auto a = std::assume_aligned<alignment>(_bits.data());
-
-    for (size_type i = 0; i < _bits.size(); i++)
-        a[i] = 0;
+    instructions::memset<alignment>(_bits.data(), 0, _bits.size());
 }
 
 inline void custom_bitset::flip(const reference &ref) {
@@ -885,11 +880,8 @@ custom_bitset::reference custom_bitset::prev_impl(this auto&& self, reference re
 }
 
 inline void custom_bitset::flip() noexcept {
-    const auto a = std::assume_aligned<alignment>(_bits.data());
-
-    for (size_type i = 0; i < _bits.size()-1; i++)
-        a[i] = ~a[i];
-    a[_bits.size()-1] &= below_mask(get_block_bit(_size));
+    instructions::flip<alignment>(_bits.data(), _bits.size());
+    _bits.back() &= below_mask(get_block_bit(_size));
 }
 
 inline custom_bitset::size_type custom_bitset::count() const noexcept {
@@ -912,11 +904,8 @@ inline void custom_bitset::clear_before(const reference& ref) {
     assert(ref < _size);
     [[assume(ref < _size)]];
 
-    const auto a = std::assume_aligned<alignment>(_bits.data());
-
-    for (size_type i = 0; i < ref.block; i++)
-        a[i] = 0;
-    a[ref.block] &= from_mask(ref.bit);
+    instructions::memset<alignment>(_bits.data(), 0, ref.block);
+    _bits[ref.block] &= from_mask(ref.bit);
 }
 
 inline void custom_bitset::clear_before(const size_type pos) {
@@ -943,11 +932,8 @@ inline void custom_bitset::clear_from(const reference& ref) {
     assert(ref < _size);
     [[assume(ref < _size)]];
 
-    const auto a = std::assume_aligned<alignment>(_bits.data());
-
-    a[ref.block] &= below_mask(ref.bit);
-    for (auto i = ref.block+1; i < _bits.size(); i++)
-        a[i] = 0;
+    _bits[ref.block] &= below_mask(ref.bit);
+    instructions::memset<alignment>(_bits.data(), 0, ref.block+1, _bits.size());
 }
 
 inline void custom_bitset::clear_from(const size_type pos) {
@@ -1028,11 +1014,12 @@ inline custom_bitset::reference custom_bitset::front_difference(const custom_bit
     const auto a = std::assume_aligned<alignment>(_bits.data());
     const auto b = std::assume_aligned<alignment>(other._bits.data());
 
-    for (size_type i = 0; i < _bits.size(); i++)
+    for (size_type i = 0; i < _bits.size(); i++) {
         if (a[i] & ~b[i]) {
             auto bit = instructions::bit_scan_forward(a[i] & ~b[i]);
             return {i, bit};
         }
+    }
 
     return npos;
 }
@@ -1050,13 +1037,6 @@ namespace std::ranges {
     public:
         explicit reverse_view(custom_bitset& base) : base_(&base) {}
 
-        // Use the container's actual rbegin/rend instead of make_reverse_iterator
-        /*
-        auto begin() { return std::make_reverse_iterator(base_->rbegin()); }
-        auto end() { return std::make_reverse_iterator(base_->rend()); }
-        auto begin() const { return std::make_reverse_iterator(base_->rbegin()); }
-        auto end() const { return std::make_reverse_iterator(base_->rend()); }
-    */
         auto begin() { return base_->rbegin(); }
         auto end() { return base_->rend(); }
         [[nodiscard]] auto begin() const { return base_->rbegin(); }

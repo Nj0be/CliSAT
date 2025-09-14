@@ -144,19 +144,26 @@ namespace instructions {
         }
     }
 
-    template <std::size_t alignment>
-    std::size_t popcount(const std::uint64_t* src, const std::size_t n) noexcept {
+    template <std::size_t alignment, std::unsigned_integral T>
+    std::size_t popcount(const T* src, const std::size_t n) noexcept {
         src = std::assume_aligned<alignment>(src);
 
         std::size_t sum = 0;
-        std::size_t i = 0;
 
+        /*
         if (cpu_supports.popcnt)
-            for (; i < n; ++i)
+            for (std::size_t i = 0; i < n; ++i)
                 sum += popcnt64_hw(src[i]);
         else
-            for (; i < n; ++i)
+            for (std::size_t i = 0; i < n; ++i)
                 sum += popcnt64_sw(src[i]);
+        */
+       
+        // faster thanks to branch prediction...
+        // no need to inline two different loops
+        for (std::size_t i = 0; i < n; ++i) {
+            sum += popcount(src[i]);
+        }
 
         return sum;
     }
@@ -171,13 +178,30 @@ namespace instructions {
     }
 
     template <std::size_t alignment>
-    void diff_store(std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
-        dest = std::assume_aligned<alignment>(dest);
-        src1 = std::assume_aligned<alignment>(src1);
-        src2 = std::assume_aligned<alignment>(src2);
+    void or_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
 
         for (std::size_t i = 0; i < n; ++i)
-            dest[i] = src1[i] & ~src2[i];
+            lhs[i] |= rhs[i];
+    }
+
+    template <std::size_t alignment>
+    void xor_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = 0; i < n; ++i)
+            lhs[i] ^= rhs[i];
+    }
+
+    template <std::size_t alignment>
+    void diff_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = 0; i < n; ++i)
+            lhs[i] &= ~rhs[i];
     }
 
     template <std::size_t alignment>
@@ -191,7 +215,24 @@ namespace instructions {
     }
 
     template <std::size_t alignment>
-    void or_store(std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
+    void and_store(
+        std::uint64_t* __restrict dest,
+        const std::uint64_t* __restrict src1,
+        const std::uint64_t* __restrict src2,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = start; i < end; ++i)
+            dest[i] = src1[i] & src2[i];
+    }
+
+    template <std::size_t alignment>
+    void or_store(
+        std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
         dest = std::assume_aligned<alignment>(dest);
         src1 = std::assume_aligned<alignment>(src1);
         src2 = std::assume_aligned<alignment>(src2);
@@ -201,20 +242,105 @@ namespace instructions {
     }
 
     template <std::size_t alignment>
-    void or_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
-        lhs = std::assume_aligned<alignment>(lhs);
-        rhs = std::assume_aligned<alignment>(rhs);
+    void or_store(
+        std::uint64_t* __restrict dest,
+        const std::uint64_t* __restrict src1,
+        const std::uint64_t* __restrict src2,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = start; i < end; ++i)
+            dest[i] = src1[i] | src2[i];
+    }
+
+
+    template <std::size_t alignment>
+    void xor_store(
+        std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
 
         for (std::size_t i = 0; i < n; ++i)
-            lhs[i] |= rhs[i];
+            dest[i] = src1[i] ^ src2[i];
     }
 
     template <std::size_t alignment>
-    void diff_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
-        lhs = std::assume_aligned<alignment>(lhs);
-        rhs = std::assume_aligned<alignment>(rhs);
+    void xor_store(
+        std::uint64_t* __restrict dest,
+        const std::uint64_t* __restrict src1,
+        const std::uint64_t* __restrict src2,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = start; i < end; ++i)
+            dest[i] = src1[i] ^ src2[i];
+    }
+
+    template <std::size_t alignment>
+    void diff_store(std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
 
         for (std::size_t i = 0; i < n; ++i)
-            lhs[i] &= ~rhs[i];
+            dest[i] = src1[i] & ~src2[i];
+    }
+
+    template <std::size_t alignment>
+    void diff_store(
+        std::uint64_t* __restrict dest,
+        const std::uint64_t* __restrict src1,
+        const std::uint64_t* __restrict src2,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = start; i < end; ++i)
+            dest[i] = src1[i] & ~src2[i];
+    }
+
+    template <std::size_t alignment>
+    void memset(std::uint64_t* __restrict dest, const std::uint64_t c, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+
+        for (std::size_t i = 0; i < n; ++i)
+            dest[i] = c;
+    }
+
+    template <std::size_t alignment>
+    void memset(std::uint64_t* __restrict dest, const std::uint64_t c, const std::size_t start, const std::size_t end) {
+        dest = std::assume_aligned<alignment>(dest);
+
+        for (std::size_t i = start; i < end; ++i)
+            dest[i] = c;
+    }
+
+    template <std::size_t alignment>
+    void memcpy(std::uint64_t* __restrict dest, const std::uint64_t* __restrict src, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+        src = std::assume_aligned<alignment>(src);
+
+        for (std::size_t i = 0; i < n; ++i)
+            dest[i] = src[i];
+    }
+
+    template <std::size_t alignment>
+    void flip(std::uint64_t* dest, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+
+        for (std::size_t i = 0; i < n; ++i)
+            dest[i] = ~dest[i];
     }
 }
