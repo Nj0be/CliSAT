@@ -6,6 +6,7 @@
 
 #include <bit>
 #include <cstddef>
+#include <limits>
 
 // C++23 aligned allocator for standard containers.
 // Usage:
@@ -37,8 +38,8 @@ public:
         if (n > max_size()) throw std::bad_array_new_length();
 
         const std::size_t bytes = n * sizeof(T);
-        void* p = ::operator new(bytes, static_cast<std::align_val_t>(alignment));
-        return static_cast<value_type*>(p);
+        auto* p = static_cast<value_type*>(std::aligned_alloc(alignment, bytes));
+        return p;
     }
 
     // C++23 optional allocate_at_least: returns ptr + possibly larger count.
@@ -48,12 +49,12 @@ public:
         size_type count;
     };
 
-    [[nodiscard]] allocation_result allocate_at_least(size_type n) {
+    [[nodiscard]] allocation_result allocate_at_least(const size_type n) {
         // Simple: no over-allocation strategy; always exact.
         return { allocate(n), n };
     }
 
-    static void deallocate(value_type* p, size_type n) noexcept {
+    static void deallocate(value_type* p, const size_type n) noexcept {
         (void)n; // size not needed for ::operator delete with alignment
         if (!p) return;
         ::operator delete(p, static_cast<std::align_val_t>(alignment));

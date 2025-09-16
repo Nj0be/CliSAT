@@ -49,7 +49,7 @@ namespace instructions {
         return cpu_supports;
     }
 
-    features cpu_supports = cpu_supports_impl();
+    static features cpu_supports = cpu_supports_impl();
 
     inline std::size_t bsf32(std::uint32_t x) {
         assert (x != 0);

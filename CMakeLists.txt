@@ -5,6 +5,7 @@ project(CliSAT LANGUAGES CXX)
 
 add_executable(CliSAT
         main.cpp
+        CliSAT.cpp
 )
 
 target_include_directories(CliSAT PUBLIC

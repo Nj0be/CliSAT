@@ -92,7 +92,7 @@ inline int ISEQ_branching(
     }
 
     auto v = ISs[k_max].front();
-    if (v == custom_bitset::npos) return k-1;
+    if (v == custom_bitset::npos) return k_max-1;
 
     auto last_v = v;
     for (; v != custom_bitset::npos; v = ISs[k_max].next(v)) {
@@ -101,7 +101,7 @@ inline int ISEQ_branching(
         color_class[v] = k;
     }
 
-    return k;
+    return k_max;
 }
 
 inline custom_bitset ISEQ_branching(

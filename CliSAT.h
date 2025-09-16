@@ -6,172 +6,456 @@
 
 #include <cassert>
 #include <stack>
-#include <print>
+#include <iostream>
 
 #include "coloring.h"
 #include "custom_bitset.h"
 #include "custom_graph.h"
-#include "sorting.h"
 
-inline bool fix_unit_iset(
-    const custom_graph& G,
-    custom_bitset& B,
-    custom_bitset& already_added,
-    custom_bitset& already_visited,
-    custom_bitset& conflicting_clauses,
-    custom_bitset& neighbors,
-    std::stack<std::pair<custom_bitset::reference, int>>& s,
-    std::vector<custom_bitset>& ISs,
-    int k,
-    int u,
-    int u_is,
-    int ui
+#define NONE -1
+#define NO_REASON -1
+
+static void identify_conflict_isets(
+    const int iset,
+    const std::vector<custom_bitset>& ISs,
+    const std::vector<std::vector<int>>& ISs_new,
+    std::vector<bool>& ISs_involved,
+    std::vector<bool>& ISs_used,
+    const custom_bitset& is_processed,
+    std::vector<bool>& is_processed_new,
+    std::vector<int>& reason_stack,
+    const std::vector<int>& reason
 ) {
-    custom_bitset D(G.size());
-    bool conflict_found = false;
-    // insert current node to the culprit_ISs
-    conflicting_clauses.set(u_is);
+    int starting_index = reason_stack.size();
+    reason_stack.push_back(iset);
+    ISs_involved[iset] = true;
+    for (int i = starting_index; i < reason_stack.size(); i++) {
+        const auto reason_iset = reason_stack[i];
 
-    neighbors &= G.get_neighbor_set(u);
+        // removed_nodes
+        static custom_bitset removed(is_processed.size());
+        custom_bitset::AND(removed, ISs[reason_iset], is_processed);
+        for (auto r : removed) {
+            auto r_iset = reason[r];
+            if (ISs_involved[r_iset]) continue;
 
-    // useless to iterate over r+1 that contains only u;
-    for (auto is = 0; is < k; ++is) {
-        //for (auto i = k-1; i >= 0; --i) {
-        // if D is the unit IS set that we are setting to true, we continue
-        if (is == u_is || already_visited[is]) continue;
-
-        // remove vertices non adjacent to u
-        custom_bitset::AND(D, ISs[is], neighbors);
-        auto di = D.front();
-
-        if (di == custom_bitset::npos) { // empty IS, conflict detected
-            conflicting_clauses.set(is); // we have derived an empty independent set
-            // we can start pruning, even if maybe all the literals in the IS aren't conflicting
-            B.reset(ui);
-            conflict_found = true;
-
-            // more than one conflict can be found, but it's redundant
-            /* TODO: CliSAT paper, page2, says:
-            * In the latter case, the soft clauses (2) in which a positive literal is set to
-            * true, together with the soft clause that becomes empty, determine
-            * a conflict.
-            * So it must continue to find every conflict (empty clause)
-            */
-            break;
-            //continue;
+            ISs_involved[r_iset] = true;
+            reason_stack.push_back(r_iset);
         }
-        if (!already_added.test(is) && D.next(di) == custom_bitset::npos) { // Unit IS
-            already_added.set(is);
-            s.emplace(di, is);
+        for (auto r : ISs_new[reason_iset]) {
+            // not processed (removed)
+            if (!is_processed_new[r-is_processed.size()] || reason[r] == NO_REASON) continue;
+
+            auto r_iset = reason[r];
+            if (ISs_involved[r_iset]) continue;
+
+            ISs_involved[r_iset] = true;
+            reason_stack.push_back(r_iset);
         }
     }
 
-    // empty IS has been derived, we break
-    return conflict_found;
+    for (int i = starting_index; i < reason_stack.size(); i++) {
+        ISs_involved[reason_stack[i]] = false;
+        ISs_used[reason_stack[i]] = true;
+    }
+
+    ISs_involved[iset] = false;
 }
 
-inline bool SATCOL(
-    custom_graph& G,
-    custom_bitset& B,
-    std::vector<custom_bitset>& ISs,
-    std::vector<int>& color_class,
-    int k
+static bool remove_neighbors_from_iset(
+    const int l_is,
+    const int iset,
+    const custom_bitset& neighbors,
+    const custom_graph& G,
+    const std::vector<custom_bitset>& ISs,
+    std::vector<int>& ISs_size,
+    custom_bitset& is_processed,
+    std::vector<int>& reason,
+    std::vector<int>& unit_stack
 ) {
-    static custom_bitset already_added(G.size());
-    static custom_bitset already_visited(G.size());
-    static custom_bitset conflicting_clauses(G.size());
-    static custom_bitset IS_B(G.size());
+    static custom_bitset removed(G.size());
+    custom_bitset::DIFF(removed, ISs[iset], neighbors);
+
+    // non processed vertices
+    auto count_removed = 0;
+    for (auto r : removed) {
+        count_removed++;
+
+        ISs_size[iset]--;
+        is_processed.set(r);
+        reason[r] = l_is;
+    }
+
+    // we did nothing
+    if (count_removed == 0) return false;
+
+    if (ISs_size[iset] == 1) {
+        unit_stack.emplace_back(iset);
+        return false;
+    }
+    // conflict found
+    if (ISs_size[iset] == 0) return true;
+
+    return false;
+}
+
+static int fix_newNode_for_iset(
+    const int fix_node,
+    const int fix_iset,
+    const custom_graph& G,
+    const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
+    std::vector<bool>& ISs_state,
+    std::vector<int>& ISs_size,
+    std::vector<bool>& is_processed_new,
+    std::vector<int>& reason,
+    std::vector<int>& unit_stack
+) {
+    int idx;
+    ISs_size[fix_iset]--;
+    ISs_state[fix_iset] = false;
+    is_processed_new[fix_node-G.size()] = true;
+    reason[fix_node] = fix_iset;
+
+    for (auto iset_idx : CONFLICT_ISET_STACK[fix_node-G.size()]) {
+        if (!ISs_state[iset_idx]) continue;
+
+        ISs_size[iset_idx]--;
+
+        if (ISs_size[iset_idx] == 0) return iset_idx;
+        if (ISs_size[iset_idx] == 1) unit_stack.push_back(iset_idx);
+    }
+    return NONE;
+}
+
+static int fix_oldNode_for_iset(
+    const int fix_node,
+    const int fix_iset,
+    const custom_bitset& neighbors,
+    const custom_graph& G,
+    const std::vector<custom_bitset>& ISs,
+    std::vector<bool>& ISs_state,
+    std::vector<int>& ISs_size,
+    custom_bitset& is_processed,
+    std::vector<int>& reason,
+    std::vector<int>& unit_stack,
+    const int k
+) {
+    ISs_size[fix_iset]--;
+    ISs_state[fix_iset] = false;
+    is_processed.set(fix_node);
+    reason[fix_node] = fix_iset;
+
+    for (int iset = 0; iset < k; iset++) {
+        if (!ISs_state[iset]) continue;
+
+        if (remove_neighbors_from_iset(fix_iset, iset, neighbors, G, ISs, ISs_size, is_processed, reason, unit_stack)) {
+            return iset;
+        }
+    }
+    return NONE;
+}
+
+inline int get_node_of_unit_iset(
+    const int l_is,
+    const custom_graph& G,
+    const std::vector<custom_bitset>& ISs,
+    const std::vector<std::vector<int>>& ISs_new,
+    const custom_bitset& is_processed,
+    const std::vector<bool>& is_processed_new
+) {
+    for (auto new_node : ISs_new[l_is]) {
+        if (is_processed_new[new_node-G.size()]) continue;
+        return new_node;
+    }
+
+    auto node  = ISs[l_is].front_difference(is_processed);
+    if (node != custom_bitset::npos) return node;
+
+    std::cout << "Error in get_node_of_unit_iset: l_is{" << l_is << "} node{" << node << "}" << std::endl;
+    exit(1);
+}
+
+static int fix_anyNode_for_iset(
+    const int fix_iset,
+    const custom_graph& G,
+    const std::vector<custom_bitset>& ISs,
+    const std::vector<std::vector<int>>& ISs_new,
+    const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
+    std::vector<bool>& ISs_state,
+    std::vector<int>& ISs_size,
+    custom_bitset& is_processed,
+    std::vector<bool>& is_processed_new,
+    std::vector<int>& reason,
+    std::vector<int>& unit_stack,
+    const int k
+) {
     static custom_bitset neighbors(G.size());
 
-    const auto orig_size = G.size();
-    conflicting_clauses.reset();
+    const auto fix_node = get_node_of_unit_iset(fix_iset, G, ISs, ISs_new, is_processed, is_processed_new);
 
-    // SATCOL iterates until:
-    //  - it fails to find a conflict
-    //  - B is empty
-    while (true) {
-        ISEQ_one(G, B, IS_B);
-        auto conflict_found = false;
+    if (fix_node >= G.size()) return fix_newNode_for_iset(fix_node, fix_iset, G, CONFLICT_ISET_STACK, ISs_state, ISs_size, is_processed_new, reason, unit_stack);
 
-        for (const auto ui : IS_B) {
-            std::stack<std::pair<custom_bitset::reference, int>> s;
-            conflict_found = false;
+    custom_bitset::OR(neighbors, G.get_neighbor_set(fix_node), is_processed);
+    return fix_oldNode_for_iset(fix_node, fix_iset, neighbors, G, ISs, ISs_state, ISs_size, is_processed, reason, unit_stack, k);
+}
 
-            s.emplace(ui, k); // we add the current vertex ui to the stack S
+static int unit_iset_process(
+    const custom_graph& G,
+    const std::vector<custom_bitset>& ISs,
+    const std::vector<std::vector<int>>& ISs_new,
+    const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
+    std::vector<bool>& ISs_state,
+    std::vector<int>& ISs_size,
+    custom_bitset& is_processed,
+    std::vector<bool>& is_processed_new,
+    std::vector<int>& reason,
+    const std::vector<int>& unit_stack,
+    const int k
+) {
+    static std::vector<int> new_unit_stack;
+    static custom_bitset neighbors(G.size());
 
-            already_added.reset();
-            already_visited.reset();
+    for (const auto l_is : unit_stack) {
+        if (!ISs_state[l_is] || ISs_size[l_is] != 1) continue;
 
-            neighbors.set();
+        new_unit_stack.clear();
 
-            // for each Unit IS
-            while (!s.empty()) {
-                const auto [u, u_is] = s.top();
-                s.pop();
-                already_visited.set(u_is);
+        auto empty_iset = fix_anyNode_for_iset(l_is, G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, is_processed, is_processed_new, reason, new_unit_stack, k);
+        if (empty_iset != NONE) return empty_iset;
 
-                conflict_found = fix_unit_iset(G, B, already_added, already_visited, conflicting_clauses, neighbors, s, ISs, k, u, u_is, ui);
-                if (conflict_found) break;
-            }
+        for (auto j = 0; j < new_unit_stack.size(); j++) {
+            const auto l_is2 = new_unit_stack[j];
+            if (!ISs_state[l_is2]) continue;
 
-            if (!conflict_found) break;
-        }
-
-        // TODO: break or continue?
-        if (!conflict_found) break;
-
-        ISs[k] = IS_B; // we add the unit independent set to ISs
-
-        // conflict found!
-        //B -= IS_B;
-        if (B.none()) break;
-
-        k++;
-
-        const auto first_node = G.size();
-
-        G.resize(G.size() + conflicting_clauses.count());
-        B.resize(G.size());
-        neighbors.resize(G.size());
-        IS_B.resize(G.size());
-
-        // k+1 for next iteration
-        for (auto is = 0; is < k+1; ++is)
-            ISs[is].resize(G.size());
-
-        auto last_node = first_node;
-
-        // we reset conflicting_clauses while scanning it
-        for (auto is = conflicting_clauses.pop_front(); is != custom_bitset::npos; is = conflicting_clauses.pop_next(is)) {
-            for (auto curr_is = 0; curr_is <= k; ++curr_is) {
-                if (static_cast<std::size_t>(curr_is) == is) continue; // skip the current IS
-
-                for (const auto v : ISs[curr_is]) {
-                    if (v >= first_node) break; // skip new vertices
-                    G.add_edge(last_node, v);
-                }
-            }
-            // add edge also to future nodes
-            for (const auto v : B)
-                G.add_edge(last_node, v);
-
-            ISs[is].set(last_node); // add the new vertex to the is
-            ++last_node;
+            empty_iset = fix_anyNode_for_iset(l_is2, G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, is_processed, is_processed_new, reason, new_unit_stack, k);
+            if (empty_iset != NONE) return empty_iset;
         }
     }
 
-    G.resize(orig_size);
-    B.resize(orig_size);
-    neighbors.resize(orig_size);
-    IS_B.resize(orig_size);
-
-    for (auto is = 0; is < k+1; ++is)
-        ISs[is].resize(orig_size);
-
-    return B.any();
+    return NONE;
 }
 
-inline int FiltCOL(
+static int unit_iset_process_used_first(
+    const custom_graph& G,
+    const std::vector<custom_bitset>& ISs,
+    const std::vector<std::vector<int>>& ISs_new,
+    const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
+    std::vector<bool>& ISs_state,
+    std::vector<int>& ISs_size,
+    custom_bitset& is_processed,
+    std::vector<bool>& is_processed_new,
+    std::vector<bool>& ISs_used,
+    std::vector<int>& reason,
+    std::vector<int>& unit_stack,
+    const int k
+) {
+    static custom_bitset neighbors(G.size());
+
+    int j = 0;
+    int used_iset_start = 0;
+    int iset_start = 0;
+
+    do {
+        for (; used_iset_start < unit_stack.size(); used_iset_start++) {
+            const auto l_is = unit_stack[used_iset_start];
+
+            // no need to check if iset is unit!
+            if (!ISs_used[l_is] || !ISs_state[l_is]) continue;
+            assert(ISs_size[l_is] == 1);
+
+            //fix_node_iset
+            const auto empty_iset = fix_anyNode_for_iset(l_is, G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, is_processed, is_processed_new, reason, unit_stack, k);
+            if (empty_iset != NONE) return empty_iset;
+        }
+
+        for (j = iset_start; j < unit_stack.size(); j++) {
+            const auto l_is = unit_stack[j];
+
+            if (!ISs_state[l_is]) continue;
+            assert(ISs_size[l_is] == 1);
+
+            const auto empty_iset = fix_anyNode_for_iset(l_is, G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, is_processed, is_processed_new, reason, unit_stack, k);
+            if (empty_iset != NONE) return empty_iset;
+
+            iset_start = j+1;
+            break;
+        }
+    } while (j < unit_stack.size());
+
+    return NONE;
+}
+
+static void enlarge_conflict_sets(
+    const int ADDED_NODE,
+    const custom_graph& G,
+    std::vector<std::vector<int>>& ISs_new,
+    std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
+    std::vector<int>& ISs_size,
+    std::vector<bool>& ISs_used,
+    std::vector<bool>& ISs_involved,
+    std::vector<int>& reason,
+    const std::vector<int>& reason_stack,
+    std::vector<bool>& is_processed_new
+) {
+    is_processed_new[ADDED_NODE-G.size()] = false;
+    reason[ADDED_NODE] = NO_REASON;
+    CONFLICT_ISET_STACK[ADDED_NODE-G.size()].clear();
+
+    for (const auto iset : reason_stack) {
+        if (ISs_involved[iset]) continue;
+
+        ISs_involved[iset] = true;
+        ISs_new[iset].push_back(ADDED_NODE);
+        ISs_size[iset]++;
+        CONFLICT_ISET_STACK[ADDED_NODE-G.size()].push_back(iset);
+    }
+
+    for (const auto reason_iset : reason_stack) {
+        ISs_involved[reason_iset] = false;
+        ISs_used[reason_iset] = false;
+    }
+}
+
+static void reset_context_for_maxsatz(
+    const int ADDED_NODE,
+    std::vector<bool>& ISs_state,
+    std::vector<int>& ISs_size,
+    const std::vector<int>& ISs_size_back,
+    custom_bitset& is_processed,
+    std::vector<bool>& is_processed_new,
+    std::vector<int>& reason,
+    const int k
+) {
+    for (int i = 0; i < k; i++) {
+        ISs_size[i] = ISs_size_back[i];
+        ISs_state[i] = true;
+        //ISs_removed[i].reset();
+    }
+    is_processed.reset();
+    for (int i = 0; i < ADDED_NODE; i++) {
+        reason[i] = -1;
+    }
+    // G.size() == is_processed.size()
+    for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
+        is_processed_new[i] = false;
+    }
+}
+
+static bool inc_maxsatz_on_last_iset(
+    const int ADDED_NODE,
+    const custom_graph& G,
+    custom_bitset& B,
+    const custom_bitset& B_new,
+    std::vector<custom_bitset>& ISs,
+    std::vector<std::vector<int>>& ISs_new,
+    std::vector<bool>& ISs_state,
+    std::vector<int>& ISs_size,
+    std::vector<bool>& ISs_used,
+    std::vector<bool>& ISs_involved,
+    std::vector<int>& reason,
+    const std::vector<int>& unit_stack,
+    const int k
+) {
+    static std::vector<std::vector<int>> CONFLICT_ISET_STACK(G.size());
+    static custom_bitset is_processed(G.size());
+    static std::vector<bool> is_processed_new(G.size());
+    static std::vector<int> ISs_size_back(G.size());
+    static std::vector<int> reason_stack;
+
+    reason_stack.clear();
+
+    for (int i = 0; i <= k; i++) {
+        ISs_size_back[i] = ISs_size[i];
+    }
+
+    for (const auto bi : B_new) {
+        static std::vector<int> new_unit_stack;
+
+        new_unit_stack.clear();
+
+        ISs[k].reset();
+        ISs[k].set(bi);
+        //ISs_size[k] = 1;
+
+        // fix old node
+        auto empty_iset = fix_oldNode_for_iset(bi, k, G.get_neighbor_set(bi), G, ISs, ISs_state, ISs_size, is_processed, reason, new_unit_stack, k);
+
+        if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, is_processed, is_processed_new, ISs_used, reason, new_unit_stack, k);
+        if (empty_iset == NONE) {
+            empty_iset = unit_iset_process(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, is_processed, is_processed_new, reason, unit_stack, k);
+        }
+
+        // conflict not found
+        if (empty_iset == NONE) {
+            reset_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_size, ISs_size_back, is_processed, is_processed_new, reason, k);
+            return false;
+        }
+
+        // conflict found
+        identify_conflict_isets(empty_iset, ISs, ISs_new, ISs_involved, ISs_used, is_processed, is_processed_new, reason_stack, reason);
+        reset_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_size, ISs_size_back, is_processed, is_processed_new, reason, k);
+        B.reset(bi);
+    }
+
+    enlarge_conflict_sets(ADDED_NODE, G, ISs_new, CONFLICT_ISET_STACK, ISs_size, ISs_used, ISs_involved, reason, reason_stack, is_processed_new);
+
+    return true;
+}
+
+static bool SATCOL(
+    const custom_graph& G,
+    custom_bitset& B,
+    std::vector<custom_bitset>& ISs,
+    int k
+) {
+    static std::vector<int> ISs_size(G.size());
+    static std::vector<bool> ISs_state(G.size());
+    static std::vector<bool> ISs_involved(G.size());
+    static std::vector<bool> ISs_used(G.size());
+    static custom_bitset is_processed(G.size());
+    static std::vector<std::vector<int>> ISs_new(G.size());
+    static std::vector<int> is_processed_new(G.size());
+    static std::vector<int> reason(G.size()*2);
+    static std::vector<int> unit_stack;
+
+    unit_stack.clear();
+
+    for (int i = 0; i < k; i++) {
+        ISs_new[i].clear();
+        ISs_size[i] = ISs[i].count();
+        if (ISs_size[i] == 1) {
+            unit_stack.emplace_back(i);
+        }
+    }
+
+    int ADDED_NODE = G.size();
+
+    do {
+        static custom_bitset B_new(G.size());
+        ISEQ_one(G, B, B_new);
+        ISs_involved[k] = false;
+        ISs_used[k] = false;
+        ISs_state[k] = true;
+        ISs_new[k].clear();
+        ISs_size[k] = 1;
+
+        for (int i = 0; i < k; i++) {
+            assert(ISs_size[i] == ISs[i].count() + ISs_new[i].size());
+            ISs_used[i] = false;
+        }
+
+        if (!inc_maxsatz_on_last_iset(ADDED_NODE, G, B, B_new, ISs, ISs_new, ISs_state, ISs_size, ISs_used, ISs_involved, reason, unit_stack, k)) return true;
+
+        ISs[k] = B_new;
+        ISs_size[k] = B_new.count() + ISs_new[k].size();
+        ADDED_NODE++;
+        k++;
+    } while (B.any());
+
+    return false;
+}
+
+static int FiltCOL(
     const custom_graph& G,  // graph
     custom_bitset& V, // vertices set
     const std::vector<custom_bitset>& ISs,
@@ -223,7 +507,7 @@ inline int FiltCOL(
     return k_max;
 }
 
-inline bool FiltSAT(
+static bool FiltSAT(
     const custom_graph& G,  // graph
     custom_bitset& V, // vertices set
     std::vector<custom_bitset>& ISs,
@@ -293,12 +577,12 @@ inline bool FiltSAT(
     return true;
 }
 
-std::uint64_t steps = 0;
-std::uint64_t pruned = 0;
+static std::uint64_t steps = 0;
+static std::uint64_t pruned = 0;
 
 //__attribute__((target_clones("default", "popcnt")))
-inline void FindMaxClique(
-    custom_graph& G,  // graph
+static void FindMaxClique(
+    const custom_graph& G,  // graph
     std::vector<int>& K,       // current branch
     std::vector<int>& K_max,   // max branch
     custom_bitset& P_Bj, // vertices set
@@ -325,7 +609,7 @@ inline void FindMaxClique(
         P_Bj.set(bi);
 
         if (u[bi] + curr-1 <= lb) {
-            u[bi] = K_max.size() - K.size();
+            u[bi] = static_cast<int>(K_max.size() - K.size());
             pruned++;
             continue;
         }
@@ -367,9 +651,9 @@ inline void FindMaxClique(
             continue;
         }
 
-        u[bi] = lb-curr+1;
-
         const int k = lb-curr;
+        u[bi] = 1 + k;
+
         int next_is_k_partite = is_k_partite;
         // TODO: sus, it doesn't seem to work properly. setting random values doesn't change the output
         alphas[curr] = alphas[curr-1];
@@ -415,87 +699,23 @@ inline void FindMaxClique(
         auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, alphas[curr], k);
         if (n_isets < k) {
             // TODO: why +2 and not +1?
-            u[bi] = n_isets+2;
+            u[bi] = 1 + n_isets+1;
             continue;
         }
         B_news[curr] = ISs[k];
         assert(B_news[curr].any());
-        //if (!SATCOL(G, B_news[curr], ISs, color_class, k)) continue;
+        if (!SATCOL(G, B_news[curr], ISs, k)) continue;
 
         // at this point B is not empty
         K.push_back(bi);
         custom_bitset::DIFF(P_Bjs[curr+1], V_new, B_news[curr]);
         FindMaxClique(G, K, K_max, P_Bjs[curr+1], B_news[curr], u, next_is_k_partite);
         K.pop_back();
-        u[bi] = std::min(u[bi], (int)K_max.size() - (int)K.size());
+
+        // u[bi] cannot be lowered
+        //u[bi] = std::min(u[bi], static_cast<int>(K_max.size() - K.size()));
     }
 }
 
-inline std::vector<int> CliSAT(const custom_graph& g) {
-    auto [ordering, k] = NEW_SORT(g, 3);
-    auto ordered_g = g.change_order(ordering);
-
-    //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
-    std::vector<int> K_max;
-    std::vector<int> K;
-
-    K_max.push_back(0);
-    int lb = static_cast<int>(K_max.size());
-
-    // u with default value 1 (minimum)
-    std::vector u(g.size(), 1);
-
-    // first |k_max| values bounded by |K_max| (==lb)
-    for (auto i = 1; i < lb; i++) {
-        for (const auto neighbor : ordered_g.get_prev_neighbor_set(i)) {
-            u[i] = std::max(u[i], 1 + u[neighbor]);
-        }
-        u[i] = std::min(u[i], lb);
-    }
-
-    // remaining values bounded by k
-    // TODO: why it's necessary??
-    for (std::size_t i = lb; i < ordered_g.size(); i++) {
-        for (const auto neighbor : ordered_g.get_prev_neighbor_set(i)) {
-            u[i] = std::max(u[i], 1 + u[neighbor]);
-        }
-        u[i] = std::min(u[i], k);
-    }
-
-    for (std::size_t i = lb; i < ordered_g.size(); ++i) {
-        auto begin = std::chrono::steady_clock::now();
-        auto B = custom_bitset::before(ordered_g.get_neighbor_set(i), i);
-        auto P = custom_bitset(g.size());
-
-        lb = K_max.size();
-
-        // we pruned first lb vertices of V (they can't improve the solution on they own)
-        // if we set count to zero, we can't possibly improve the solution because the B set can become empty even tough
-        // it should be possible to improve, lb vertices + 1 from k, but we remove every one from the lb ones
-        auto count = 1;
-        for (const auto v : B) {
-            if (count == lb) break;
-            B.reset(v);
-            P.set(v);
-            count++;
-        }
-
-        auto old_steps = steps;
-
-        K.push_back(i);
-        FindMaxClique(ordered_g, K, K_max, P, B, u);
-        K.pop_back();
-
-        // u[i] = lb
-        u[i] = K_max.size();
-
-        auto end = std::chrono::steady_clock::now();
-        std::print("{}/{} (max {}) {}ms -> {} steps\n", i+1, ordered_g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps);
-    }
-
-    std::cout << "Steps: " << steps << std::endl;
-    std::cout << "Pruned: " << pruned << std::endl;
-    //std::cout << custom_bitset(K_max) << std::endl;
-
-    return ordered_g.convert_back_set(K_max);
-}
+std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb);
+std::vector<int> CliSAT(const std::string& filename);
