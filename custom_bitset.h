@@ -195,7 +195,7 @@ private:
     static constexpr size_type block_size_log2 = std::countr_zero(block_size);
     static constexpr size_type alignment = 32; //bytes
 
-    size_type _size;
+    const size_type _size;
     std::vector<block_type, aligned_allocator<block_type, alignment>> _bits;
 
     static constexpr size_type get_block(const size_type pos) noexcept { return pos >> block_size_log2; };
@@ -228,7 +228,7 @@ private:
 public:
     custom_bitset() : custom_bitset(0) {}
     explicit custom_bitset(size_type size, bool default_value = false);
-    custom_bitset(custom_bitset other, size_type size);
+    //custom_bitset(custom_bitset other, size_type size);
 
     template<IntegerContainer Container>
     explicit custom_bitset(const Container &container);
@@ -247,6 +247,14 @@ public:
     static custom_bitset after(const custom_bitset& src, size_type pos);
     static custom_bitset from(custom_bitset src, const reference& ref);
     static custom_bitset from(const custom_bitset& src, size_type pos);
+    static void BEFORE(custom_bitset& dest, const custom_bitset& src, const reference& ref);
+    static void BEFORE(custom_bitset& dest, const custom_bitset& src, size_type pos);
+    static void UNTIL(custom_bitset& dest, const custom_bitset& src, const reference& ref);
+    static void UNTIL(custom_bitset& dest, const custom_bitset& src, size_type pos);
+    static void AFTER(custom_bitset& dest, const custom_bitset& src, const reference& ref);
+    static void AFTER(custom_bitset& dest, const custom_bitset& src, size_type pos);
+    static void FROM(custom_bitset& dest, const custom_bitset& src, const reference& ref);
+    static void FROM(custom_bitset& dest, const custom_bitset& src, size_type pos);
     static custom_bitset complement(custom_bitset src);
 
     custom_bitset operator~() const;
@@ -325,7 +333,7 @@ public:
     [[nodiscard]] size_type size() const noexcept { return _size; }
     [[nodiscard]] size_type count() const noexcept;
 
-    void swap(custom_bitset& other) noexcept;
+    //void swap(custom_bitset& other) noexcept;
 
     [[nodiscard]] bool all() const noexcept;
     [[nodiscard]] bool any() const noexcept;
@@ -335,7 +343,7 @@ public:
     [[nodiscard]] bool is_superset_of(const custom_bitset &other) const;
     [[nodiscard]] reference front_difference(const custom_bitset &other) const;
 
-    void resize(size_type new_size);
+    //void resize(size_type new_size);
 
     void clear_before(const reference& ref);
     void clear_before(size_type pos);
@@ -407,9 +415,11 @@ inline custom_bitset::custom_bitset(const size_type size, const bool default_val
     if (get_block_bit(_size)) _bits.back() &= below_mask(get_block_bit(_size));
 }
 
+/*
 inline custom_bitset::custom_bitset(custom_bitset other, const size_type size): custom_bitset(std::move(other)) {
     this->resize(size);
 }
+*/
 
 template<IntegerContainer Container>
 custom_bitset::custom_bitset(const Container &container)
@@ -460,6 +470,58 @@ inline custom_bitset custom_bitset::from(custom_bitset src, const reference &ref
 
 inline custom_bitset custom_bitset::from(const custom_bitset &src, const size_type pos) {
     return from(src, reference(pos));
+}
+
+inline void custom_bitset::BEFORE(custom_bitset& dest, const custom_bitset& src, const reference &ref) {
+    const auto a = std::assume_aligned<alignment>(dest._bits.data());
+    const auto b = std::assume_aligned<alignment>(src._bits.data());
+
+    for (size_type i = 0; i < ref.block+1; ++i)
+        a[i] = b[i];
+    dest.clear_from(ref);
+}
+
+inline void custom_bitset::BEFORE(custom_bitset& dest, const custom_bitset& src, const size_type pos) {
+    return BEFORE(dest, src, reference(pos));
+}
+
+inline void custom_bitset::UNTIL(custom_bitset& dest, const custom_bitset& src, const reference &ref) {
+    const auto a = std::assume_aligned<alignment>(dest._bits.data());
+    const auto b = std::assume_aligned<alignment>(src._bits.data());
+
+    for (size_type i = 0; i < ref.block+1; ++i)
+        a[i] = b[i];
+    dest.clear_after(ref);
+}
+
+inline void custom_bitset::UNTIL(custom_bitset& dest, const custom_bitset& src, const size_type pos) {
+    return UNTIL(dest, src, reference(pos));
+}
+
+inline void custom_bitset::AFTER(custom_bitset& dest, const custom_bitset& src, const reference &ref) {
+    const auto a = std::assume_aligned<alignment>(dest._bits.data());
+    const auto b = std::assume_aligned<alignment>(src._bits.data());
+
+    for (size_type i = ref.block; i < dest._bits.size(); ++i)
+        a[i] = b[i];
+    dest.clear_until(ref);
+}
+
+inline void custom_bitset::AFTER(custom_bitset& dest, const custom_bitset& src, const size_type pos) {
+    return AFTER(dest, src, reference(pos));
+}
+
+inline void custom_bitset::FROM(custom_bitset& dest, const custom_bitset& src, const reference &ref) {
+    const auto a = std::assume_aligned<alignment>(dest._bits.data());
+    const auto b = std::assume_aligned<alignment>(src._bits.data());
+
+    for (size_type i = ref.block; i < dest._bits.size(); ++i)
+        a[i] = b[i];
+    dest.clear_before(ref);
+}
+
+inline void custom_bitset::FROM(custom_bitset& dest, const custom_bitset& src, const size_type pos) {
+    return FROM(dest, src, reference(pos));
 }
 
 inline custom_bitset custom_bitset::complement(custom_bitset src) {
@@ -888,17 +950,21 @@ inline custom_bitset::size_type custom_bitset::count() const noexcept {
     return instructions::popcount<alignment>(_bits.data(), _bits.size());
 }
 
+/*
 inline void custom_bitset::swap(custom_bitset &other) noexcept {
     std::swap(_size, other._size);
     _bits.swap(other._bits);
 }
+*/
 
+/*
 inline void custom_bitset::resize(const size_type new_size) {
     if (_size == new_size) return;
     _size = new_size;
     _bits.resize(blocks_needed(_size));
     if (get_block_bit(_size)) _bits[get_last_block(_size)] &= below_mask(get_block_bit(_size));
 }
+*/
 
 inline void custom_bitset::clear_before(const reference& ref) {
     assert(ref < _size);

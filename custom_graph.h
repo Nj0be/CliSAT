@@ -18,7 +18,7 @@ class custom_graph {
 public:
     explicit custom_graph(const std::string& filename);
     explicit custom_graph(size_type size);
-    custom_graph(custom_graph g, size_type size);
+    //custom_graph(custom_graph g, size_type size);
 
     using iterator = std::vector<custom_bitset>::iterator;
     using const_iterator = std::vector<custom_bitset>::const_iterator;
@@ -60,7 +60,7 @@ public:
     [[nodiscard]] size_type get_subgraph_edges(const custom_bitset &subset) const;
     [[nodiscard]] std::vector<size_type> get_subgraph_vertices_degree(const custom_bitset &subset) const;
 
-    void resize(size_type new_size);
+    //void resize(size_type new_size);
 };
 
 inline custom_graph::custom_graph(const std::string& filename) {
@@ -94,9 +94,11 @@ inline custom_graph::custom_graph(const size_type size)
     std::iota(_order_conversion.begin(), _order_conversion.end(), 0);
 }
 
+/*
 inline custom_graph::custom_graph(custom_graph g, const size_type size) : _graph(std::move(g._graph)), _order_conversion(std::move(g._order_conversion)) {
     resize(size);
 }
+*/
 
 inline custom_bitset& custom_graph::operator[](const size_type pos) {
     assert(pos < size());
@@ -294,6 +296,7 @@ inline std::vector<custom_graph::size_type> custom_graph::get_subgraph_vertices_
     return d;
 }
 
+/*
 inline void custom_graph::resize(const size_type new_size) {
     if (size() == new_size) return;
 
@@ -308,3 +311,4 @@ inline void custom_graph::resize(const size_type new_size) {
 
     // TODO: missing order_conversion resizing
 }
+*/
