@@ -74,7 +74,7 @@ public:
             return *this;
         }
 
-        explicit operator bool() const { return bs->test(ref); }
+        operator bool() const { return bs->test(ref); }
 
         iterator& operator++() { ref = bs->next(ref); return *this; }
         iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
@@ -104,7 +104,7 @@ public:
 
         reference operator*() const { return ref; }
 
-        explicit operator bool() const { return bs->test(ref); }
+        operator bool() const { return bs->test(ref); }
 
         const_iterator& operator++() { ref = bs->next(ref); return *this; }
         const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }
@@ -138,7 +138,7 @@ public:
             return *this;
         }
 
-        explicit operator bool() const { return bs->test(ref); }
+        operator bool() const { return bs->test(ref); }
 
         reverse_iterator& operator--() { ref = bs->next(ref); return *this; }
         reverse_iterator operator--(int) { const auto tmp = *this; --(*this); return tmp; }
@@ -168,7 +168,7 @@ public:
 
         reference operator*() const { return ref; }
 
-        explicit operator bool() const { return bs->test(ref); }
+        operator bool() const { return bs->test(ref); }
 
         reverse_const_iterator& operator++() { ref = bs->next(ref); return *this; }
         reverse_const_iterator operator++(int) { const auto tmp = *this; ++(*this); return tmp; }

@@ -131,14 +131,13 @@ std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const i
     auto Odeg = MWSI(g, p);
     auto [Ocolor, k] = COLOUR_SORT(g);
 
-    //return {Odeg, k};
+    return {Odeg, k};
     if (g.get_density() <= 0.7) return {Odeg, k};
 
     int color_max = 0;
     const auto ordered_graph = g.change_order(Odeg);
     for (std::size_t i = 1; i < g.size(); i++) {
-        custom_bitset Ubb(i, true);
-        Ubb &= g.get_neighbor_set(i);
+        auto Ubb = custom_bitset::before(g.get_neighbor_set(i), i);
         color_max = std::max(color_max, ISEQ(g, Ubb));
     }
 

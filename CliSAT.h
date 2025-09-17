@@ -12,24 +12,27 @@
 #include "custom_bitset.h"
 #include "custom_graph.h"
 
-#define NONE -1
-#define NO_REASON -1
+#define NONE (-1)
+#define NO_REASON (-1)
 
 static void identify_conflict_isets(
     const int iset,
     const std::vector<custom_bitset>& ISs,
     const std::vector<std::vector<int>>& ISs_new,
-    std::vector<bool>& ISs_involved,
-    std::vector<bool>& ISs_used,
+    const std::vector<int>& ISs_new_size,
+    std::vector<std::uint8_t>& ISs_involved,
+    std::vector<std::uint8_t>& ISs_used,
     const custom_bitset& is_processed,
-    std::vector<bool>& is_processed_new,
+    const std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason_stack,
+    int& reason_stack_size,
     const std::vector<int>& reason
 ) {
-    int starting_index = reason_stack.size();
-    reason_stack.push_back(iset);
+    int starting_index = reason_stack_size;
+    reason_stack[reason_stack_size] = iset;
+    reason_stack_size++;
     ISs_involved[iset] = true;
-    for (int i = starting_index; i < reason_stack.size(); i++) {
+    for (int i = starting_index; i < reason_stack_size; i++) {
         const auto reason_iset = reason_stack[i];
 
         // removed_nodes
@@ -40,9 +43,11 @@ static void identify_conflict_isets(
             if (ISs_involved[r_iset]) continue;
 
             ISs_involved[r_iset] = true;
-            reason_stack.push_back(r_iset);
+            reason_stack[reason_stack_size] = r_iset;
+            reason_stack_size++;
         }
-        for (auto r : ISs_new[reason_iset]) {
+        for (int j = 0; j < ISs_new_size[reason_iset]; j++) {
+            const auto r = ISs_new[reason_iset][j];
             // not processed (removed)
             if (!is_processed_new[r-is_processed.size()] || reason[r] == NO_REASON) continue;
 
@@ -50,11 +55,12 @@ static void identify_conflict_isets(
             if (ISs_involved[r_iset]) continue;
 
             ISs_involved[r_iset] = true;
-            reason_stack.push_back(r_iset);
+            reason_stack[reason_stack_size] = r_iset;
+            reason_stack_size++;
         }
     }
 
-    for (int i = starting_index; i < reason_stack.size(); i++) {
+    for (int i = starting_index; i < reason_stack_size; i++) {
         ISs_involved[reason_stack[i]] = false;
         ISs_used[reason_stack[i]] = true;
     }
@@ -70,9 +76,13 @@ static bool remove_neighbors_from_iset(
     const std::vector<custom_bitset>& ISs,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
+    int& reduced_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int& fixed_node_size,
     custom_bitset& is_processed,
     std::vector<int>& reason,
-    std::vector<int>& unit_stack
+    std::vector<int>& unit_stack,
+    int& unit_stack_size
 ) {
     static custom_bitset removed(G.size());
     custom_bitset::DIFF(removed, ISs[iset], neighbors);
@@ -83,8 +93,11 @@ static bool remove_neighbors_from_iset(
         count_removed++;
 
         ISs_size[iset]--;
-        REDUCED_iSET_STACK.push_back(iset);
+        REDUCED_iSET_STACK[reduced_iset_size] = iset;
+        reduced_iset_size++;
         is_processed.set(r);
+        FIXED_NODE_STACK[fixed_node_size] = r;
+        fixed_node_size++;
         reason[r] = l_is;
     }
 
@@ -92,7 +105,8 @@ static bool remove_neighbors_from_iset(
     if (count_removed == 0) return false;
 
     if (ISs_size[iset] == 1) {
-        unit_stack.emplace_back(iset);
+        unit_stack[unit_stack_size] = iset;
+        unit_stack_size++;
         return false;
     }
     // conflict found
@@ -106,28 +120,43 @@ static int fix_newNode_for_iset(
     const int fix_iset,
     const custom_graph& G,
     const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
-    std::vector<bool>& ISs_state,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
-    std::vector<bool>& is_processed_new,
+    int& reduced_iset_size,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    int& passive_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int& fixed_node_size,
+    std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason,
-    std::vector<int>& unit_stack
+    std::vector<int>& unit_stack,
+    int& unit_stack_size
 ) {
     int idx;
     ISs_size[fix_iset]--;
-    REDUCED_iSET_STACK.push_back(fix_iset);
+    REDUCED_iSET_STACK[reduced_iset_size] = fix_iset;
+    reduced_iset_size++;
     ISs_state[fix_iset] = false;
+    PASSIVE_iSET_STACK[passive_iset_size] = fix_iset;
+    passive_iset_size++;
     is_processed_new[fix_node-G.size()] = true;
+    FIXED_NODE_STACK[fixed_node_size] = fix_node;
+    fixed_node_size++;
     reason[fix_node] = fix_iset;
 
     for (auto iset_idx : CONFLICT_ISET_STACK[fix_node-G.size()]) {
         if (!ISs_state[iset_idx]) continue;
 
         ISs_size[iset_idx]--;
-        REDUCED_iSET_STACK.push_back(iset_idx);
+        REDUCED_iSET_STACK[reduced_iset_size] = iset_idx;
+        reduced_iset_size++;
 
         if (ISs_size[iset_idx] == 0) return iset_idx;
-        if (ISs_size[iset_idx] == 1) unit_stack.push_back(iset_idx);
+        if (ISs_size[iset_idx] == 1) {
+            unit_stack[unit_stack_size] = iset_idx;
+            unit_stack_size++;
+        }
     }
     return NONE;
 }
@@ -138,24 +167,35 @@ static int fix_oldNode_for_iset(
     const custom_bitset& neighbors,
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
-    std::vector<bool>& ISs_state,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
+    int& reduced_iset_size,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    int& passive_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int& fixed_node_size,
     custom_bitset& is_processed,
     std::vector<int>& reason,
     std::vector<int>& unit_stack,
+    int& unit_stack_size,
     const int k
 ) {
     ISs_size[fix_iset]--;
-    REDUCED_iSET_STACK.push_back(fix_iset);
+    REDUCED_iSET_STACK[reduced_iset_size] = fix_iset;
+    reduced_iset_size++;
     ISs_state[fix_iset] = false;
+    PASSIVE_iSET_STACK[passive_iset_size] = fix_iset;
+    passive_iset_size++;
     is_processed.set(fix_node);
+    FIXED_NODE_STACK[fixed_node_size] = fix_node;
+    fixed_node_size++;
     reason[fix_node] = fix_iset;
 
     for (int iset = 0; iset < k; iset++) {
         if (!ISs_state[iset]) continue;
 
-        if (remove_neighbors_from_iset(fix_iset, iset, neighbors, G, ISs, ISs_size, REDUCED_iSET_STACK, is_processed, reason, unit_stack)) {
+        if (remove_neighbors_from_iset(fix_iset, iset, neighbors, G, ISs, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, reason, unit_stack, unit_stack_size)) {
             return iset;
         }
     }
@@ -167,10 +207,12 @@ inline int get_node_of_unit_iset(
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
     const std::vector<std::vector<int>>& ISs_new,
+    const std::vector<int>& ISs_new_size,
     const custom_bitset& is_processed,
-    const std::vector<bool>& is_processed_new
+    const std::vector<std::uint8_t>& is_processed_new
 ) {
-    for (auto new_node : ISs_new[l_is]) {
+    for (int i = 0; i < ISs_new_size[l_is]; i++) {
+        const auto new_node = ISs_new[l_is][i];
         if (is_processed_new[new_node-G.size()]) continue;
         return new_node;
     }
@@ -187,56 +229,71 @@ static int fix_anyNode_for_iset(
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
     const std::vector<std::vector<int>>& ISs_new,
+    const std::vector<int>& ISs_new_size,
     const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
-    std::vector<bool>& ISs_state,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
+    int& reduced_iset_size,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    int& passive_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int& fixed_node_size,
     custom_bitset& is_processed,
-    std::vector<bool>& is_processed_new,
+    std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason,
     std::vector<int>& unit_stack,
+    int& unit_stack_size,
     const int k
 ) {
     static custom_bitset neighbors(G.size());
 
-    const auto fix_node = get_node_of_unit_iset(fix_iset, G, ISs, ISs_new, is_processed, is_processed_new);
+    const auto fix_node = get_node_of_unit_iset(fix_iset, G, ISs, ISs_new, ISs_new_size, is_processed, is_processed_new);
 
-    if (fix_node >= G.size()) return fix_newNode_for_iset(fix_node, fix_iset, G, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed_new, reason, unit_stack);
+    if (fix_node >= G.size()) return fix_newNode_for_iset(fix_node, fix_iset, G, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed_new, reason, unit_stack, unit_stack_size);
 
     custom_bitset::OR(neighbors, G.get_neighbor_set(fix_node), is_processed);
-    return fix_oldNode_for_iset(fix_node, fix_iset, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, reason, unit_stack, k);
+    return fix_oldNode_for_iset(fix_node, fix_iset, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, reason, unit_stack, unit_stack_size, k);
 }
 
 static int unit_iset_process(
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
     const std::vector<std::vector<int>>& ISs_new,
+    const std::vector<int>& ISs_new_size,
     const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
-    std::vector<bool>& ISs_state,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
+    int& reduced_iset_size,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    int& passive_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int& fixed_node_size,
     custom_bitset& is_processed,
-    std::vector<bool>& is_processed_new,
+    std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason,
     const std::vector<int>& unit_stack,
+    const int unit_stack_size,
+    std::vector<int>& new_unit_stack,
     const int k
 ) {
-    static std::vector<int> new_unit_stack;
     static custom_bitset neighbors(G.size());
 
-    for (const auto l_is : unit_stack) {
+    for (int i = 0; i < unit_stack_size; i++) {
+        const auto l_is = unit_stack[i];
         if (!ISs_state[l_is] || ISs_size[l_is] != 1) continue;
 
-        new_unit_stack.clear();
+        int new_unit_stack_size = 0;
 
-        auto empty_iset = fix_anyNode_for_iset(l_is, G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, reason, new_unit_stack, k);
+        auto empty_iset = fix_anyNode_for_iset(l_is, G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason, new_unit_stack, new_unit_stack_size,  k);
         if (empty_iset != NONE) return empty_iset;
 
-        for (auto j = 0; j < new_unit_stack.size(); j++) {
+        for (auto j = 0; j < new_unit_stack_size; j++) {
             const auto l_is2 = new_unit_stack[j];
             if (!ISs_state[l_is2]) continue;
 
-            empty_iset = fix_anyNode_for_iset(l_is2, G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, reason, new_unit_stack, k);
+            empty_iset = fix_anyNode_for_iset(l_is2, G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason, new_unit_stack, new_unit_stack_size, k);
             if (empty_iset != NONE) return empty_iset;
         }
     }
@@ -248,15 +305,22 @@ static int unit_iset_process_used_first(
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
     const std::vector<std::vector<int>>& ISs_new,
+    const std::vector<int>& ISs_new_size,
     const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
-    std::vector<bool>& ISs_state,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
+    int& reduced_iset_size,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    int& passive_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int& fixed_node_size,
     custom_bitset& is_processed,
-    std::vector<bool>& is_processed_new,
-    std::vector<bool>& ISs_used,
+    std::vector<std::uint8_t>& is_processed_new,
+    const std::vector<std::uint8_t>& ISs_used,
     std::vector<int>& reason,
     std::vector<int>& unit_stack,
+    int& unit_stack_size,
     const int k
 ) {
     static custom_bitset neighbors(G.size());
@@ -266,7 +330,7 @@ static int unit_iset_process_used_first(
     int iset_start = 0;
 
     do {
-        for (; used_iset_start < unit_stack.size(); used_iset_start++) {
+        for (; used_iset_start < unit_stack_size; used_iset_start++) {
             const auto l_is = unit_stack[used_iset_start];
 
             // no need to check if iset is unit!
@@ -274,23 +338,23 @@ static int unit_iset_process_used_first(
             assert(ISs_size[l_is] == 1);
 
             //fix_node_iset
-            const auto empty_iset = fix_anyNode_for_iset(l_is, G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, reason, unit_stack, k);
+            const auto empty_iset = fix_anyNode_for_iset(l_is, G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason, unit_stack, unit_stack_size, k);
             if (empty_iset != NONE) return empty_iset;
         }
 
-        for (j = iset_start; j < unit_stack.size(); j++) {
+        for (j = iset_start; j < unit_stack_size; j++) {
             const auto l_is = unit_stack[j];
 
             if (!ISs_state[l_is]) continue;
             assert(ISs_size[l_is] == 1);
 
-            const auto empty_iset = fix_anyNode_for_iset(l_is, G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, reason, unit_stack, k);
+            const auto empty_iset = fix_anyNode_for_iset(l_is, G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason, unit_stack, unit_stack_size, k);
             if (empty_iset != NONE) return empty_iset;
 
             iset_start = j+1;
             break;
         }
-    } while (j < unit_stack.size());
+    } while (j < unit_stack_size);
 
     return NONE;
 }
@@ -299,129 +363,139 @@ static void enlarge_conflict_sets(
     const int ADDED_NODE,
     const custom_graph& G,
     std::vector<std::vector<int>>& ISs_new,
+    std::vector<int>& ISs_new_size,
     std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
     std::vector<int>& ISs_size,
-    std::vector<bool>& ISs_used,
-    std::vector<bool>& ISs_involved,
+    std::vector<std::uint8_t>& ISs_used,
+    std::vector<std::uint8_t>& ISs_involved,
     std::vector<int>& reason,
     const std::vector<int>& reason_stack,
-    std::vector<bool>& is_processed_new
+    const int& reason_stack_size,
+    std::vector<std::uint8_t>& is_processed_new
 ) {
     is_processed_new[ADDED_NODE-G.size()] = false;
     reason[ADDED_NODE] = NO_REASON;
     CONFLICT_ISET_STACK[ADDED_NODE-G.size()].clear();
 
-    for (const auto iset : reason_stack) {
+    for (int i = 0; i < reason_stack_size; i++) {
+        auto iset = reason_stack[i];
         if (ISs_involved[iset]) continue;
 
         ISs_involved[iset] = true;
-        ISs_new[iset].push_back(ADDED_NODE);
+        ISs_new[iset][ISs_new_size[iset]] = ADDED_NODE;
+        ISs_new_size[iset]++;
         ISs_size[iset]++;
         CONFLICT_ISET_STACK[ADDED_NODE-G.size()].push_back(iset);
     }
 
-    for (const auto reason_iset : reason_stack) {
+    for (int i = 0; i < reason_stack_size; i++) {
+        auto reason_iset = reason_stack[i];
         ISs_involved[reason_iset] = false;
         ISs_used[reason_iset] = false;
     }
 }
 
 static void reset_context_for_maxsatz(
-    const int ADDED_NODE,
-    std::vector<bool>& ISs_state,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
-    std::vector<int>& REDUCED_iSET_STACK,
+    const std::vector<int>& REDUCED_iSET_STACK,
+    int& reduced_iset_size,
+    const std::vector<int>& PASSIVE_iSET_STACK,
+    int& passive_iset_size,
+    const std::vector<int>& FIXED_NODE_STACK,
+    int& fixed_node_size,
     custom_bitset& is_processed,
-    std::vector<bool>& is_processed_new,
-    std::vector<int>& reason,
-    const int k
+    std::vector<std::uint8_t>& is_processed_new,
+    std::vector<int>& reason
 ) {
-    for (int i = 0; i < k; i++) {
-        //ISs_size[i] = ISs_size_back[i];
-        ISs_state[i] = true;
-        //ISs_removed[i].reset();
-    }
     is_processed.reset();
-    for (int i = 0; i < ADDED_NODE; i++) {
-        reason[i] = -1;
+    for (int i = 0; i < fixed_node_size; i++) {
+        auto node = FIXED_NODE_STACK[i];
+        reason[node] = -1;
+        if (node >= is_processed.size()) is_processed_new[node-is_processed.size()] = false;
+        //else is_processed.reset(node);
     }
+    fixed_node_size = 0;
+
+    for (int i = 0; i < passive_iset_size; i++) {
+        ISs_state[PASSIVE_iSET_STACK[i]] = true;
+    }
+    passive_iset_size = 0;
+
     // G.size() == is_processed.size()
-    for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-        is_processed_new[i] = false;
-    }
-    for (auto i = 0; i < REDUCED_iSET_STACK.size(); i++) ISs_size[REDUCED_iSET_STACK[i]]++;
-    REDUCED_iSET_STACK.resize(0);
+    for (auto i = 0; i < reduced_iset_size; i++) ISs_size[REDUCED_iSET_STACK[i]]++;
+    reduced_iset_size = 0;
 }
 
 static void rollback_context_for_maxsatz(
-    const int ADDED_NODE,
-    std::vector<bool>& ISs_state,
-    const std::vector<bool>& ISs_state_back,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
-    std::vector<int>& REDUCED_iSET_STACK,
-    const int reduced_start,
-    //const std::vector<int>& ISs_size_back,
-    std::vector<int>& reason,
-    const std::vector<int>& reason_back,
-    const int k
+    const std::vector<int>& REDUCED_iSET_STACK,
+    int& reduced_iset_size,
+    int reduced_iset_start,
+    const std::vector<int>& PASSIVE_iSET_STACK,
+    int& passive_iset_size,
+    int passive_iset_start,
+    const std::vector<int>& FIXED_NODE_STACK,
+    int& fixed_node_size,
+    int fixed_iset_start,
+    custom_bitset& is_processed,
+    std::vector<std::uint8_t>& is_processed_new,
+    std::vector<int>& reason
 ) {
-    for (int i = 0; i < k; i++) {
-        //ISs_size[i] = ISs_size_back[i];
-        ISs_state[i] = ISs_state_back[i];
+    for (int i = fixed_iset_start; i < fixed_node_size; i++) {
+        auto node = FIXED_NODE_STACK[i];
+        reason[node] = -1;
+        if (node >= is_processed.size()) is_processed_new[node-is_processed.size()] = false;
+        else is_processed.reset(node);
     }
-    for (int i = 0; i < ADDED_NODE; i++) {
-        reason[i] = reason_back[i];
+    fixed_node_size = fixed_iset_start;
+
+    for (int i = passive_iset_start; i < passive_iset_size; i++) {
+        ISs_state[PASSIVE_iSET_STACK[i]] = true;
     }
-    for (auto i = reduced_start; i < REDUCED_iSET_STACK.size(); i++) ISs_size[REDUCED_iSET_STACK[i]]++;
-    REDUCED_iSET_STACK.resize(reduced_start);
+    passive_iset_size = passive_iset_start;
+
+    // G.size() == is_processed.size()
+    for (auto i = reduced_iset_start; i < reduced_iset_size; i++) ISs_size[REDUCED_iSET_STACK[i]]++;
+    reduced_iset_size = reduced_iset_start;
 }
 
 static int simple_further_test_node(
     const int start,
-    const int ADDED_NODE,
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
     const std::vector<std::vector<int>>& ISs_new,
-    std::vector<bool>& ISs_state,
+    const std::vector<int>& ISs_new_size,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
-    std::vector<bool>& ISs_used,
+    int reduced_iset_size,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    int passive_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int fixed_node_size,
+    const std::vector<std::uint8_t>& ISs_used,
     const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
-    const custom_bitset& is_processed_prev,
-    const std::vector<bool>& is_processed_new_prev,
+    custom_bitset& is_processed,
+    std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason,
     const int k
 ) {
-    static std::vector<bool> ISs_state_back(G.size());
-    static std::vector<int> reason_back(G.size()*2);
-    static custom_bitset is_processed(G.size());
-    static std::vector<bool> is_processed_new(G.size());
-    static custom_bitset is_processed_back(G.size());
-    static std::vector<bool> is_processed_new_back(G.size());
-    static std::vector<bool> ISs_tested(G.size());
+    static std::vector<std::uint8_t> ISs_tested(G.size());
 
-    for (int i = 0; i < k; i++) {
-        ISs_state_back[i] = ISs_state[i];
-    }
-    for (int i = 0; i < ADDED_NODE; i++) {
-        reason_back[i] = reason[i];
-    }
+    int saved_reduced_iset_stack_fill_pointer = reduced_iset_size;
+    int saved_passive_iset_stack_fill_pointer = passive_iset_size;
+    int saved_fixed_node_stack_fill_pointer = fixed_node_size;
+    int my_saved_reduced_iset_stack_fill_pointer = reduced_iset_size;
+    int my_saved_passive_iset_stack_fill_pointer = passive_iset_size;
+    int my_saved_fixed_node_stack_fill_pointer = fixed_node_size;
 
-    is_processed = is_processed_prev;
-    is_processed_back = is_processed;
-    for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-        is_processed_new[i] = is_processed_new_prev[i];
-        is_processed_new_back[i] = is_processed_new[i];
-    }
-
-    int saved_reduced_iset_stack_fill_pointer = REDUCED_iSET_STACK.size();
-    int my_saved_reduced_iset_stack_fill_pointer = REDUCED_iSET_STACK.size();
-
-    for (auto i = start; i < REDUCED_iSET_STACK.size(); i++) ISs_tested[REDUCED_iSET_STACK[i]] = false;
+    for (auto i = start; i < reduced_iset_size; i++) ISs_tested[REDUCED_iSET_STACK[i]] = false;
 
     bool conflict = false;
-    int chosen_iset = 0;
-    for (int i = start; i < REDUCED_iSET_STACK.size(); i++) {
+    int chosen_iset = NONE;
+    for (int i = start; i < reduced_iset_size; i++) {
         chosen_iset = REDUCED_iSET_STACK[i];
         // we only consider reduced isets
         if (!ISs_state[chosen_iset] || ISs_tested[chosen_iset] || ISs_size[chosen_iset] != 2) continue;
@@ -430,56 +504,49 @@ static int simple_further_test_node(
         static custom_bitset nodes(G.size());
         custom_bitset::DIFF(nodes, ISs[chosen_iset], is_processed);
         for (auto node : nodes) {
-            static std::vector<int> unit_stack;
-            unit_stack.clear();
+            static std::vector<int> unit_stack(G.size());
+            int unit_stack_size = 0;
 
             static custom_bitset neighbors(G.size());
             custom_bitset::OR(neighbors, G.get_neighbor_set(node), is_processed);
-            auto empty_iset = fix_oldNode_for_iset(node, chosen_iset, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, reason, unit_stack, k);
-            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, ISs_used, reason, unit_stack, k);
+            auto empty_iset = fix_oldNode_for_iset(node, chosen_iset, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, reason, unit_stack, unit_stack_size, k);
+            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, ISs_used, reason, unit_stack, unit_stack_size, k);
 
-            is_processed = is_processed_back;
-            for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-                is_processed_new[i] = is_processed_new_back[i];
-            }
-            rollback_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_state_back, ISs_size, REDUCED_iSET_STACK, my_saved_reduced_iset_stack_fill_pointer, reason, reason_back, k);
+            rollback_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, my_saved_reduced_iset_stack_fill_pointer, PASSIVE_iSET_STACK, passive_iset_size, my_saved_passive_iset_stack_fill_pointer, FIXED_NODE_STACK, fixed_node_size, my_saved_fixed_node_stack_fill_pointer, is_processed, is_processed_new, reason);
 
             if (empty_iset == NONE) continue;
 
             is_processed.set(node);
             reason[node] = NO_REASON;
+            FIXED_NODE_STACK[fixed_node_size] = node;
+            fixed_node_size++;
             ISs_size[chosen_iset]--;
-            REDUCED_iSET_STACK.push_back(chosen_iset);
+            REDUCED_iSET_STACK[reduced_iset_size] = chosen_iset;
+            reduced_iset_size++;
 
             assert(ISs_size[chosen_iset] == 1);
 
             // unit iset
-            unit_stack.clear();
-            unit_stack.push_back(chosen_iset);
+            unit_stack[0] = chosen_iset;
+            unit_stack_size = 1;
 
-            if (unit_iset_process_used_first(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, ISs_used, reason, unit_stack, k) != NONE) {
+            if (unit_iset_process_used_first(G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, ISs_used, reason, unit_stack, unit_stack_size, k) != NONE) {
                 conflict = true;
                 break;
             }
 
-            for (auto j = my_saved_reduced_iset_stack_fill_pointer; j < REDUCED_iSET_STACK.size(); j++) {
+            for (auto j = my_saved_reduced_iset_stack_fill_pointer; j < reduced_iset_size; j++) {
                 ISs_tested[REDUCED_iSET_STACK[j]] = false;
             }
 
-            is_processed_back = is_processed;
-            is_processed_new_back = is_processed_new;
-            for (int i = 0; i < k; i++) {
-                ISs_state_back[i] = ISs_state[i];
-            }
-            for (int i = 0; i < ADDED_NODE; i++) {
-                reason_back[i] = reason[i];
-            }
-            my_saved_reduced_iset_stack_fill_pointer = REDUCED_iSET_STACK.size();
+            my_saved_reduced_iset_stack_fill_pointer = reduced_iset_size;
+            my_saved_passive_iset_stack_fill_pointer = passive_iset_size;
+            my_saved_fixed_node_stack_fill_pointer = fixed_node_size;
         }
         if (conflict == true) break;
     }
 
-    rollback_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_state_back, ISs_size, REDUCED_iSET_STACK, saved_reduced_iset_stack_fill_pointer, reason, reason_back, k);
+    rollback_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, saved_reduced_iset_stack_fill_pointer, PASSIVE_iSET_STACK, passive_iset_size, saved_passive_iset_stack_fill_pointer, FIXED_NODE_STACK, fixed_node_size, saved_fixed_node_stack_fill_pointer, is_processed, is_processed_new, reason);
 
     if (conflict) return chosen_iset;
     return NONE;
@@ -488,169 +555,146 @@ static int simple_further_test_node(
 static int test_node_for_failed_nodes(
     const int node,
     const int iset,
-    const int ADDED_NODE,
     const custom_graph& G,
-    custom_bitset& B,
-    const custom_bitset& B_new,
-    std::vector<custom_bitset>& ISs,
-    std::vector<std::vector<int>>& ISs_new,
-    std::vector<bool>& ISs_state,
+    const std::vector<custom_bitset>& ISs,
+    const std::vector<std::vector<int>>& ISs_new,
+    const std::vector<int>& ISs_new_size,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
-    std::vector<bool>& ISs_used,
-    std::vector<bool>& ISs_involved,
-    std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
-    const custom_bitset& is_processed_prev,
-    const std::vector<bool>& is_processed_new_prev,
+    int reduced_iset_size,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    int passive_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int fixed_node_size,
+    const std::vector<std::uint8_t>& ISs_used,
+    const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
+    custom_bitset& is_processed,
+    std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason,
     const int k
 ) {
-    static std::vector<int> ISs_size_back(G.size());
-    static std::vector<bool> ISs_state_back(G.size());
-    static std::vector<int> reason_back(G.size()*2);
-    static custom_bitset is_processed(G.size());
-    static std::vector<bool> is_processed_new(G.size());
+    int saved_reduced_iset_stack_fill_pointer = reduced_iset_size;
+    int saved_passive_iset_stack_fill_pointer = passive_iset_size;
+    int saved_fixed_node_stack_fill_pointer = fixed_node_size;
 
-    for (int i = 0; i < k; i++) {
-        ISs_size_back[i] = ISs_size[i];
-        ISs_state_back[i] = ISs_state[i];
-    }
-    for (int i = 0; i < ADDED_NODE; i++) {
-        reason_back[i] = reason[i];
-    }
-
-    is_processed = is_processed_prev;
-    for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-        is_processed_new[i] = is_processed_new_prev[i];
-    }
-
-    int saved_reduced_iset_stack_fill_pointer = REDUCED_iSET_STACK.size();
-
-    static std::vector<int> unit_stack;
-    unit_stack.clear();
+    static std::vector<int> unit_stack(G.size());
+    int unit_stack_size = 0;
 
     static custom_bitset neighbors(G.size());
     custom_bitset::OR(neighbors, G.get_neighbor_set(node), is_processed);
 
-    auto empty_iset = fix_oldNode_for_iset(node, iset, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, reason, unit_stack, k);
-    if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, ISs_used, reason, unit_stack, k);
-    if (empty_iset == NONE) empty_iset = simple_further_test_node(saved_reduced_iset_stack_fill_pointer, ADDED_NODE, G, ISs, ISs_new, ISs_state, ISs_size, REDUCED_iSET_STACK, ISs_used, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, k);
+    auto empty_iset = fix_oldNode_for_iset(node, iset, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, reason, unit_stack, unit_stack_size, k);
+    if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, ISs_used, reason, unit_stack, unit_stack_size, k);
+    if (empty_iset == NONE) empty_iset = simple_further_test_node(saved_reduced_iset_stack_fill_pointer, G, ISs, ISs_new, ISs_new_size, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, ISs_used, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, k);
 
-    rollback_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_state_back, ISs_size, REDUCED_iSET_STACK, saved_reduced_iset_stack_fill_pointer, reason, reason_back, k);
+    rollback_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, saved_reduced_iset_stack_fill_pointer, PASSIVE_iSET_STACK, passive_iset_size, saved_passive_iset_stack_fill_pointer, FIXED_NODE_STACK, fixed_node_size, saved_fixed_node_stack_fill_pointer, is_processed, is_processed_new, reason);
     return empty_iset;
 }
 
 static bool test_by_eliminate_failed_nodes(
-    const int ADDED_NODE,
     const custom_graph& G,
-    custom_bitset& B,
-    const custom_bitset& B_new,
-    std::vector<custom_bitset>& ISs,
-    std::vector<std::vector<int>>& ISs_new,
-    std::vector<bool>& ISs_state,
+    const std::vector<custom_bitset>& ISs,
+    const std::vector<std::vector<int>>& ISs_new,
+    const std::vector<int>& ISs_new_size,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
-    std::vector<bool>& ISs_used,
-    std::vector<bool>& ISs_involved,
-    std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
+    const std::vector<std::uint8_t>& ISs_used,
+    std::vector<int>& REDUCED_iSET_STACK,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    std::vector<int>& FIXED_NODE_STACK,
+    const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
+    custom_bitset& is_processed,
+    std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason,
     const int k
 ) {
-    bool conflict = false;
     int false_flag = 0;
-    static std::vector<int> unit_stack;
-    static custom_bitset is_processed(G.size());
-    static std::vector<bool> is_processed_new(G.size());
-    static std::vector<int> REDUCED_iSET_STACK;
+
+    int reduced_iset_size = 0;
+    int passive_iset_size = 0;
+    int fixed_node_size = 0;
+    int unit_stack_size = 0;
 
     do {
         false_flag = 0;
-        for (auto my_iset = k-1; my_iset >= 0; my_iset--) {
+        for (auto my_iset = k; my_iset >= 0; my_iset--) {
             if (!ISs_state[my_iset]) continue;
 
-            conflict = false;
-            unit_stack.clear();
+            static std::vector<int> unit_stack(G.size());
+
+            unit_stack_size = 0;
             static custom_bitset nodes(G.size());
             custom_bitset::DIFF(nodes, ISs[my_iset], is_processed);
             for (auto node : nodes) {
-                if (test_node_for_failed_nodes(node, my_iset, ADDED_NODE, G, B, B_new, ISs, ISs_new, ISs_state, ISs_size, REDUCED_iSET_STACK, ISs_used, ISs_involved, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, k) == NONE) continue;
+                if (test_node_for_failed_nodes(node, my_iset, G, ISs, ISs_new, ISs_new_size, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, ISs_used, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, k) == NONE) continue;
 
                 is_processed.set(node);
                 reason[node] = NO_REASON;
+                FIXED_NODE_STACK[fixed_node_size] = node;
+                fixed_node_size++;
                 false_flag++;
                 ISs_size[my_iset]--;
-                REDUCED_iSET_STACK.push_back(my_iset);
+                REDUCED_iSET_STACK[reduced_iset_size] = my_iset;
+                reduced_iset_size++;
                 if (ISs_size[my_iset] == 1) {
-                    unit_stack.push_back(my_iset);
+                    unit_stack[unit_stack_size] = my_iset;
+                    unit_stack_size++;
                     break;
                 } else if (ISs_size[my_iset] == 0) {
-                    conflict = true;
-                    break;
+                    reset_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason);
+                    return true;
                 }
             }
 
-            if (conflict == true) break;
-
-            if (unit_stack.size() > 0 &&
-                unit_iset_process_used_first(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, ISs_used, reason, unit_stack, k) != NONE) {
-                conflict = true;
-                break;
+            if (unit_stack_size > 0 &&
+                unit_iset_process_used_first(G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, ISs_used, reason, unit_stack, unit_stack_size, k) != NONE) {
+                reset_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason);
+                return true;
             }
         }
-	} while (false_flag > 1 && conflict == false);
+	} while (false_flag > 1);
 
-    reset_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, reason, k);
+    reset_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason);
 
-    return conflict;
+    return false;
 }
 
 static int further_test_reduced_iset(
     const int start,
-    const int ADDED_NODE,
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
     const std::vector<std::vector<int>>& ISs_new,
-    std::vector<bool>& ISs_state,
+    const std::vector<int>& ISs_new_size,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
-    std::vector<bool>& ISs_used,
-    std::vector<bool>& ISs_involved,
+    int reduced_iset_size,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    int passive_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int fixed_node_size,
+    std::vector<std::uint8_t>& ISs_used,
+    std::vector<std::uint8_t>& ISs_involved,
     const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
-    const custom_bitset& is_processed_prev,
-    const std::vector<bool>& is_processed_new_prev,
+    custom_bitset& is_processed,
+    std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason,
     std::vector<int>& REASON_STACK,
+    int& reason_stack_size,
     const int k
 ) {
-    static std::vector<bool> ISs_state_back(G.size());
-    static std::vector<int> reason_back(G.size()*2);
-    static custom_bitset is_processed(G.size());
-    static std::vector<bool> is_processed_new(G.size());
-    static custom_bitset is_processed_back(G.size());
-    static std::vector<bool> is_processed_new_back(G.size());
-    static std::vector<bool> ISs_tested(G.size());
+    static std::vector<std::uint8_t> ISs_tested(G.size());
 
-    for (int i = 0; i < k; i++) {
-        ISs_state_back[i] = ISs_state[i];
-    }
-    for (int i = 0; i < ADDED_NODE; i++) {
-        reason_back[i] = reason[i];
-    }
+    int saved_reduced_iset_stack_fill_pointer = reduced_iset_size;
+    int saved_passive_iset_stack_fill_pointer = passive_iset_size;
+    int saved_fixed_node_stack_fill_pointer = fixed_node_size;
 
-    is_processed = is_processed_prev;
-    is_processed_back = is_processed;
-    for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-        is_processed_new[i] = is_processed_new_prev[i];
-        is_processed_new_back[i] = is_processed_new[i];
-    }
-
-    int saved_reduced_iset_stack_fill_pointer = REDUCED_iSET_STACK.size();
-    int my_saved_reduced_iset_stack_fill_pointer = REDUCED_iSET_STACK.size();
-
-    for (auto i = start; i < REDUCED_iSET_STACK.size(); i++) ISs_tested[REDUCED_iSET_STACK[i]] = false;
+    for (auto i = start; i < reduced_iset_size; i++) ISs_tested[REDUCED_iSET_STACK[i]] = false;
 
     int chosen_iset = 0;
     std::size_t node = custom_bitset::npos;
-    for (int i = start; i < REDUCED_iSET_STACK.size(); i++) {
+    for (int i = start; i < reason_stack_size; i++) {
         chosen_iset = REDUCED_iSET_STACK[i];
         // we only consider reduced isets
         if (!ISs_state[chosen_iset] || ISs_tested[chosen_iset] || ISs_size[chosen_iset] != 2) continue;
@@ -658,7 +702,7 @@ static int further_test_reduced_iset(
         ISs_tested[chosen_iset] = true;
 
         bool has_new_node = false;
-        for (int i = 0; i < ISs_new[chosen_iset].size(); i++) {
+        for (int i = 0; i < ISs_new_size[chosen_iset]; i++) {
             node = ISs_new[chosen_iset][i];
             if (!is_processed_new[node-G.size()]) {
                 has_new_node = true;
@@ -670,31 +714,24 @@ static int further_test_reduced_iset(
         static custom_bitset nodes(G.size());
         custom_bitset::DIFF(nodes, ISs[chosen_iset], is_processed);
         for (node = nodes.front(); node != custom_bitset::npos; node = nodes.next(node)) {
-            static std::vector<int> unit_stack;
-            unit_stack.clear();
+            static std::vector<int> unit_stack(G.size());
+            int unit_stack_size = 0;
 
             static custom_bitset neighbors(G.size());
             custom_bitset::OR(neighbors, G.get_neighbor_set(node), is_processed);
-            auto empty_iset = fix_oldNode_for_iset(node, chosen_iset, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, reason, unit_stack, k);
-            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, ISs_used, reason, unit_stack, k);
+            auto empty_iset = fix_oldNode_for_iset(node, chosen_iset, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, reason, unit_stack, unit_stack_size, k);
+            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, ISs_used, reason, unit_stack, unit_stack_size, k);
 
             if (empty_iset == NONE) {
-                is_processed = is_processed_back;
-                for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-                    is_processed_new[i] = is_processed_new_back[i];
-                }
-                rollback_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_state_back, ISs_size, REDUCED_iSET_STACK, my_saved_reduced_iset_stack_fill_pointer, reason, reason_back, k);
+                rollback_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, saved_reduced_iset_stack_fill_pointer, PASSIVE_iSET_STACK, passive_iset_size, saved_passive_iset_stack_fill_pointer, FIXED_NODE_STACK, fixed_node_size, saved_fixed_node_stack_fill_pointer, is_processed, is_processed_new, reason);
                 break;
             }
 
             ISs_involved[chosen_iset] = true;
-            identify_conflict_isets(empty_iset, ISs, ISs_new, ISs_involved, ISs_used, is_processed, is_processed_new, REASON_STACK, reason);
+            identify_conflict_isets(empty_iset, ISs, ISs_new, ISs_new_size, ISs_involved, ISs_used, is_processed, is_processed_new, REASON_STACK, reason_stack_size, reason);
             ISs_involved[chosen_iset] = false;
-            is_processed = is_processed_back;
-            for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-                is_processed_new[i] = is_processed_new_back[i];
-            }
-            rollback_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_state_back, ISs_size, REDUCED_iSET_STACK, my_saved_reduced_iset_stack_fill_pointer, reason, reason_back, k);
+
+            rollback_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, saved_reduced_iset_stack_fill_pointer, PASSIVE_iSET_STACK, passive_iset_size, saved_passive_iset_stack_fill_pointer, FIXED_NODE_STACK, fixed_node_size, saved_fixed_node_stack_fill_pointer, is_processed, is_processed_new, reason);
         }
         if (node == custom_bitset::npos) return chosen_iset;
     }
@@ -702,45 +739,35 @@ static int further_test_reduced_iset(
 }
 
 static int inc_maxsatz_lookahead_by_fl2(
-    const int ADDED_NODE,
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
     const std::vector<std::vector<int>>& ISs_new,
-    std::vector<bool>& ISs_state,
+    const std::vector<int>& ISs_new_size,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
     std::vector<int>& REDUCED_iSET_STACK,
-    std::vector<bool>& ISs_used,
-    std::vector<bool>& ISs_involved,
+    int reduced_iset_size,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    int passive_iset_size,
+    std::vector<int>& FIXED_NODE_STACK,
+    int fixed_node_size,
+    std::vector<std::uint8_t>& ISs_used,
+    std::vector<std::uint8_t>& ISs_involved,
     const std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
     custom_bitset& is_processed,
-    std::vector<bool>& is_processed_new,
+    std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason,
     std::vector<int>& REASON_STACK,
+    int& reason_stack_size,
     const int k
 ) {
-    static std::vector<bool> ISs_state_back(G.size());
-    static std::vector<int> reason_back(G.size()*2);
-    static custom_bitset is_processed_back(G.size());
-    static std::vector<bool> is_processed_new_back(G.size());
-    static std::vector<bool> ISs_tested(G.size());
+	int sn = fixed_node_size;
+	int sp = passive_iset_size;
+	int rs = reason_stack_size;
+	int sr = reduced_iset_size;
 
-    for (int i = 0; i < k; i++) {
-        ISs_state_back[i] = ISs_state[i];
-    }
-    for (int i = 0; i < ADDED_NODE; i++) {
-        reason_back[i] = reason[i];
-    }
-
-    is_processed_back = is_processed;
-    for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-        is_processed_new_back[i] = is_processed_new[i];
-    }
-
-    int rs = REASON_STACK.size();
-    int sr = REDUCED_iSET_STACK.size();
-
-    static std::vector<int> unit_stack;
-    static std::vector<bool> tested(G.size());
+    static std::vector<int> unit_stack(G.size());
+    static std::vector<std::uint8_t> tested(G.size());
 
     for (auto i = 0; i < sr; i++) tested[REDUCED_iSET_STACK[i]] = false;
 
@@ -748,83 +775,64 @@ static int inc_maxsatz_lookahead_by_fl2(
         int iset_idx = REDUCED_iSET_STACK[i];
         if (tested[iset_idx] || !ISs_state[iset_idx] || ISs_size[iset_idx] != 2) continue;
 
-        REASON_STACK.resize(rs);
+        reason_stack_size = rs;
         tested[iset_idx] = true;
         static custom_bitset nodes(G.size());
         custom_bitset::DIFF(nodes, ISs[iset_idx], is_processed);
         bool exit = false;
         for (auto node : nodes) {
-            //if (!is_node_active[node]) continue;
-            if (is_processed.test(node)) continue;
-
-            unit_stack.clear();
+            int unit_stack_size = 0;
             static custom_bitset neighbors(G.size());
             custom_bitset::OR(neighbors, G.get_neighbor_set(node), is_processed);
-            auto empty_iset = fix_oldNode_for_iset(node, iset_idx, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, reason, unit_stack, k);
-            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, ISs_used, reason, unit_stack, k);
+            auto empty_iset = fix_oldNode_for_iset(node, iset_idx, neighbors, G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, reason, unit_stack, unit_stack_size, k);
+            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, ISs_used, reason, unit_stack, unit_stack_size, k);
             if (empty_iset == NONE) {
-                bool is_last_node = (ISs_new[iset_idx].size() == 0 && nodes.next(node) == custom_bitset::npos);
-                if (is_last_node) empty_iset = further_test_reduced_iset(sr, ADDED_NODE, G, ISs, ISs_new, ISs_state, ISs_size, REDUCED_iSET_STACK, ISs_used, ISs_involved, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, REASON_STACK, k);
+                bool is_last_node = (ISs_new_size[iset_idx] == 0 && nodes.next(node) == custom_bitset::npos);
+                if (is_last_node) empty_iset = further_test_reduced_iset(sr, G, ISs, ISs_new, ISs_new_size, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, ISs_used, ISs_involved, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, REASON_STACK, reason_stack_size, k);
             }
 
             if (empty_iset == NONE) {
-                is_processed = is_processed_back;
-                for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-                    is_processed_new[i] = is_processed_new_back[i];
-                }
-                rollback_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_state_back, ISs_size, REDUCED_iSET_STACK, sr, reason, reason_back, k);
+                rollback_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, sr, PASSIVE_iSET_STACK, passive_iset_size, sp, FIXED_NODE_STACK, fixed_node_size, sn, is_processed, is_processed_new, reason);
                 exit = true;
                 break;
             }
-            identify_conflict_isets(empty_iset, ISs, ISs_new, ISs_involved, ISs_used, is_processed, is_processed_new, REASON_STACK, reason);
-            is_processed = is_processed_back;
-            for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-                is_processed_new[i] = is_processed_new_back[i];
-            }
-            rollback_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_state_back, ISs_size, REDUCED_iSET_STACK, sr, reason, reason_back, k);
+            identify_conflict_isets(empty_iset, ISs, ISs_new, ISs_new_size, ISs_involved, ISs_used, is_processed, is_processed_new, REASON_STACK, reason_stack_size, reason);
+            rollback_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, sr, PASSIVE_iSET_STACK, passive_iset_size, sp, FIXED_NODE_STACK, fixed_node_size, sn, is_processed, is_processed_new, reason);
         }
         bool node_is_last = !exit;
         if (!exit) {
             node_is_last = false;
             int j;
-            for (j = 0; j < ISs_new[iset_idx].size(); j++) {
+            for (j = 0; j < ISs_new_size[iset_idx]; j++) {
                 //if (!is_node_active[node]) continue;
                 auto node = ISs_new[iset_idx][j];
                 if (is_processed_new[node-G.size()]) continue;
 
-                unit_stack.clear();
-                auto empty_iset = fix_newNode_for_iset(node, iset_idx, G, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed_new, reason, unit_stack);
-                if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, ISs_used, reason, unit_stack, k);
+                int unit_stack_size = 0;
+                auto empty_iset = fix_newNode_for_iset(node, iset_idx, G, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed_new, reason, unit_stack, unit_stack_size);
+                if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, ISs_used, reason, unit_stack, unit_stack_size, k);
                 if (empty_iset == NONE) {
-                    bool is_last_node = (j+1 == ISs_new[iset_idx].size());
-                    if (is_last_node) empty_iset = further_test_reduced_iset(sr, ADDED_NODE, G, ISs, ISs_new, ISs_state, ISs_size, REDUCED_iSET_STACK, ISs_used, ISs_involved, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, REASON_STACK, k);
+                    bool is_last_node = (j+1 == ISs_new_size[iset_idx]);
+                    if (is_last_node) empty_iset = further_test_reduced_iset(sr, G, ISs, ISs_new, ISs_new_size, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, ISs_used, ISs_involved, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, REASON_STACK, reason_stack_size, k);
                 }
 
                 if (empty_iset == NONE) {
-                    is_processed = is_processed_back;
-                    for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-                        is_processed_new[i] = is_processed_new_back[i];
-                    }
-                    rollback_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_state_back, ISs_size, REDUCED_iSET_STACK, sr, reason, reason_back, k);
+                    rollback_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, sr, PASSIVE_iSET_STACK, passive_iset_size, sp, FIXED_NODE_STACK, fixed_node_size, sn, is_processed, is_processed_new, reason);
                     break;
                 }
-                identify_conflict_isets(empty_iset, ISs, ISs_new, ISs_involved, ISs_used, is_processed, is_processed_new, REASON_STACK, reason);
-                is_processed = is_processed_back;
-                for (int i = 0; i < ADDED_NODE - is_processed.size(); i++) {
-                    is_processed_new[i] = is_processed_new_back[i];
-                }
-                rollback_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_state_back, ISs_size, REDUCED_iSET_STACK, sr, reason, reason_back, k);
+                identify_conflict_isets(empty_iset, ISs, ISs_new, ISs_new_size, ISs_involved, ISs_used, is_processed, is_processed_new, REASON_STACK, reason_stack_size, reason);
+                rollback_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, sr, PASSIVE_iSET_STACK, passive_iset_size, sp, FIXED_NODE_STACK, fixed_node_size, sn, is_processed, is_processed_new, reason);
             }
-            node_is_last = j+1 == ISs_new[iset_idx].size();
+            node_is_last = j == ISs_new_size[iset_idx];
         }
 
         if (node_is_last) return true;
 
-        for (auto j = rs; j < REASON_STACK.size(); j++) {
+        for (auto j = rs; j < reason_stack_size; j++) {
             ISs_involved[REASON_STACK[j]] = false;
             ISs_used[REASON_STACK[j]] = false;
         }
-        REASON_STACK.resize(rs);
+        reason_stack_size = rs;
     }
     return false;
 }
@@ -833,61 +841,61 @@ static bool inc_maxsatz_on_last_iset(
     const int ADDED_NODE,
     const custom_graph& G,
     custom_bitset& B,
-    const custom_bitset& B_new,
     std::vector<custom_bitset>& ISs,
     std::vector<std::vector<int>>& ISs_new,
-    std::vector<bool>& ISs_state,
+    std::vector<int>& ISs_new_size,
+    std::vector<std::uint8_t>& ISs_state,
     std::vector<int>& ISs_size,
-    std::vector<bool>& ISs_used,
-    std::vector<bool>& ISs_involved,
+    std::vector<std::uint8_t>& ISs_used,
+    std::vector<std::uint8_t>& ISs_involved,
+    std::vector<int>& REDUCED_iSET_STACK,
+    std::vector<int>& PASSIVE_iSET_STACK,
+    std::vector<int>& FIXED_NODE_STACK,
     std::vector<std::vector<int>>& CONFLICT_ISET_STACK,
+    custom_bitset& is_processed,
+    std::vector<std::uint8_t>& is_processed_new,
     std::vector<int>& reason,
+    std::vector<int>& reason_stack,
     const std::vector<int>& unit_stack,
+    const int unit_stack_size,
     const int k
 ) {
-    static custom_bitset is_processed(G.size());
-    static std::vector<bool> is_processed_new(G.size());
-    static std::vector<int> reason_stack;
-    static std::vector<int> REDUCED_iSET_STACK;
+    static std::vector<int> new_unit_stack(G.size());
 
-    reason_stack.clear();
+    int reason_stack_size = 0;
+    int reduced_iset_size = 0;
+    int passive_iset_size = 0;
+    int fixed_node_size = 0;
 
-    for (const auto bi : B_new) {
-        static std::vector<int> new_unit_stack;
-
-        new_unit_stack.clear();
-
-        ISs[k].reset();
-        ISs[k].set(bi);
-        //ISs_size[k] = 1;
+    for (const auto bi : ISs[k]) {
+        int new_unit_stack_size = 0;
 
         // fix old node
-        auto empty_iset = fix_oldNode_for_iset(bi, k, G.get_neighbor_set(bi), G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, reason, new_unit_stack, k);
-
-        if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, ISs_used, reason, new_unit_stack, k);
+        auto empty_iset = fix_oldNode_for_iset(bi, k, G.get_neighbor_set(bi), G, ISs, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, reason, new_unit_stack, new_unit_stack_size, k);
+        if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, ISs_used, reason, new_unit_stack, new_unit_stack_size, k);
         if (empty_iset == NONE) {
-            empty_iset = unit_iset_process(G, ISs, ISs_new, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, reason, unit_stack, k);
+            empty_iset = unit_iset_process(G, ISs, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason, unit_stack, unit_stack_size, new_unit_stack, k);
         }
 
         // conflict found
         if (empty_iset != NONE) {
-            identify_conflict_isets(empty_iset, ISs, ISs_new, ISs_involved, ISs_used, is_processed, is_processed_new, reason_stack, reason);
-            reset_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, reason, k);
+            identify_conflict_isets(empty_iset, ISs, ISs_new, ISs_new_size, ISs_involved, ISs_used, is_processed, is_processed_new, reason_stack, reason_stack_size, reason);
+            reset_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason);
             B.reset(bi);
             continue;
         }
 
         // conflict not found
-        if (inc_maxsatz_lookahead_by_fl2(ADDED_NODE, G, ISs, ISs_new, ISs_state, ISs_size, REDUCED_iSET_STACK, ISs_used, ISs_involved, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, reason_stack, k)) {
-            reset_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, reason, k);
+        if (inc_maxsatz_lookahead_by_fl2(G, ISs, ISs_new, ISs_new_size, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, ISs_used, ISs_involved, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, reason_stack, reason_stack_size, k)) {
+            reset_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason);
             B.reset(bi);
         } else {
-            reset_context_for_maxsatz(ADDED_NODE, ISs_state, ISs_size, REDUCED_iSET_STACK, is_processed, is_processed_new, reason, k);
+            reset_context_for_maxsatz(ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed, is_processed_new, reason);
             return false;
         }
     }
 
-    enlarge_conflict_sets(ADDED_NODE, G, ISs_new, CONFLICT_ISET_STACK, ISs_size, ISs_used, ISs_involved, reason, reason_stack, is_processed_new);
+    enlarge_conflict_sets(ADDED_NODE, G, ISs_new, ISs_new_size, CONFLICT_ISET_STACK, ISs_size, ISs_used, ISs_involved, reason, reason_stack, reason_stack_size, is_processed_new);
 
     return true;
 }
@@ -899,52 +907,56 @@ static bool SATCOL(
     int k
 ) {
     static std::vector<int> ISs_size(G.size());
-    static std::vector<bool> ISs_state(G.size());
-    static std::vector<bool> ISs_involved(G.size());
-    static std::vector<bool> ISs_used(G.size());
+    static std::vector<std::uint8_t> ISs_state(G.size(), true);
+    static std::vector<std::uint8_t> ISs_involved(G.size());
+    static std::vector<std::uint8_t> ISs_used(G.size());
     static custom_bitset is_processed(G.size());
-    static std::vector<std::vector<int>> ISs_new(G.size());
-    static std::vector<int> is_processed_new(G.size());
+    static std::vector ISs_new(G.size(), std::vector<int>(G.size()));
+    static std::vector<int> ISs_new_size(G.size());
+    static std::vector<std::uint8_t> is_processed_new(G.size());
     static std::vector<int> reason(G.size()*2);
-    static std::vector<int> unit_stack;
+    static std::vector<int> unit_stack(G.size());
     static std::vector<std::vector<int>> CONFLICT_ISET_STACK(G.size());
+    // Necessary G.size() because there are also ADDED_NODES
+    static std::vector<int> REDUCED_iSET_STACK(G.size()*2);
+    static std::vector<int> PASSIVE_iSET_STACK(G.size());
+    static std::vector<int> FIXED_NODE_STACK(G.size()*2);
+    std::vector<int> reason_stack(G.size());
 
-    unit_stack.clear();
-    //unit_stack.reserve(G.size());
+    int unit_stack_size = 0;
 
     for (int i = 0; i < k; i++) {
-        ISs_new[i].clear();
         ISs_size[i] = ISs[i].count();
+        ISs_new_size[i] = 0;
         if (ISs_size[i] == 1) {
-            unit_stack.emplace_back(i);
+            unit_stack[unit_stack_size] = i;
+            unit_stack_size++;
         }
     }
 
     int ADDED_NODE = G.size();
 
     do {
-        static custom_bitset B_new(G.size());
-        ISEQ_one(G, B, B_new);
+        ISEQ_one(G, B, ISs[k]);
         ISs_involved[k] = false;
         ISs_used[k] = false;
         ISs_state[k] = true;
-        ISs_new[k].clear();
-        ISs_size[k] = 1;
+        ISs_new_size[k] = 0;
+        ISs_size[k] = ISs[k].count();
+        if (ISs_size[k] == 1) {
+            unit_stack[unit_stack_size] = k;
+            unit_stack_size++;
+        }
 
         for (int i = 0; i < k; i++) {
-            assert(ISs_size[i] == ISs[i].count() + ISs_new[i].size());
+            assert(ISs_size[i] == ISs[i].count() + ISs_new_size[i]);
             ISs_used[i] = false;
         }
 
         // B is an IS
-        if (B.count() == B_new.count() && test_by_eliminate_failed_nodes(ADDED_NODE, G, B, B_new, ISs, ISs_new, ISs_state, ISs_size, ISs_used, ISs_involved, CONFLICT_ISET_STACK, reason, k)) {
-            return true;
-        }
+        if (B.count() == ISs_size[k] && test_by_eliminate_failed_nodes(G, ISs, ISs_new, ISs_new_size, ISs_state, ISs_size, ISs_used, REDUCED_iSET_STACK, PASSIVE_iSET_STACK, FIXED_NODE_STACK, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, k)) return true;
+        if (!inc_maxsatz_on_last_iset(ADDED_NODE, G, B, ISs, ISs_new, ISs_new_size, ISs_state, ISs_size, ISs_used, ISs_involved, REDUCED_iSET_STACK, PASSIVE_iSET_STACK, FIXED_NODE_STACK, CONFLICT_ISET_STACK, is_processed, is_processed_new, reason, reason_stack, unit_stack, unit_stack_size, k)) return false;
 
-        if (!inc_maxsatz_on_last_iset(ADDED_NODE, G, B, B_new, ISs, ISs_new, ISs_state, ISs_size, ISs_used, ISs_involved, CONFLICT_ISET_STACK, reason, unit_stack, k)) return false;
-
-        ISs[k] = B_new;
-        ISs_size[k] = B_new.count() + ISs_new[k].size();
         ADDED_NODE++;
         k++;
     } while (B.any());
