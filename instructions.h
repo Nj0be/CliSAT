@@ -86,7 +86,7 @@ namespace instructions {
         assert (x != 0);
         [[assume(x != 0)]];
 
-        asm ("bsrl %0, %0" : "=r" (x) : "0" (x));
+        asm ("bsrq %0, %0" : "=r" (x) : "0" (x));
         return x;
     }
 
