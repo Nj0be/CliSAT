@@ -15,51 +15,51 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CliSAT.cpp">
+    <ClCompile Include="src\CliSAT.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src\custom_bitset.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="custom_bitset.cpp">
+    <ClCompile Include="src\instructions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="instructions.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="aligned_allocator.h">
+    <ClInclude Include="src\AMTS.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="AMTS.h">
+    <ClInclude Include="src\aligned_allocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BBMC.h">
+    <ClInclude Include="src\BBMC.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BBMCR.h">
+    <ClInclude Include="src\BBMCR.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="bitscan_benchmark.h">
+    <ClInclude Include="src\bitscan_benchmark.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CliSAT.h">
+    <ClInclude Include="src\CliSAT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="coloring.h">
+    <ClInclude Include="src\coloring.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="custom_bitset.h">
+    <ClInclude Include="src\custom_bitset.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="custom_graph.h">
+    <ClInclude Include="src\custom_graph.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="instructions.h">
+    <ClInclude Include="src\instructions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="sorting.h">
+    <ClInclude Include="src\sorting.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

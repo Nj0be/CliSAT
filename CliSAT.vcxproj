@@ -125,23 +125,23 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="CliSAT.cpp" />
-    <ClCompile Include="custom_bitset.cpp" />
-    <ClCompile Include="instructions.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\CliSAT.cpp" />
+    <ClCompile Include="src\custom_bitset.cpp" />
+    <ClCompile Include="src\instructions.cpp" />
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="aligned_allocator.h" />
-    <ClInclude Include="AMTS.h" />
-    <ClInclude Include="BBMC.h" />
-    <ClInclude Include="BBMCR.h" />
-    <ClInclude Include="bitscan_benchmark.h" />
-    <ClInclude Include="CliSAT.h" />
-    <ClInclude Include="coloring.h" />
-    <ClInclude Include="custom_bitset.h" />
-    <ClInclude Include="custom_graph.h" />
-    <ClInclude Include="instructions.h" />
-    <ClInclude Include="sorting.h" />
+    <ClInclude Include="src\aligned_allocator.h" />
+    <ClInclude Include="src\AMTS.h" />
+    <ClInclude Include="src\BBMC.h" />
+    <ClInclude Include="src\BBMCR.h" />
+    <ClInclude Include="src\bitscan_benchmark.h" />
+    <ClInclude Include="src\CliSAT.h" />
+    <ClInclude Include="src\coloring.h" />
+    <ClInclude Include="src\custom_bitset.h" />
+    <ClInclude Include="src\custom_graph.h" />
+    <ClInclude Include="src\instructions.h" />
+    <ClInclude Include="src\sorting.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
