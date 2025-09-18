@@ -13,7 +13,7 @@
 #include <bit>
 
 namespace instructions {
-    static struct features {
+    struct features {
         bool popcnt = false;
         bool sse2 = false;
         bool sse4_1 = false;

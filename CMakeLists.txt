@@ -3,13 +3,13 @@ cmake_minimum_required(VERSION 3.28)
 set(CMAKE_CXX_STANDARD 23)
 project(CliSAT LANGUAGES CXX)
 
-add_executable(CliSAT
-        main.cpp
-        CliSAT.cpp
-)
+include_directories(${PROJECT_SOURCE_DIR}/include)
 
-target_include_directories(CliSAT PUBLIC
-    "${PROJECT_BINARY_DIR}"
+add_executable(CliSAT
+    src/main.cpp
+    src/CliSAT.cpp
+    src/custom_bitset.cpp
+    src/instructions.cpp
 )
 
 # statically linked

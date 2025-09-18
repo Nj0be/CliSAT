@@ -135,7 +135,6 @@ static int fix_newNode_for_iset(
     std::vector<int>& unit_stack,
     int& unit_stack_size
 ) {
-    int idx;
     ISs_size[fix_iset]--;
     REDUCED_iSET_STACK[reduced_iset_size] = fix_iset;
     reduced_iset_size++;

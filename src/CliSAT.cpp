@@ -7,7 +7,7 @@
 #include <chrono>
 #include <print>
 #include "custom_graph.h"
-#include "CliSAT.h"
+#include "../include/CliSAT.h"
 
 #include "sorting.h"
 

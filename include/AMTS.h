@@ -13,8 +13,9 @@
 #include <tuple>            // for tie, tuple
 #include <utility>          // for pair
 #include <vector>           // for vector
-#include "custom_bitset.h"  // for custom_bitset, operator&, operator==
-#include "custom_graph.h"   // for custom_graph
+
+#include "custom_bitset.h"
+#include "custom_graph.h"
 
 
 inline std::pair<custom_bitset, bool> TS(const custom_graph& g, std::vector<std::uint64_t>& swap_mem, custom_bitset S, const std::uint64_t k, const std::uint64_t L, std::uint64_t& Iter, const std::chrono::time_point<std::chrono::steady_clock> max_time) {
