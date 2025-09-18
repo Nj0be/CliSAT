@@ -29,37 +29,37 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\AMTS.h">
+    <ClInclude Include="include\aligned_allocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\aligned_allocator.h">
+    <ClInclude Include="include\AMTS.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\BBMC.h">
+    <ClInclude Include="include\BBMC.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\BBMCR.h">
+    <ClInclude Include="include\BBMCR.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\bitscan_benchmark.h">
+    <ClInclude Include="include\bitscan_benchmark.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\CliSAT.h">
+    <ClInclude Include="include\CliSAT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\coloring.h">
+    <ClInclude Include="include\coloring.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\custom_bitset.h">
+    <ClInclude Include="include\custom_bitset.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\custom_graph.h">
+    <ClInclude Include="include\custom_graph.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\instructions.h">
+    <ClInclude Include="include\instructions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\sorting.h">
+    <ClInclude Include="include\sorting.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

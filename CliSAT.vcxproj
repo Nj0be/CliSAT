@@ -90,6 +90,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -115,6 +116,7 @@
       <LanguageStandard>stdcpp23</LanguageStandard>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -131,17 +133,17 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\aligned_allocator.h" />
-    <ClInclude Include="src\AMTS.h" />
-    <ClInclude Include="src\BBMC.h" />
-    <ClInclude Include="src\BBMCR.h" />
-    <ClInclude Include="src\bitscan_benchmark.h" />
-    <ClInclude Include="src\CliSAT.h" />
-    <ClInclude Include="src\coloring.h" />
-    <ClInclude Include="src\custom_bitset.h" />
-    <ClInclude Include="src\custom_graph.h" />
-    <ClInclude Include="src\instructions.h" />
-    <ClInclude Include="src\sorting.h" />
+    <ClInclude Include="include\aligned_allocator.h" />
+    <ClInclude Include="include\AMTS.h" />
+    <ClInclude Include="include\BBMC.h" />
+    <ClInclude Include="include\BBMCR.h" />
+    <ClInclude Include="include\bitscan_benchmark.h" />
+    <ClInclude Include="include\CliSAT.h" />
+    <ClInclude Include="include\coloring.h" />
+    <ClInclude Include="include\custom_bitset.h" />
+    <ClInclude Include="include\custom_graph.h" />
+    <ClInclude Include="include\instructions.h" />
+    <ClInclude Include="include\sorting.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
