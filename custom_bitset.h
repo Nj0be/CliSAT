@@ -7,6 +7,9 @@
 #include <cassert>
 #include <concepts>
 #include <ranges>
+#include <vector>
+#include <print>
+#include <ostream>
 
 #include "aligned_allocator.h"
 #include "instructions.h"
@@ -383,8 +386,6 @@ constexpr custom_bitset::block_type custom_bitset::after_mask(const bit_type bit
 
     return ~block_type{1} << bit;
 }
-
-constexpr custom_bitset::reference custom_bitset::npos(std::numeric_limits<size_type>::max(), 0);
 
 template <>
 struct std::formatter<custom_bitset::reference> : std::formatter<custom_bitset::size_type> {
@@ -814,7 +815,7 @@ inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, 
     DIFF(dest, src1, src2, reference(start_pos), reference(end_pos));
 }
 
-inline custom_bitset::operator std::vector<size_type>() const {
+inline custom_bitset::operator std::vector<custom_bitset::size_type>() const {
     std::vector<size_type> list;
     list.reserve(count());
 

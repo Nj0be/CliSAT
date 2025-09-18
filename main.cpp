@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
     //auto filename = "../../CliSAT_instances/dimacs/san1000.clq"; //15
     //auto filename = "../../CliSAT_instances/dimacs/san200_0.9_1.clq"; //70
     //auto filename = "../../CliSAT_instances/dimacs/san200_0.9_2.clq"; //60
-    auto filename = "../../CliSAT_instances/dimacs/san400_0.7_1.clq"; //40
+    //auto filename = "../../CliSAT_instances/dimacs/san400_0.7_1.clq"; //40
     //auto filename = "../../CliSAT_instances/dimacs/san400_0.7_3.clq"; //22
     //auto filename = "../../CliSAT_instances/dimacs/sanr200_0.9.clq"; //42
     //auto filename = "../../CliSAT_instances/dimacs/sanr200_0.7.clq"; //18
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     //auto filename = "../../CliSAT_instances/csplib/lat/qcp-10-67-00_X2.clq"; //100
     //auto filename = "../../CliSAT_instances/bhoshlib/frb30-15-1.clq";
 
-    //auto filename = argv[1];
+    auto filename = argv[1];
 
 
     auto begin = std::chrono::steady_clock::now();

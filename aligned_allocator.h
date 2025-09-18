@@ -38,7 +38,7 @@ public:
         if (n > max_size()) throw std::bad_array_new_length();
 
         const std::size_t bytes = n * sizeof(T);
-        auto* p = static_cast<value_type*>(std::aligned_alloc(alignment, bytes));
+        auto* p = static_cast<value_type*>(::operator new(bytes, static_cast<std::align_val_t>(alignment)));
         return p;
     }
 
