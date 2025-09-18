@@ -137,8 +137,8 @@ std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const i
     int color_max = 0;
     const auto ordered_graph = g.change_order(Odeg);
     for (std::size_t i = 1; i < g.size(); i++) {
-        auto Ubb = custom_bitset::before(g.get_neighbor_set(i), i);
-        color_max = std::max(color_max, ISEQ(g, Ubb));
+        auto Ubb = custom_bitset::before(ordered_graph.get_neighbor_set(i), i);
+        color_max = std::max(color_max, ISEQ(ordered_graph, Ubb));
     }
 
     int u = 1 + color_max;

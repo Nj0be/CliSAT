@@ -67,7 +67,6 @@ inline int ISEQ_branching(
     const custom_bitset& Ubb,
     std::vector<custom_bitset>& ISs,
     std::vector<int>& color_class,
-    std::vector<std::size_t>& alpha,
     const int k_max
 ) {
     int k = 0;
@@ -88,11 +87,10 @@ inline int ISEQ_branching(
             color_class[v] = k;
             ISs[k_max].reset(v);
         }
-        alpha[k] = last_v;
     }
 
     auto v = ISs[k_max].front();
-    if (v == custom_bitset::npos) return k_max-1;
+    if (v == custom_bitset::npos) return k_max;
 
     auto last_v = v;
     for (; v != custom_bitset::npos; v = ISs[k_max].next(v)) {
@@ -101,7 +99,7 @@ inline int ISEQ_branching(
         color_class[v] = k_max;
     }
 
-    return k_max;
+    return k_max+1;
 }
 
 inline custom_bitset ISEQ_branching(

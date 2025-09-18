@@ -72,7 +72,7 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 
 std::vector<int> CliSAT(const std::string& filename) {
     const custom_graph g(filename);
-    auto [ordering, k] = NEW_SORT(g, 3);
+    auto [ordering, k] = NEW_SORT(g, 4);
     auto ordered_g = g.change_order(ordering);
 
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
