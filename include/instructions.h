@@ -64,7 +64,7 @@ namespace instructions {
         return cpu_supports;
     }
 
-    extern features cpu_supports;
+    inline features cpu_supports = cpu_supports_impl();
 
     static inline std::size_t bsf32(std::uint32_t x) {
         assert (x != 0);

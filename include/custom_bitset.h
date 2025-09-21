@@ -231,7 +231,6 @@ private:
 public:
     custom_bitset() : custom_bitset(0) {}
     explicit custom_bitset(size_type size, bool default_value = false);
-    //custom_bitset(custom_bitset other, size_type size);
 
     template<IntegerContainer Container>
     explicit custom_bitset(const Container &container);
@@ -263,6 +262,7 @@ public:
     custom_bitset operator~() const;
     bool operator==(const custom_bitset& other) const;
     custom_bitset& operator=(const custom_bitset& other);
+    custom_bitset& operator=(custom_bitset&& other) noexcept;
 
     friend custom_bitset operator&(custom_bitset lhs, const custom_bitset& rhs);
     friend custom_bitset operator|(custom_bitset lhs, const custom_bitset& rhs);
@@ -357,6 +357,8 @@ public:
     void clear_from(const reference& ref);
     void clear_from(size_type pos);
 };
+
+inline constexpr custom_bitset::reference custom_bitset::npos(std::numeric_limits<size_type>::max(), 0);
 
 constexpr custom_bitset::block_type custom_bitset::mask_bit(const bit_type bit) noexcept {
     assert(bit < block_size);
@@ -576,6 +578,16 @@ inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
 
     for (size_type i = 0; i < _bits.size(); ++i)
         a[i] = b[i];
+
+    return *this;
+}
+
+inline custom_bitset& custom_bitset::operator=(custom_bitset&& other) noexcept {
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
+
+	//_size = other._size;
+	_bits = std::move(other._bits);
 
     return *this;
 }

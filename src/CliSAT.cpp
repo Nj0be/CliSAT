@@ -71,9 +71,16 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 }
 
 std::vector<int> CliSAT(const std::string& filename) {
+    auto begin = std::chrono::steady_clock::now();
     const custom_graph g(filename);
+    auto end = std::chrono::steady_clock::now();
+    auto seconds_double = std::chrono::duration<double, std::chrono::milliseconds::period>(end - begin).count();
+    std::cout << "Parsing = " << seconds_double << "[ms]" << std::endl;
+
     auto [ordering, k] = NEW_SORT(g, 4);
     auto ordered_g = g.change_order(ordering);
+
+    auto begin_CliSAT = std::chrono::steady_clock::now();
 
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     std::vector<int> K_max;
@@ -107,7 +114,6 @@ std::vector<int> CliSAT(const std::string& filename) {
     steps = 0;
     pruned = 0;
 
-    auto begin_branch = std::chrono::steady_clock::now();
     for (std::size_t i = lb; i < ordered_g.size(); ++i) {
         auto begin = std::chrono::steady_clock::now();
         static custom_bitset B(g.size());
@@ -130,6 +136,7 @@ std::vector<int> CliSAT(const std::string& filename) {
         }
 
         auto old_steps = steps;
+        auto old_pruned = pruned;
 
         K.push_back(i);
         FindMaxClique(ordered_g, K, K_max, P, B, u);
@@ -139,10 +146,10 @@ std::vector<int> CliSAT(const std::string& filename) {
         u[i] = K_max.size();
 
         auto end = std::chrono::steady_clock::now();
-        std::print("{}/{} (max {}) {}ms -> {} steps\n", i+1, ordered_g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps);
+        std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, ordered_g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
     }
-
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin_branch).count() << "ms" << std::endl;
+    auto end_CliSAT = std::chrono::steady_clock::now();
+    std::cout << "Branching time: " << std::chrono::duration<double, std::chrono::milliseconds::period>(end_CliSAT - begin_CliSAT).count() << " [ms]" << std::endl;
 
     std::cout << "Steps: " << steps << std::endl;
     std::cout << "Pruned: " << pruned << std::endl;

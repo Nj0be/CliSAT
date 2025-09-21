@@ -45,14 +45,7 @@ int main(int argc, char *argv[]) {
 
     auto filename = argv[1];
 
-
-    auto begin = std::chrono::steady_clock::now();
-    auto end = std::chrono::steady_clock::now();
-
-    begin = std::chrono::steady_clock::now();
     std::cout << custom_bitset(CliSAT(filename)) << std::endl;
-    end = std::chrono::steady_clock::now();
-    std::cout << "CliSAT = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 
     /*
     begin = std::chrono::steady_clock::now();

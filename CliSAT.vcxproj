@@ -128,8 +128,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\CliSAT.cpp" />
-    <ClCompile Include="src\custom_bitset.cpp" />
-    <ClCompile Include="src\instructions.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>

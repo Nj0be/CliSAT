@@ -8,8 +8,6 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 add_executable(CliSAT
     src/main.cpp
     src/CliSAT.cpp
-    src/custom_bitset.cpp
-    src/instructions.cpp
 )
 
 # statically linked

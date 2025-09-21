@@ -1320,10 +1320,33 @@ static void FindMaxClique(
         const int lb = K_max.size();
         P_Bj.set(bi);
 
-        if (u[bi] + curr-1 <= lb) {
+        if (u[bi] + K.size() <= lb) {
             // by resetting u[bi] (without calculating it) we allow to be
             // reconsidered in future iterations if necessary
-            u[bi] = static_cast<int>(K_max.size() - K.size());
+            //u[bi] = static_cast<int>(K_max.size() - K.size());
+            u[bi] = lb - K.size();
+
+            pruned++;
+            continue;
+        }
+
+        // if bi == 0, u[bi] always == 1!
+        u[bi] = 1;
+
+        for (auto neighbor = P_Bj.front(); neighbor < bi; neighbor = P_Bj.next(neighbor)) {
+            u[bi] = std::max(u[bi], 1+u[neighbor]);
+            // no point continue searching, we will overwrite this anyway with a potentially lower value
+            if (u[bi] + K.size() > lb) break;
+        }
+
+        //u[bi] = std::min(u[bi], lb-curr);
+        // so if we enter in the following if, we don't overwrite it, otherwise we will replace u[bi] with lb-curr
+
+        // if we can't improve, we prune the current branch
+        // curr-1 because bi is not part of K yet
+        // it goes into the pruned set
+
+        if (u[bi] + K.size() <= lb) {
             pruned++;
             continue;
         }
@@ -1334,35 +1357,21 @@ static void FindMaxClique(
 
         // if we are in a leaf
         if (V_new_size == 0) {
-            if (curr > lb) {
+            if (K.size()+1 > lb) {
                 // K_max = K U {bi}
                 K_max = K;
                 K_max.push_back(bi);
                 std::cout << "Last incumbent: " << K_max.size() << std::endl;
             }
+            /*
             u[bi] = static_cast<int>(K_max.size() - K.size());
             continue;
-            //return;
+            */
+            return;
         }
-
-        // if bi == 0, u[bi] always == 1!
-        u[bi] = 1;
-
-        for (auto neighbor = V_new.front(); neighbor < bi; neighbor = V_new.next(neighbor)) {
-            u[bi] = std::max(u[bi], 1+u[neighbor]);
-            // no point continue searching, we will overwrite this anyway with a potentially lower value
-            if (u[bi] + curr-1 > lb) break;
-        }
-
-        //u[bi] = std::min(u[bi], lb-curr);
-        // so if we enter in the following if, we don't overwrite it, otherwise we will replace u[bi] with lb-curr
-
-        // if we can't improve, we prune the current branch
-        // curr-1 because bi is not part of K yet
-        // it goes into the pruned set
 
         u[bi] = std::min(u[bi], V_new_size+1);
-        if (u[bi] + curr-1 <= lb) {
+        if (u[bi] + K.size() <= lb) {
             pruned++;
             continue;
         }
@@ -1376,7 +1385,7 @@ static void FindMaxClique(
         if (is_k_partite) {
             const auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, alphas[curr], ISs_mapping, k+1);
             if (n_isets < k+1) {
-                u[bi] = n_isets+1;
+                u[bi] = n_isets;
                 continue;
             }
 
@@ -1389,7 +1398,7 @@ static void FindMaxClique(
         } else {
             const auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, k);
             if (n_isets < k+1) {
-                u[bi] = n_isets+1;
+                u[bi] = n_isets;
                 continue;
             }
             B_news[curr] = ISs[k];

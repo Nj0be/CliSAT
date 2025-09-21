@@ -18,12 +18,6 @@
     <ClCompile Include="src\CliSAT.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\custom_bitset.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\instructions.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

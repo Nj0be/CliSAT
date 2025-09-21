@@ -4,30 +4,32 @@
 
 #pragma once
 
+#include <chrono>
+
 #include "BBMC.h"
 #include "custom_graph.h"
 
 // Minimum Weight Sort
-std::vector<std::size_t> MWS(custom_graph g) {
-    std::vector<std::size_t> vertices(g.size());
-    std::vector<std::size_t> degrees(g.size());
-    std::vector<std::size_t> neighb_deg(g.size());
+std::vector<std::size_t> MWS(custom_graph G) {
+    std::vector<std::size_t> vertices(G.size());
+    std::vector<std::size_t> degrees(G.size());
+    std::vector<std::size_t> neighb_deg(G.size());
     std::iota(vertices.begin(), vertices.end(), 0);
 
-    for (std::size_t i = 0; i < g.size(); i++) {
-        degrees[i] = g[i].degree();
+    for (std::size_t i = 0; i < G.size(); i++) {
+        degrees[i] = G[i].degree();
     }
-    for (std::size_t i = 0; i < g.size(); i++) {
-        for (const auto v : g[i]) {
+    for (std::size_t i = 0; i < G.size(); i++) {
+        for (const auto v : G[i]) {
             neighb_deg[i] += degrees[v];
         }
     }
 
-    for (std::size_t i = 1; i <= g.size(); i++) {
-        for (std::size_t j = 0; j <= g.size()-i; j++) {
+    for (std::size_t i = 1; i <= G.size(); i++) {
+        for (std::size_t j = 0; j <= G.size()-i; j++) {
             const auto curr_vert = vertices[j];
             neighb_deg[curr_vert] = 0;
-            for (const auto v : g[curr_vert]) {
+            for (const auto v : G[curr_vert]) {
                 neighb_deg[curr_vert] += degrees[v];
             }
         }
@@ -38,11 +40,11 @@ std::vector<std::size_t> MWS(custom_graph g) {
             });
 
         // destructive to clean graph
-        for (auto cursor = g[*v_min].pop_front();
+        for (auto cursor = G[*v_min].pop_front();
              cursor != custom_bitset::npos;
-             cursor = g[*v_min].pop_next(cursor)) {
+             cursor = G[*v_min].pop_next(cursor)) {
             degrees[cursor]--;
-            g[cursor].reset(*v_min);
+            G[cursor].reset(*v_min);
         }
         std::iter_swap(v_min, std::prev(vertices.end(), static_cast<std::ptrdiff_t>(i)));
     }
@@ -52,47 +54,62 @@ std::vector<std::size_t> MWS(custom_graph g) {
 
 // DEG_SORT
 // Minimum Weight Sort with Initial sorting
-std::vector<std::size_t> MWSI(custom_graph g, const int p=3) {
-    std::vector<std::size_t> vertices(g.size());
-    std::vector<std::size_t> degrees(g.size());
-    std::vector<std::size_t> neighb_deg(g.size());
+std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
+    std::vector<std::size_t> vertices(G.size());
+    std::vector<std::size_t> degrees(G.size());
+    std::vector<std::size_t> neighb_deg(G.size());
+	custom_bitset is_node_processed(G.size());
     std::iota(vertices.begin(), vertices.end(), 0);
 
-    for (std::size_t i = 0; i < g.size(); i++) {
-        degrees[i] = g[i].count();
+    for (std::size_t i = 0; i < G.size(); i++) {
+        degrees[i] = G[i].count();
     }
 
     std::vector degrees_orig = degrees;
-    for (std::size_t i = 0; i < g.size(); i++) {
-        for (const auto v : g[i]) {
+    for (std::size_t i = 0; i < G.size(); i++) {
+        for (const auto v : G[i]) {
             neighb_deg[i] += degrees[v];
         }
     }
 
     // const int64_t k = g.size()/p;
-    const int k = static_cast<int>(g.size()/p);
+    const int k = static_cast<int>(G.size()/p);
 
-    for (std::size_t i = 1; i <= g.size(); i++) {
-        auto v_min = std::ranges::min_element(vertices.begin(), std::prev(vertices.end(), static_cast<std::ptrdiff_t>(i)),
-            [&degrees, &neighb_deg](auto a, auto b) {
-                if (degrees[a] != degrees[b]) return degrees[a] < degrees[b];
-                return neighb_deg[a] < neighb_deg[b];
-            });
+    custom_bitset neighbors_min(G.size());
+    custom_bitset neighbors_v(G.size());
 
-        const auto v_min_deg = degrees[*v_min];
+    for (std::ptrdiff_t i = G.size()-1; i > 0; i--) {
+        auto min_idx = 0;
+        for (int j = 1; j <= i; j++) {
+            auto node = vertices[j];
+			auto v_min = vertices[min_idx];
 
-        for (auto v = g[*v_min].pop_front(); v != custom_bitset::npos; v = g[*v_min].pop_next(v)) {
-            g[v].reset(*v_min);
+            if (degrees[node] != degrees[v_min]) {
+                if (degrees[node] < degrees[v_min]) min_idx = j;
+            } else if (neighb_deg[node] < neighb_deg[v_min]) {
+                min_idx = j;
+            }
+        }
+
+		auto min = vertices[min_idx];
+
+        if (min_idx > i) exit(1);
+        is_node_processed.set(min);
+
+        custom_bitset::DIFF(neighbors_min, G[min], is_node_processed);
+        for (auto v : neighbors_min) {
             // update neigh_degree (we are going to remove v_min)
             degrees[v]--;
-            neighb_deg[v] -= v_min_deg;
-            for (auto u: g[v]) {
+            neighb_deg[v] -= degrees[min];
+			custom_bitset::DIFF(neighbors_v, G[v], is_node_processed);
+            for (auto u: neighbors_v) {
                 neighb_deg[u]--;
             }
         }
-        std::iter_swap(v_min, std::prev(vertices.end(), static_cast<std::ptrdiff_t>(i)));
+		std::swap(vertices[min_idx], vertices[i]);
     }
 
+    // non-descending order based on original degree
     std::ranges::sort(vertices.begin(), vertices.begin()+k,
         [&degrees_orig](auto a, auto b) {
             return degrees_orig[a] > degrees_orig[b];
@@ -119,6 +136,7 @@ std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
             [&g](auto a, auto b) {
                 return g.vertex_degree(a) > g.vertex_degree(b);
             });
+
         Ocolor.insert(Ocolor.end(), U_vec.begin(), U_vec.end());
         W -= U;
         k++;
@@ -128,10 +146,21 @@ std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
 }
 
 std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=3) {
-    auto Odeg = MWSI(g, p);
-    auto [Ocolor, k] = COLOUR_SORT(g);
+    auto begin = std::chrono::steady_clock::now();
 
-    return {Odeg, k};
+    auto Odeg = MWSI(g, p);
+    auto k = 0;
+    //auto [Ocolor, k] = COLOUR_SORT(g);
+
+	return { Odeg, k };
+
+    /*
+    auto end = std::chrono::steady_clock::now();
+    auto seconds_double = std::chrono::duration<double, std::chrono::milliseconds::period>(end - begin).count();
+    std::cout << "Preprocessing = " << seconds_double << "[ms]" << std::endl;
+
+    //return {Odeg, k};
+    
     if (g.get_density() <= 0.7) return {Odeg, k};
 
     int color_max = 0;
@@ -146,5 +175,6 @@ std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const i
     if (k < u) { return {Ocolor, k}; }
 
     return {Odeg, k};
+	*/
 }
 
