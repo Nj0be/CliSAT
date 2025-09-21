@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstring>
 #include <fstream>
 #include <numeric>
 
@@ -63,28 +64,73 @@ public:
     //void resize(size_type new_size);
 };
 
+/* In this function we are reading chunks of 8196 bytes from the file
+ * based on the line type we do 3 things:
+ *  - line type 'c' is a comment, skip
+ *  - line type 'p' is the graph node and edges count, parse only the third and fourth elements
+ *  - line type 'e' is and edge, parse only the second and third elements (node1 and node2)
+ */
 inline custom_graph::custom_graph(const std::string& filename) {
     std::ifstream inf(filename);
-    assert(inf);
+    char buf[0x2000];
+    char line_type = 'c';
+    bool first_char = true;
+    std::size_t num1 = 0;
+    std::size_t num2 = 0;
+    int spaces = 0;
 
-    std::string strInput;
-    while (std::getline(inf, strInput)) {
-        if (strInput[0] == 'p') {
-            size_type nodes;
-            std::istringstream(strInput.substr(7)) >> nodes;
+    while (inf) {
+        inf.read(buf, sizeof(buf));
+        std::streamsize bytes_read = inf.gcount();
+        if (bytes_read <= 0) break;
 
-            _graph.reserve(nodes);
-            _order_conversion.resize(nodes);
-            std::iota(_order_conversion.begin(), _order_conversion.end(), 0);
-            for (size_type i = 0; i < nodes; ++i) {
-                _graph.emplace_back(nodes);
+        for (size_t i = 0; i < bytes_read; ++i) {
+            auto c = buf[i];
+            if (first_char) {
+                line_type = c;
+                first_char = false;
+                spaces = 0;
+                num1 = 0;
+                num2 = 0;
+                continue;
             }
-        }
-        else if (strInput[0] == 'e') {
-            size_type node1, node2;
-            std::istringstream(strInput.substr(2)) >> node1 >> node2;
+            if (c == '\r') continue;
+            if (c == '\n') {
+                first_char = true;
+                switch (line_type) {
+                    case 'c':
+                        break;
+                    case 'p':
+                        // num1 == nodes
+                        // num2 == edges
+                        _graph.reserve(num1);
+                        _order_conversion.resize(num1);
+                        std::iota(_order_conversion.begin(), _order_conversion.end(), 0);
+                        for (size_type i = 0; i < num1; ++i) {
+                            _graph.emplace_back(num1);
+                        }
+                        break;
+                    case 'e':
+                        add_edge(num1-1, num2-1);
+                        break;
+                }
+                continue;
+            }
 
-            add_edge(node1-1, node2-1);
+            if (line_type == 'c') continue;
+
+            if (c == ' ') {
+                spaces++;
+                continue;
+            }
+
+            if (line_type == 'p') {
+                if (spaces == 2) num1 = num1*10 + (c - '0');
+                else if (spaces == 3) num2 = num2*10 + (c - '0');
+            } else {
+                if (spaces == 1) num1 = num1*10 + (c - '0');
+                else if (spaces == 2) num2 = num2*10 + (c - '0');
+            }
         }
     }
 }

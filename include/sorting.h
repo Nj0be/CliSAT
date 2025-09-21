@@ -152,15 +152,13 @@ std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const i
     auto k = 0;
     //auto [Ocolor, k] = COLOUR_SORT(g);
 
-	return { Odeg, k };
-
-    /*
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::milliseconds::period>(end - begin).count();
     std::cout << "Preprocessing = " << seconds_double << "[ms]" << std::endl;
 
-    //return {Odeg, k};
+    return {Odeg, k};
     
+    /*
     if (g.get_density() <= 0.7) return {Odeg, k};
 
     int color_max = 0;
