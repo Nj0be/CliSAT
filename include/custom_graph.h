@@ -69,12 +69,14 @@ public:
  *  - line type 'c' is a comment, skip
  *  - line type 'p' is the graph node and edges count, parse only the third and fourth elements
  *  - line type 'e' is and edge, parse only the second and third elements (node1 and node2)
+ *  - line type '\n' is an empty line
  */
 inline custom_graph::custom_graph(const std::string& filename) {
     std::ifstream inf(filename);
     char buf[0x2000];
     char line_type = 'c';
     bool first_char = true;
+    bool last_space_tab = false;
     std::size_t num1 = 0;
     std::size_t num2 = 0;
     int spaces = 0;
@@ -88,7 +90,8 @@ inline custom_graph::custom_graph(const std::string& filename) {
             auto c = buf[i];
             if (first_char) {
                 line_type = c;
-                first_char = false;
+                first_char = (c == '\n');
+                last_space_tab = false;
                 spaces = 0;
                 num1 = 0;
                 num2 = 0;
@@ -119,11 +122,13 @@ inline custom_graph::custom_graph(const std::string& filename) {
 
             if (line_type == 'c') continue;
 
-            if (c == ' ') {
+            if ((c == ' ' || c == '\t') && !last_space_tab) {
                 spaces++;
+                last_space_tab = true;
                 continue;
             }
 
+            last_space_tab = false;
             if (line_type == 'p') {
                 if (spaces == 2) num1 = num1*10 + (c - '0');
                 else if (spaces == 3) num2 = num2*10 + (c - '0');
