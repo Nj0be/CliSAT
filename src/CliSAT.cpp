@@ -77,8 +77,12 @@ std::vector<int> CliSAT(const std::string& filename) {
     auto seconds_double = std::chrono::duration<double, std::chrono::milliseconds::period>(end - begin).count();
     std::cout << "Parsing = " << seconds_double << "[ms]" << std::endl;
 
+    begin = std::chrono::steady_clock::now();
     auto [ordering, k] = NEW_SORT(g, 4);
     auto ordered_g = g.change_order(ordering);
+    end = std::chrono::steady_clock::now();
+    seconds_double = std::chrono::duration<double, std::chrono::milliseconds::period>(end - begin).count();
+    std::cout << "Preprocessing = " << seconds_double << "[ms]" << std::endl;
 
     auto begin_CliSAT = std::chrono::steady_clock::now();
 

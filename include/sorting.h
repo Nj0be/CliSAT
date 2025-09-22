@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <chrono>
-
 #include "BBMC.h"
 #include "custom_graph.h"
 
@@ -53,12 +51,12 @@ std::vector<std::size_t> MWS(custom_graph G) {
 }
 
 // DEG_SORT
-// Minimum Weight Sort with Initial sorting
+// Minimum Weight Sort with Initial sorting (MWSS)
 std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
     std::vector<std::size_t> vertices(G.size());
     std::vector<std::size_t> degrees(G.size());
-    std::vector<std::size_t> neighb_deg(G.size());
-	custom_bitset is_node_processed(G.size());
+    std::vector<std::size_t> support(G.size());
+	//custom_bitset is_node_processed(G.size());
     std::iota(vertices.begin(), vertices.end(), 0);
 
     for (std::size_t i = 0; i < G.size(); i++) {
@@ -68,45 +66,53 @@ std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
     std::vector degrees_orig = degrees;
     for (std::size_t i = 0; i < G.size(); i++) {
         for (const auto v : G[i]) {
-            neighb_deg[i] += degrees[v];
+            support[i] += degrees[v];
         }
     }
 
-    // const int64_t k = g.size()/p;
     const int k = static_cast<int>(G.size()/p);
 
-    custom_bitset neighbors_min(G.size());
-    custom_bitset neighbors_v(G.size());
+    //custom_bitset neighbors_min(G.size());
+    //custom_bitset neighbors_v(G.size());
 
     for (std::ptrdiff_t i = G.size()-1; i > 0; i--) {
         auto min_idx = 0;
         for (int j = 1; j <= i; j++) {
-            auto node = vertices[j];
-			auto v_min = vertices[min_idx];
+            const auto node = vertices[j];
+			const auto v_min = vertices[min_idx];
 
             if (degrees[node] != degrees[v_min]) {
                 if (degrees[node] < degrees[v_min]) min_idx = j;
-            } else if (neighb_deg[node] < neighb_deg[v_min]) {
+            } else if (support[node] < support[v_min]) {
                 min_idx = j;
             }
         }
 
-		auto min = vertices[min_idx];
+		const auto min = vertices[min_idx];
 
-        if (min_idx > i) exit(1);
+        /*
         is_node_processed.set(min);
-
         custom_bitset::DIFF(neighbors_min, G[min], is_node_processed);
         for (auto v : neighbors_min) {
             // update neigh_degree (we are going to remove v_min)
             degrees[v]--;
-            neighb_deg[v] -= degrees[min];
+
+            support[v] -= degrees[min];
 			custom_bitset::DIFF(neighbors_v, G[v], is_node_processed);
             for (auto u: neighbors_v) {
-                neighb_deg[u]--;
+                support[u]--;
             }
         }
-		std::swap(vertices[min_idx], vertices[i]);
+        */
+
+        for (auto v : G[min]) {
+            // update neigh_degree (we are going to remove v_min)
+            // we decrement both processed and non processed vertices, it's faster than checking
+            degrees[v]--;
+            // we are using MWSS (Minimum Width with Static Support) instead of MWS
+            // we use static neighbor support instead of recalculating it
+        }
+        std::swap(vertices[min_idx], vertices[i]);
     }
 
     // non-descending order based on original degree
@@ -146,15 +152,9 @@ std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
 }
 
 std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=3) {
-    auto begin = std::chrono::steady_clock::now();
-
     auto Odeg = MWSI(g, p);
     auto k = 0;
     //auto [Ocolor, k] = COLOUR_SORT(g);
-
-    auto end = std::chrono::steady_clock::now();
-    auto seconds_double = std::chrono::duration<double, std::chrono::milliseconds::period>(end - begin).count();
-    std::cout << "Preprocessing = " << seconds_double << "[ms]" << std::endl;
 
     return {Odeg, k};
     
