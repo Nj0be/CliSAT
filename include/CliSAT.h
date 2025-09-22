@@ -1299,7 +1299,7 @@ static void FindMaxClique(
     steps++;
 
     // |K|+1 because we are yet to add the vertex to the current solution
-    const int curr = K.size()+1;
+    const int depth = K.size()+1;
 
     for (const auto bi : B) {
         const int lb = K_max.size();
@@ -1309,7 +1309,16 @@ static void FindMaxClique(
             // by resetting u[bi] (without calculating it) we allow to be
             // reconsidered in future iterations if necessary
             //u[bi] = static_cast<int>(K_max.size() - K.size());
-            u[bi] = lb - K.size();
+            if (depth == 2) {
+                u[bi] = 1;
+
+                for (auto neighbor = P_Bj.prev(bi); neighbor != custom_bitset::npos; neighbor = P_Bj.prev(neighbor)) {
+                    u[bi] = std::max(u[bi], 1+u[neighbor]);
+                    // no point continue searching, we will overwrite this anyway with a potentially lower value
+                    if (u[bi] + K.size() > lb) break;
+                }
+                u[bi] = std::min(u[bi], lb - (int)K.size());
+            }
 
             pruned++;
             continue;
@@ -1318,7 +1327,7 @@ static void FindMaxClique(
         // if bi == 0, u[bi] always == 1!
         u[bi] = 1;
 
-        for (auto neighbor = P_Bj.front(); neighbor < bi; neighbor = P_Bj.next(neighbor)) {
+        for (auto neighbor = P_Bj.prev(bi); neighbor != custom_bitset::npos; neighbor = P_Bj.prev(neighbor)) {
             u[bi] = std::max(u[bi], 1+u[neighbor]);
             // no point continue searching, we will overwrite this anyway with a potentially lower value
             if (u[bi] + K.size() > lb) break;
@@ -1361,14 +1370,14 @@ static void FindMaxClique(
             continue;
         }
 
-        const int k = lb-curr;
+        const int k = lb-depth;
         u[bi] = k+1;
 
         int next_is_k_partite = is_k_partite;
 
         // if is a k+1 partite graph
         if (is_k_partite) {
-            const auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alphas[curr], ISs_mapping, k+1);
+            const auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alphas[depth], ISs_mapping, k+1);
             if (n_isets < k+1) {
                 u[bi] = n_isets+1;
                 continue;
@@ -1376,9 +1385,9 @@ static void FindMaxClique(
 
             if (FiltSAT(G, V_new, ISs_t, color_class_t, k+1)) continue;
             for (int i = 0; i < k+1; i++) {
-                alphas[curr+1][i] = ISs_t[ISs_mapping[i]].back();
+                alphas[depth+1][i] = ISs_t[ISs_mapping[i]].back();
             }
-            B_news[curr] = ISs_t[k];
+            B_news[depth] = ISs_t[k];
             assert(B_news[curr].any());
         } else {
             const auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, k);
@@ -1386,27 +1395,27 @@ static void FindMaxClique(
                 u[bi] = n_isets+1;
                 continue;
             }
-            B_news[curr] = ISs[k];
+            B_news[depth] = ISs[k];
             assert(B_news[curr].any());
 
             //if (B_new.none()) continue;
-            if (is_IS(G, B_news[curr])) {
+            if (is_IS(G, B_news[depth])) {
                 next_is_k_partite = true;
                 // if we could return here, huge gains... damn
                 if (FiltSAT(G, V_new, ISs, color_class, k+1)) continue;
                 for (int i = 0; i < k+1; i++) {
-                    alphas[curr+1][i] = ISs[i].back();
+                    alphas[depth+1][i] = ISs[i].back();
                 }
-                B_news[curr] = ISs[k];
+                B_news[depth] = ISs[k];
             } else {
-                if (SATCOL(G, B_news[curr], ISs, color_class, k)) continue;
+                if (SATCOL(G, B_news[depth], ISs, color_class, k)) continue;
             }
         }
 
         // at this point B is not empty
         K.push_back(bi);
-        custom_bitset::DIFF(P_Bjs[curr+1], V_new, B_news[curr]);
-        FindMaxClique(G, K, K_max, P_Bjs[curr+1], B_news[curr], u, next_is_k_partite);
+        custom_bitset::DIFF(P_Bjs[depth+1], V_new, B_news[depth]);
+        FindMaxClique(G, K, K_max, P_Bjs[depth+1], B_news[depth], u, next_is_k_partite);
         K.pop_back();
 
         // u[bi] cannot be lowered
