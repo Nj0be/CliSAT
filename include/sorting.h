@@ -51,12 +51,12 @@ std::vector<std::size_t> MWS(custom_graph G) {
 }
 
 // DEG_SORT
-// Minimum Weight Sort with Initial sorting (MWSS)
+// Minimum Weight Sort with Initial sorting
 std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
     std::vector<std::size_t> vertices(G.size());
     std::vector<std::size_t> degrees(G.size());
     std::vector<std::size_t> support(G.size());
-	//custom_bitset is_node_processed(G.size());
+	custom_bitset is_node_processed(G.size());
     std::iota(vertices.begin(), vertices.end(), 0);
 
     for (std::size_t i = 0; i < G.size(); i++) {
@@ -72,8 +72,8 @@ std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
 
     const int k = static_cast<int>(G.size()/p);
 
-    //custom_bitset neighbors_min(G.size());
-    //custom_bitset neighbors_v(G.size());
+    custom_bitset neighbors_min(G.size());
+    custom_bitset neighbors_v(G.size());
 
     for (std::ptrdiff_t i = G.size()-1; i > 0; i--) {
         auto min_idx = 0;
@@ -90,7 +90,6 @@ std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
 
 		const auto min = vertices[min_idx];
 
-        /*
         is_node_processed.set(min);
         custom_bitset::DIFF(neighbors_min, G[min], is_node_processed);
         for (auto v : neighbors_min) {
@@ -103,15 +102,16 @@ std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
                 support[u]--;
             }
         }
-        */
 
-        for (auto v : G[min]) {
+        /*
+         *for (auto v : G[min]) {
             // update neigh_degree (we are going to remove v_min)
             // we decrement both processed and non processed vertices, it's faster than checking
             degrees[v]--;
             // we are using MWSS (Minimum Width with Static Support) instead of MWS
             // we use static neighbor support instead of recalculating it
         }
+        */
         std::swap(vertices[min_idx], vertices[i]);
     }
 

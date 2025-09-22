@@ -1385,7 +1385,7 @@ static void FindMaxClique(
         if (is_k_partite) {
             const auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, alphas[curr], ISs_mapping, k+1);
             if (n_isets < k+1) {
-                u[bi] = n_isets;
+                u[bi] = n_isets+1;
                 continue;
             }
 
@@ -1398,7 +1398,7 @@ static void FindMaxClique(
         } else {
             const auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, k);
             if (n_isets < k+1) {
-                u[bi] = n_isets;
+                u[bi] = n_isets+1;
                 continue;
             }
             B_news[curr] = ISs[k];
