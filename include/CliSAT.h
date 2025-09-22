@@ -69,54 +69,6 @@ static void identify_conflict_isets(
     ISs_involved[iset] = false;
 }
 
-static bool remove_non_neighbors_from_iset(
-    const int l_is,
-    const int iset,
-    const custom_bitset& neighbors,
-    const custom_graph& G,
-    const std::vector<custom_bitset>& ISs,
-    std::vector<int>& ISs_size,
-    std::vector<int>& REDUCED_iSET_STACK,
-    int& reduced_iset_size,
-    std::vector<int>& FIXED_NODE_STACK,
-    int& fixed_node_size,
-    custom_bitset& is_processed,
-    std::vector<int>& reason,
-    std::vector<int>& unit_stack,
-    int& unit_stack_size
-) {
-    static custom_bitset removed(G.size());
-    custom_bitset::DIFF(removed, ISs[iset], neighbors);
-
-    // non processed vertices
-    auto count_removed = 0;
-    //is_processed |= removed;
-    for (auto r : removed) {
-        count_removed++;
-
-        ISs_size[iset]--;
-        REDUCED_iSET_STACK[reduced_iset_size] = iset;
-        reduced_iset_size++;
-        is_processed.set(r);
-        FIXED_NODE_STACK[fixed_node_size] = r;
-        fixed_node_size++;
-        reason[r] = l_is;
-    }
-
-    // we did nothing
-    if (count_removed == 0) return false;
-
-    // conflict found
-    if (ISs_size[iset] == 0) return true;
-
-    if (ISs_size[iset] == 1) {
-        unit_stack[unit_stack_size] = iset;
-        unit_stack_size++;
-    }
-
-    return false;
-}
-
 static int fix_newNode_for_iset(
     const int fix_node,
     const int fix_iset,
@@ -194,7 +146,9 @@ static int fix_oldNode_for_iset(
     reason[fix_node] = fix_iset;
 
     static custom_bitset anti_neighbors(G.size());
-    custom_bitset::DIFF(anti_neighbors, G.get_complement_neighbor_set(fix_node), is_processed);
+    //custom_bitset::DIFF(anti_neighbors, G.get_complement_neighbor_set(fix_node), is_processed);
+    // equivalent to the above -> ~a & ~b == ~(a|b) (de morgan)
+    custom_bitset::NEGATE_OR(anti_neighbors, G.get_neighbor_set(fix_node), is_processed);
     //is_processed |= anti_neighbors;
 
     for (auto r : anti_neighbors) {

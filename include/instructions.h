@@ -310,6 +310,16 @@ namespace instructions {
             dest[i] = src1[i] | src2[i];
     }
 
+    template <std::size_t alignment>
+    void negate_or_store(
+        std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = 0; i < n; ++i)
+            dest[i] = ~(src1[i] | src2[i]);
+    }
 
     template <std::size_t alignment>
     void xor_store(

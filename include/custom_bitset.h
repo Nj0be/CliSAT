@@ -284,6 +284,7 @@ public:
     static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
     static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
     static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
+    static void NEGATE_OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
     static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
     static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
     static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
@@ -728,6 +729,15 @@ inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, co
 inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
     const size_type start_pos, const size_type end_pos) {
     OR(dest, src1, src2, reference(start_pos), reference(end_pos));
+}
+
+inline void custom_bitset::NEGATE_OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+
+    instructions::negate_or_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), dest._bits.size());
 }
 
 inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2) {
