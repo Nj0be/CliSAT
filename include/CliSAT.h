@@ -41,7 +41,7 @@ static void identify_conflict_isets(
         custom_bitset::AND(removed, ISs[reason_iset], is_processed);
         for (auto r : removed) {
             const auto r_iset = reason[r];
-            if (ISs_involved[r_iset]) continue;
+            if (r_iset == NO_REASON || ISs_involved[r_iset]) continue;
 
             ISs_involved[r_iset] = true;
             reason_stack[reason_stack_size] = r_iset;

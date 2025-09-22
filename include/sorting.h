@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include "BBMC.h"
 #include "custom_graph.h"
 
 // Minimum Weight Sort
@@ -132,10 +131,8 @@ std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
     custom_bitset W(g.size(), true);
 
     while (W.any()) {
-        auto U = run_BBMC(g_complement, W);
-        auto U_vec = static_cast<std::vector<std::size_t>>(U);
-        //auto U_vec = CliSAT_no_sorting(g_complement, W);
-        //const custom_bitset U(U_vec, g.size());
+        auto U_vec = CliSAT_no_sorting(g_complement, W);
+        const custom_bitset U(U_vec, g.size());
 
         // sort by non-increasing order
         std::ranges::sort(U_vec.begin(), U_vec.end(),
