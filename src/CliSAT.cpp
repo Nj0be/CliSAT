@@ -119,7 +119,7 @@ std::vector<int> CliSAT(const std::string& filename) {
     pruned = 0;
 
     for (std::size_t i = lb; i < ordered_g.size(); ++i) {
-        auto begin = std::chrono::steady_clock::now();
+        begin = std::chrono::steady_clock::now();
         static custom_bitset B(g.size());
         static custom_bitset P(g.size());
 
@@ -149,7 +149,7 @@ std::vector<int> CliSAT(const std::string& filename) {
         // u[i] = lb
         u[i] = K_max.size();
 
-        auto end = std::chrono::steady_clock::now();
+        end = std::chrono::steady_clock::now();
         std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, ordered_g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
     }
     auto end_CliSAT = std::chrono::steady_clock::now();

@@ -109,7 +109,7 @@ inline custom_graph::custom_graph(const std::string& filename) {
                         _graph.reserve(num1);
                         _order_conversion.resize(num1);
                         std::iota(_order_conversion.begin(), _order_conversion.end(), 0);
-                        for (size_type i = 0; i < num1; ++i) {
+                        for (size_type j = 0; j < num1; ++j) {
                             _graph.emplace_back(num1);
                         }
                         break;

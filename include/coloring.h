@@ -79,9 +79,7 @@ inline int ISEQ_branching(
 
         ISs[k] = ISs[k_max];
 
-        auto last_v = v;
         for (; v != custom_bitset::npos; v = ISs[k].next(v)) {
-            last_v = v;
             // at most, we can remove vertices, so we don't need to start a new scan
             ISs[k] -= g.get_neighbor_set(v);
             color_class[v] = k;
@@ -92,9 +90,7 @@ inline int ISEQ_branching(
     auto v = ISs[k_max].front();
     if (v == custom_bitset::npos) return k_max;
 
-    auto last_v = v;
     for (; v != custom_bitset::npos; v = ISs[k_max].next(v)) {
-        last_v = v;
         // at most, we can remove vertices, so we don't need to start a new scan
         color_class[v] = k_max;
     }

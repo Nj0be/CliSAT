@@ -7,7 +7,7 @@
 #include "custom_graph.h"
 
 // Minimum Weight Sort
-std::vector<std::size_t> MWS(custom_graph G) {
+static std::vector<std::size_t> MWS(custom_graph G) {
     std::vector<std::size_t> vertices(G.size());
     std::vector<std::size_t> degrees(G.size());
     std::vector<std::size_t> neighb_deg(G.size());
@@ -51,7 +51,7 @@ std::vector<std::size_t> MWS(custom_graph G) {
 
 // DEG_SORT
 // Minimum Weight Sort with Initial sorting
-std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
+static std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
     std::vector<std::size_t> vertices(G.size());
     std::vector<std::size_t> degrees(G.size());
     std::vector<std::size_t> support(G.size());
@@ -123,7 +123,7 @@ std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
     return vertices;
 }
 
-std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
+static std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
     const auto g_complement = g.get_complement();
 
     std::vector<std::size_t> Ocolor;
@@ -148,7 +148,7 @@ std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
     return {Ocolor, k};
 }
 
-std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=3) {
+inline std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=3) {
     auto Odeg = MWSI(g, p);
     auto k = 0;
     //auto [Ocolor, k] = COLOUR_SORT(g);
