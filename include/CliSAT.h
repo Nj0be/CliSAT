@@ -1276,7 +1276,7 @@ static std::uint64_t steps = 0;
 static std::uint64_t pruned = 0;
 
 //__attribute__((target_clones("default", "popcnt")))
-static void FindMaxClique(
+static bool FindMaxClique(
     const custom_graph& G,  // graph
     std::vector<int>& K,       // current branch
     std::vector<int>& K_max,   // max branch
@@ -1357,11 +1357,8 @@ static void FindMaxClique(
                 K_max.push_back(bi);
                 std::cout << "Last incumbent: " << K_max.size() << std::endl;
             }
-            /*
-            u[bi] = static_cast<int>(K_max.size() - K.size());
-            continue;
-            */
-            return;
+            // we can return because it's an incremental branching scheme, we can add only one vertex at a time
+            return true;
         }
 
         u[bi] = std::min(u[bi], V_new_size+1);
@@ -1415,12 +1412,15 @@ static void FindMaxClique(
         // at this point B is not empty
         K.push_back(bi);
         custom_bitset::DIFF(P_Bjs[depth+1], V_new, B_news[depth]);
-        FindMaxClique(G, K, K_max, P_Bjs[depth+1], B_news[depth], u, next_is_k_partite);
+        auto new_solution_found = FindMaxClique(G, K, K_max, P_Bjs[depth+1], B_news[depth], u, next_is_k_partite);
         K.pop_back();
+        if (new_solution_found) return true;
 
         // u[bi] cannot be lowered
         //u[bi] = std::min(u[bi], static_cast<int>(K_max.size() - K.size()));
     }
+
+    return false;
 }
 
 std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb);
