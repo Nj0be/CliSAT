@@ -74,15 +74,15 @@ std::vector<int> CliSAT(const std::string& filename) {
     auto begin = std::chrono::steady_clock::now();
     const custom_graph g(filename);
     auto end = std::chrono::steady_clock::now();
-    auto seconds_double = std::chrono::duration<double, std::chrono::milliseconds::period>(end - begin).count();
-    std::cout << "Parsing = " << seconds_double << "[ms]" << std::endl;
+    auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
+    std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
     auto [ordering, k] = NEW_SORT(g, 4);
     auto ordered_g = g.change_order(ordering);
     end = std::chrono::steady_clock::now();
-    seconds_double = std::chrono::duration<double, std::chrono::milliseconds::period>(end - begin).count();
-    std::cout << "Preprocessing = " << seconds_double << "[ms]" << std::endl;
+    seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
+    std::cout << "Preprocessing = " << seconds_double << "[s]" << std::endl;
 
     auto begin_CliSAT = std::chrono::steady_clock::now();
 
@@ -153,7 +153,7 @@ std::vector<int> CliSAT(const std::string& filename) {
         std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, ordered_g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
     }
     auto end_CliSAT = std::chrono::steady_clock::now();
-    std::cout << "Branching time: " << std::chrono::duration<double, std::chrono::milliseconds::period>(end_CliSAT - begin_CliSAT).count() << " [ms]" << std::endl;
+    std::cout << "Branching time: " << std::chrono::duration<double, std::chrono::seconds::period>(end_CliSAT - begin_CliSAT).count() << " [s]" << std::endl;
 
     std::cout << "Steps: " << steps << std::endl;
     std::cout << "Pruned: " << pruned << std::endl;

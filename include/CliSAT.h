@@ -1320,9 +1320,10 @@ static bool FindMaxClique(
                 K_max = K;
                 K_max.push_back(bi);
                 std::cout << "Last incumbent: " << K_max.size() << std::endl;
+                // we can return because it's an incremental branching scheme, we can add only one vertex at a time
+                return true;
             }
-            // we can return because it's an incremental branching scheme, we can add only one vertex at a time
-            return true;
+            continue;
         }
 
         u[bi] = std::min(u[bi], V_new_size+1);
