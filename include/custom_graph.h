@@ -122,9 +122,11 @@ inline custom_graph::custom_graph(const std::string& filename) {
 
             if (line_type == 'c') continue;
 
-            if ((c == ' ' || c == '\t') && !last_space_tab) {
-                spaces++;
-                last_space_tab = true;
+            if ((c == ' ' || c == '\t')) {
+                if (!last_space_tab) {
+                    spaces++;
+                    last_space_tab = true;
+                }
                 continue;
             }
 

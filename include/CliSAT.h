@@ -1350,7 +1350,7 @@ static bool FindMaxClique(
                 alphas[depth+1][i] = ISs_t[ISs_mapping[i]].back();
             }
             B_news[depth] = ISs_t[k];
-            assert(B_news[curr].any());
+            assert(B_news[depth].any());
         } else {
             const auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, k);
             if (n_isets < k+1) {
