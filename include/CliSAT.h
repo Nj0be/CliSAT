@@ -652,7 +652,7 @@ static int further_test_reduced_iset(
 
     int chosen_iset = 0;
     std::size_t node = custom_bitset::npos;
-    for (int i = start; i < reason_stack_size; i++) {
+    for (int i = start; i < reduced_iset_size; i++) {
         chosen_iset = REDUCED_iSET_STACK[i];
         // we only consider reduced isets
         if (!ISs_state[chosen_iset] || ISs_tested[chosen_iset] || ISs_size[chosen_iset] != 2) continue;
