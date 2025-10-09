@@ -218,8 +218,6 @@ static int fix_anyNode_for_iset(
     int& unit_stack_size,
     const std::vector<int>& color_class
 ) {
-    static custom_bitset anti_neighbors(G.size());
-
     const auto fix_node = get_node_of_unit_iset(fix_iset, G, ISs, ISs_new, ISs_new_size, is_processed, is_processed_new);
 
     if (fix_node >= G.size()) return fix_newNode_for_iset(fix_node, fix_iset, G, CONFLICT_ISET_STACK, ISs_state, ISs_size, REDUCED_iSET_STACK, reduced_iset_size, PASSIVE_iSET_STACK, passive_iset_size, FIXED_NODE_STACK, fixed_node_size, is_processed_new, reason, unit_stack, unit_stack_size);
@@ -349,7 +347,8 @@ static void enlarge_conflict_sets(
         if (ISs_involved[iset]) continue;
 
         ISs_involved[iset] = true;
-        ISs_new[iset][ISs_new_size[iset]] = ADDED_NODE;
+        if (ISs_new[iset].size() <= ISs_new_size[iset]) ISs_new[iset].push_back(ADDED_NODE);
+        else ISs_new[iset][ISs_new_size[iset]] = ADDED_NODE;
         ISs_new_size[iset]++;
         ISs_size[iset]++;
         CONFLICT_ISET_STACK[ADDED_NODE-G.size()].push_back(iset);
@@ -867,7 +866,7 @@ static bool SATCOL(
     static std::vector<std::uint8_t> ISs_involved(G.size());
     static std::vector<std::uint8_t> ISs_used(G.size());
     static custom_bitset is_processed(G.size());
-    static std::vector ISs_new(G.size(), std::vector<int>(G.size()));
+    static std::vector<std::vector<int>> ISs_new;
     static std::vector<int> ISs_new_size(G.size());
     static std::vector<std::uint8_t> is_processed_new(G.size());
     static std::vector<int> reason(G.size()*2);
@@ -883,6 +882,10 @@ static bool SATCOL(
 
     // is_processed = true for nodes not considered
     is_processed.set();
+
+    if (ISs_new.size() <= k) {
+        ISs_new.resize(k+1);
+    }
 
     for (int i = 0; i < k; i++) {
         // is_processed = true for nodes not considered
@@ -924,6 +927,10 @@ static bool SATCOL(
 
         ADDED_NODE++;
         k++;
+        if (ISs_new.size() <= k) {
+            ISs_new.resize(k+1);
+        }
+        if (ISs.size() <= k) ISs.emplace_back(G.size());
     } while (B.any());
 
     return true;
@@ -936,7 +943,7 @@ static int FiltCOL(
     std::vector<custom_bitset>& ISs_t,
     const std::vector<int>& color_class,
     std::vector<int>& color_class_t,
-    const std::vector<std::size_t>& alpha,
+    const std::vector<int>& alpha,
     std::vector<int>& ISs_mapping,
     const int k_max
 ) {
@@ -1247,17 +1254,17 @@ static bool FindMaxClique(
     custom_bitset& P_Bj, // vertices set
     custom_bitset& B,       // branching set
     std::vector<int> u, // incremental upper bounds,
+    std::vector<int> alpha = {}, // incremental upper bounds,
     const bool is_k_partite = false
 ) {
-    static std::vector ISs(G.size(), custom_bitset(G.size()));
-    static std::vector ISs_t(G.size(), custom_bitset(G.size()));
+    static std::vector ISs(K_max.size()+1, custom_bitset(G.size()));
+    static std::vector ISs_t(K_max.size()+1, custom_bitset(G.size()));
     static std::vector<int> color_class(G.size());
     static std::vector<int> color_class_t(G.size());
-    static std::vector alphas(G.size(), std::vector<std::size_t>(G.size()));
     static custom_bitset V_new(G.size());
     // bitset containing all elements of P and all elements of B up to j
-    static std::vector P_Bjs(G.size(), custom_bitset(G.size()));
-    static std::vector B_news(G.size(), custom_bitset(G.size()));
+    static std::vector P_Bjs(K_max.size()+2, custom_bitset(G.size()));
+    static std::vector B_news(K_max.size()+1, custom_bitset(G.size()));
     static std::vector<int> ISs_mapping(G.size());
 
     steps++;
@@ -1320,6 +1327,10 @@ static bool FindMaxClique(
                 K_max = K;
                 K_max.push_back(bi);
                 std::cout << "Last incumbent: " << K_max.size() << std::endl;
+                if (ISs.size() <= K_max.size()) ISs.emplace_back(G.size());
+                ISs_t.emplace_back(G.size());
+                P_Bjs.emplace_back(G.size());
+                B_news.emplace_back(G.size());
                 // we can return because it's an incremental branching scheme, we can add only one vertex at a time
                 return true;
             }
@@ -1336,18 +1347,20 @@ static bool FindMaxClique(
         u[bi] = k+1;
 
         int next_is_k_partite = is_k_partite;
+        std::vector<int> new_alpha;
 
         // if is a k+1 partite graph
         if (is_k_partite) {
-            const auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alphas[depth], ISs_mapping, k+1);
+            const auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alpha, ISs_mapping, k+1);
             if (n_isets < k+1) {
                 u[bi] = n_isets+1;
                 continue;
             }
 
             if (FiltSAT(G, V_new, ISs_t, color_class_t, k+1)) continue;
+            new_alpha.resize(k+1);
             for (int i = 0; i < k+1; i++) {
-                alphas[depth+1][i] = ISs_t[ISs_mapping[i]].back();
+                new_alpha[i] = ISs_t[ISs_mapping[i]].back();
             }
             B_news[depth] = ISs_t[k];
             assert(B_news[depth].any());
@@ -1364,8 +1377,9 @@ static bool FindMaxClique(
                 next_is_k_partite = true;
                 // if we could return here, huge gains... damn
                 if (FiltSAT(G, V_new, ISs, color_class, k+1)) continue;
+                new_alpha.resize(k+1);
                 for (int i = 0; i < k+1; i++) {
-                    alphas[depth+1][i] = ISs[i].back();
+                    new_alpha[i] = ISs[i].back();
                 }
                 B_news[depth] = ISs[k];
             } else {
@@ -1377,7 +1391,7 @@ static bool FindMaxClique(
         // at this point B is not empty
         K.push_back(bi);
         custom_bitset::DIFF(P_Bjs[depth+1], V_new, B_news[depth]);
-        auto new_solution_found = FindMaxClique(G, K, K_max, P_Bjs[depth+1], B_news[depth], u, next_is_k_partite);
+        auto new_solution_found = FindMaxClique(G, K, K_max, P_Bjs[depth+1], B_news[depth], u, new_alpha, next_is_k_partite);
         K.pop_back();
         if (new_solution_found) return true;
 

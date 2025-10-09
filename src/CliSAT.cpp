@@ -72,14 +72,15 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 
 std::vector<int> CliSAT(const std::string& filename) {
     auto begin = std::chrono::steady_clock::now();
-    const custom_graph g(filename);
+    custom_graph g(filename);
+    //g = g.get_complement();
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;
 
     begin = std::chrono::steady_clock::now();
-    auto [ordering, k] = NEW_SORT(g, 4);
-    auto ordered_g = g.change_order(ordering);
+    auto [ordering, k] = NEW_SORT(g);
+    g.change_order(ordering);
     end = std::chrono::steady_clock::now();
     seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Preprocessing = " << seconds_double << "[s]" << std::endl;
@@ -90,6 +91,16 @@ std::vector<int> CliSAT(const std::string& filename) {
     std::vector<int> K_max;
     std::vector<int> K;
 
+    /*
+    for (int i = 0; i < g.size(); i++) {
+        const auto neighb = g.get_neighbor_set(i).front();
+        if (neighb != custom_bitset::npos) {
+            K_max.push_back(i);
+            K_max.push_back(neighb);
+            break;
+        }
+    }
+    */
     K_max.push_back(0);
     int lb = static_cast<int>(K_max.size());
 
@@ -98,7 +109,7 @@ std::vector<int> CliSAT(const std::string& filename) {
 
     // first |k_max| values bounded by |K_max| (==lb)
     for (auto i = 1; i < lb; i++) {
-        for (const auto neighbor : ordered_g.get_prev_neighbor_set(i)) {
+        for (const auto neighbor : g.get_prev_neighbor_set(i)) {
             u[i] = std::max(u[i], 1 + u[neighbor]);
         }
         u[i] = std::min(u[i], lb);
@@ -118,12 +129,12 @@ std::vector<int> CliSAT(const std::string& filename) {
     steps = 0;
     pruned = 0;
 
-    for (std::size_t i = lb; i < ordered_g.size(); ++i) {
+    for (std::size_t i = lb; i < g.size(); ++i) {
         begin = std::chrono::steady_clock::now();
         static custom_bitset B(g.size());
         static custom_bitset P(g.size());
 
-        custom_bitset::BEFORE(B, ordered_g.get_neighbor_set(i), i);
+        custom_bitset::BEFORE(B, g.get_neighbor_set(i), i);
         P.reset();
 
         lb = K_max.size();
@@ -143,14 +154,14 @@ std::vector<int> CliSAT(const std::string& filename) {
         auto old_pruned = pruned;
 
         K.push_back(i);
-        FindMaxClique(ordered_g, K, K_max, P, B, u);
+        FindMaxClique(g, K, K_max, P, B, u);
         K.pop_back();
 
         // u[i] = lb
         u[i] = K_max.size();
 
         end = std::chrono::steady_clock::now();
-        std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, ordered_g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
+        std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
     }
     auto end_CliSAT = std::chrono::steady_clock::now();
     std::cout << "Branching time: " << std::chrono::duration<double, std::chrono::seconds::period>(end_CliSAT - begin_CliSAT).count() << " [s]" << std::endl;
@@ -159,5 +170,5 @@ std::vector<int> CliSAT(const std::string& filename) {
     std::cout << "Pruned: " << pruned << std::endl;
     //std::cout << custom_bitset(K_max) << std::endl;
 
-    return ordered_g.convert_back_set(K_max);
+    return g.convert_back_set(K_max);
 }

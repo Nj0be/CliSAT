@@ -102,15 +102,63 @@ static std::vector<std::size_t> MWSI(const custom_graph& G, const int p=3) {
             }
         }
 
-        /*
-         *for (auto v : G[min]) {
-            // update neigh_degree (we are going to remove v_min)
-            // we decrement both processed and non processed vertices, it's faster than checking
-            degrees[v]--;
-            // we are using MWSS (Minimum Width with Static Support) instead of MWS
-            // we use static neighbor support instead of recalculating it
+        std::swap(vertices[min_idx], vertices[i]);
+    }
+
+    // non-descending order based on original degree
+    std::ranges::sort(vertices.begin(), vertices.begin()+k,
+        [&degrees_orig](auto a, auto b) {
+            return degrees_orig[a] > degrees_orig[b];
+        });
+
+    return vertices;
+}
+
+static std::vector<std::size_t> MWSSI(const custom_graph& G, const int p=3) {
+    std::vector<std::size_t> vertices(G.size());
+    std::vector<std::size_t> degrees(G.size());
+    std::vector<std::size_t> support(G.size());
+    custom_bitset is_node_processed(G.size());
+    std::iota(vertices.begin(), vertices.end(), 0);
+
+    for (std::size_t i = 0; i < G.size(); i++) {
+        degrees[i] = G[i].count();
+    }
+
+    std::vector degrees_orig = degrees;
+    for (std::size_t i = 0; i < G.size(); i++) {
+        for (const auto v : G[i]) {
+            support[i] += degrees[v];
         }
-        */
+    }
+
+    const int k = static_cast<int>(G.size()/p);
+
+    custom_bitset neighbors_min(G.size());
+    custom_bitset neighbors_v(G.size());
+
+    for (std::ptrdiff_t i = G.size()-1; i > 0; i--) {
+        auto min_idx = 0;
+        for (int j = 1; j <= i; j++) {
+            const auto node = vertices[j];
+			const auto v_min = vertices[min_idx];
+
+            if (degrees[node] != degrees[v_min]) {
+                if (degrees[node] < degrees[v_min]) min_idx = j;
+            } else if (support[node] < support[v_min]) {
+                min_idx = j;
+            }
+        }
+
+		const auto min = vertices[min_idx];
+
+        is_node_processed.set(min);
+        custom_bitset::DIFF(neighbors_min, G[min], is_node_processed);
+        for (auto v : neighbors_min) {
+            // update neigh_degree (we are going to remove v_min)
+            degrees[v]--;
+        }
+
         std::swap(vertices[min_idx], vertices[i]);
     }
 
@@ -148,8 +196,10 @@ static std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& 
     return {Ocolor, k};
 }
 
-inline std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=3) {
-    auto Odeg = MWSI(g, p);
+inline std::pair<std::vector<std::size_t>, int> NEW_SORT(const custom_graph &g, const int p=5) {
+    std::vector<std::size_t> Odeg;
+    if (g.size() < 1000) Odeg = MWSI(g, p);
+    else Odeg = MWSSI(g, p);
     auto k = 0;
     //auto [Ocolor, k] = COLOUR_SORT(g);
 

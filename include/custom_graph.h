@@ -57,7 +57,7 @@ public:
     [[nodiscard]] std::vector<int> convert_back_set(const std::vector<int> &v) const;
     [[nodiscard]] custom_bitset convert_back_set(const custom_bitset &bb) const;
     [[nodiscard]] custom_graph get_complement() const;
-    [[nodiscard]] custom_graph change_order(const std::vector<size_type>& order) const;
+    void change_order(const std::vector<size_type>& order);
     [[nodiscard]] size_type get_subgraph_edges(const custom_bitset &subset) const;
     [[nodiscard]] std::vector<size_type> get_subgraph_vertices_degree(const custom_bitset &subset) const;
 
@@ -318,9 +318,9 @@ inline custom_graph custom_graph::get_complement() const {
     return complement;
 }
 
-inline custom_graph custom_graph::change_order(const std::vector<size_type> &order) const {
-    custom_graph new_g(size());
-    new_g._order_conversion = order;
+inline void custom_graph::change_order(const std::vector<size_type> &order) {
+    custom_graph g_copy(*this);
+    _order_conversion = order;
 
     std::vector<size_type> conversion_helper(size());
     for (size_type i = 0; i < _graph.size(); i++) {
@@ -329,12 +329,10 @@ inline custom_graph custom_graph::change_order(const std::vector<size_type> &ord
 
     for (size_type i = 0; i < size(); i++) {
         const auto current_vertex = conversion_helper[i];
-        auto set = static_cast<std::vector<size_type>>(_graph[i]);
+        auto set = static_cast<std::vector<size_type>>(g_copy._graph[i]);
         for (auto& v : set) v = conversion_helper[v];
-        new_g._graph[current_vertex] = custom_bitset(set, size());
+        _graph[current_vertex] = custom_bitset(set, size());
     }
-
-    return new_g;
 }
 
 inline custom_graph::size_type custom_graph::get_subgraph_edges(const custom_bitset &subset) const {
