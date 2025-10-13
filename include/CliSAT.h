@@ -1403,4 +1403,4 @@ static bool FindMaxClique(
 }
 
 std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb);
-std::vector<int> CliSAT(const std::string& filename);
+std::vector<int> CliSAT(const std::string& filename, const bool MISP);

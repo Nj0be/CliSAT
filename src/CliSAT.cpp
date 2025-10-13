@@ -70,10 +70,11 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
     return K_max;
 }
 
-std::vector<int> CliSAT(const std::string& filename) {
+// MISP indicates if the program needs to resolve the maximum independent set problem (1)
+std::vector<int> CliSAT(const std::string& filename, const bool MISP) {
     auto begin = std::chrono::steady_clock::now();
     custom_graph g(filename);
-    //g = g.get_complement();
+    if (MISP) g.complement();
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;

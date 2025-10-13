@@ -59,6 +59,7 @@ public:
     [[nodiscard]] std::vector<int> convert_back_set(const std::vector<int> &v) const;
     [[nodiscard]] custom_bitset convert_back_set(const custom_bitset &bb) const;
     [[nodiscard]] custom_graph get_complement() const;
+    void complement();
     void change_order(const std::vector<size_type>& order);
     [[nodiscard]] size_type get_subgraph_edges(const custom_bitset &subset) const;
     [[nodiscard]] std::vector<size_type> get_subgraph_vertices_degree(const custom_bitset &subset) const;
@@ -388,6 +389,14 @@ inline custom_graph custom_graph::get_complement() const {
     }
 
     return complement;
+}
+
+
+inline void custom_graph::complement() {
+    for (size_type i = 0; i < size(); i++) {
+        _graph[i].flip();
+        _graph[i].reset(i);
+    }
 }
 
 inline void custom_graph::change_order(const std::vector<size_type> &order) {
