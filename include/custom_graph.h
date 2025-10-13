@@ -6,7 +6,9 @@
 
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <numeric>
+#include <iostream>
 
 #include "custom_bitset.h"
 
@@ -67,9 +69,14 @@ public:
 /* In this function we are reading chunks of 8196 bytes from the file
  * based on the line type we do 3 things:
  *  - line type 'c' is a comment, skip
- *  - line type 'p' is the graph node and edges count, parse only the third and fourth elements
+ *  - line type 'p edge' is the graph node and edges count, parse only the third and fourth elements
  *  - line type 'e' is and edge, parse only the second and third elements (node1 and node2)
  *  - line type '\n' is an empty line
+ *
+ *  We introduced a new extension to the DIMACS format, adding "p clique" problem type
+ *  In "p clique" we specify number of nodes, number of edges to read and number of cliques to read.
+ *  Then we add a new type of line 'q', that specify as second element the number n of nodes of the clique
+ *  and as the n elements if specify the nodes of a clique
  */
 inline custom_graph::custom_graph(const std::string& filename) {
     std::ifstream inf(filename);
@@ -79,7 +86,13 @@ inline custom_graph::custom_graph(const std::string& filename) {
     bool last_space_tab = false;
     std::size_t num1 = 0;
     std::size_t num2 = 0;
+    std::size_t num3 = 0;
+    std::string type;
     int spaces = 0;
+    custom_bitset numbers;
+
+    std::size_t remaining_edges = std::numeric_limits<std::size_t>::max();
+    std::size_t remaining_cliques = std::numeric_limits<std::size_t>::max();
 
     while (inf) {
         inf.read(buf, sizeof(buf));
@@ -93,8 +106,6 @@ inline custom_graph::custom_graph(const std::string& filename) {
                 first_char = (c == '\n');
                 last_space_tab = false;
                 spaces = 0;
-                num1 = 0;
-                num2 = 0;
                 continue;
             }
             if (c == '\r') continue;
@@ -106,17 +117,65 @@ inline custom_graph::custom_graph(const std::string& filename) {
                     case 'p':
                         // num1 == nodes
                         // num2 == edges
+                        // num3 == cliques
+
                         _graph.reserve(num1);
                         _order_conversion.resize(num1);
+                        numbers.resize(num1);
+
+                        remaining_edges = num2;
+                        remaining_cliques = num3;
+
                         std::iota(_order_conversion.begin(), _order_conversion.end(), 0);
                         for (size_type j = 0; j < num1; ++j) {
                             _graph.emplace_back(num1);
                         }
+
+                        num1 = 0;
+                        num2 = 0;
+                        num3 = 0;
+
                         break;
                     case 'e':
+                        // num1 == node1
+                        // num2 == node2
+                        // num3 == nothing
+                         
                         add_edge(num1-1, num2-1);
+                        remaining_edges--;
+
+                        num1 = 0;
+                        num2 = 0;
+                        break;
+                    case 'q':
+                        // num1 == numbers of nodes in clique
+                        // num2 == last node read
+                        // num3 == number of nodes read
+
+                        // if last number
+                        if (num3 < num1) {
+                            numbers.set(num2-1);
+                        }
+
+                        int first = numbers.front();
+                        int last = numbers.back();
+                        
+                        for (auto v = first; v != last; v = numbers.next(v)) {
+                            custom_bitset::OR(_graph[v], numbers, first, last);
+                            _graph[v].reset(v);
+                        }
+                        remaining_cliques--;
+
+                        num1 = 0;
+                        num2 = 0;
+                        num3 = 0;
+                        numbers.reset();
                         break;
                 }
+
+                // nothing to read
+                if ((remaining_edges + remaining_cliques) == 0) break;
+
                 continue;
             }
 
@@ -124,6 +183,14 @@ inline custom_graph::custom_graph(const std::string& filename) {
 
             if ((c == ' ' || c == '\t')) {
                 if (!last_space_tab) {
+                    switch(line_type) {
+                        case 'q':
+                            if (spaces >= 2 && num3 < num1) {
+                                numbers.set(num2-1);
+                                num3++;
+                                num2 = 0;
+                            }
+                    }
                     spaces++;
                     last_space_tab = true;
                 }
@@ -132,11 +199,16 @@ inline custom_graph::custom_graph(const std::string& filename) {
 
             last_space_tab = false;
             if (line_type == 'p') {
-                if (spaces == 2) num1 = num1*10 + (c - '0');
+                if (spaces == 1) type += c;
+                else if (spaces == 2) num1 = num1*10 + (c - '0');
                 else if (spaces == 3) num2 = num2*10 + (c - '0');
-            } else {
+                else if (type == "clique" && spaces == 4) num3 = num3*10 + (c - '0');
+            } else if (line_type == 'e') {
                 if (spaces == 1) num1 = num1*10 + (c - '0');
                 else if (spaces == 2) num2 = num2*10 + (c - '0');
+            } else if (line_type == 'q') {
+                if (spaces == 1) num1 = num1*10 + (c - '0');
+                else num2 = num2*10 + (c - '0');
             }
         }
     }
