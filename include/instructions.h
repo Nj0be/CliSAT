@@ -240,6 +240,20 @@ namespace instructions {
     }
 
     template <std::size_t alignment>
+    void or_inplace(
+        std::uint64_t* __restrict lhs,
+        const std::uint64_t* __restrict rhs,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = start; i < end; ++i)
+            lhs[i] |= rhs[i];
+    }
+
+    template <std::size_t alignment>
     void xor_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
         lhs = std::assume_aligned<alignment>(lhs);
         rhs = std::assume_aligned<alignment>(rhs);
