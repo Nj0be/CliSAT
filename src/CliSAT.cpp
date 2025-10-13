@@ -77,6 +77,7 @@ std::vector<int> CliSAT(const std::string& filename) {
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;
+    std::cout << "N: " << g.size() << " M: " << g.get_n_edges() << " D: " << g.get_density() << std::endl;
 
     begin = std::chrono::steady_clock::now();
     auto [ordering, k] = NEW_SORT(g);
