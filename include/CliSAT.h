@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cassert>
+#include <chrono>
 #include <stack>
 #include <iostream>
 
@@ -1254,6 +1255,7 @@ static bool FindMaxClique(
     custom_bitset& P_Bj, // vertices set
     custom_bitset& B,       // branching set
     std::vector<int> u, // incremental upper bounds,
+    const std::chrono::time_point<std::chrono::steady_clock> max_time,
     std::vector<int> alpha = {}, // incremental upper bounds,
     const bool is_k_partite = false
 ) {
@@ -1273,6 +1275,9 @@ static bool FindMaxClique(
     const int depth = K.size()+1;
 
     for (const auto bi : B) {
+        if (std::chrono::steady_clock::now() > max_time) {
+            return false;
+        }
         const int lb = K_max.size();
         P_Bj.set(bi);
 
@@ -1391,7 +1396,7 @@ static bool FindMaxClique(
         // at this point B is not empty
         K.push_back(bi);
         custom_bitset::DIFF(P_Bjs[depth+1], V_new, B_news[depth]);
-        auto new_solution_found = FindMaxClique(G, K, K_max, P_Bjs[depth+1], B_news[depth], u, new_alpha, next_is_k_partite);
+        auto new_solution_found = FindMaxClique(G, K, K_max, P_Bjs[depth+1], B_news[depth], u, max_time, new_alpha, next_is_k_partite);
         K.pop_back();
         if (new_solution_found) return true;
 
@@ -1402,5 +1407,6 @@ static bool FindMaxClique(
     return false;
 }
 
-std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb);
-std::vector<int> CliSAT(const std::string& filename, const bool MISP, const int sorting_method);
+std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit);
+
+std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const int sorting_method);

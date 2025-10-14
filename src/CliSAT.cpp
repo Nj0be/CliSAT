@@ -6,14 +6,17 @@
 #include <string>
 #include <chrono>
 #include <print>
+#include <iostream>
 #include <numeric>
 #include "custom_graph.h"
+#include "custom_bitset.h"
 #include "CliSAT.h"
 
 #include "sorting.h"
 
-std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb) {
+std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
+    auto max_time = std::chrono::steady_clock::now() + time_limit;
     static std::vector<int> K_max;
     static std::vector<int> K;
     K_max.clear();
@@ -40,6 +43,9 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
     }
 
     for (auto i : Ubb) {
+        if (std::chrono::steady_clock::now() > max_time) {
+            break;
+        }
         lb = K_max.size();
 
         static custom_bitset B(g.size());
@@ -61,7 +67,7 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
         }
 
         K.push_back(i);
-        FindMaxClique(g, K, K_max, P, B, u);
+        FindMaxClique(g, K, K_max, P, B, u, max_time);
         K.pop_back();
 
         // u[i] = lb
@@ -77,8 +83,9 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 //  - 1: NEW_SORT
 //  - 2: DEG_SORT
 //  - 3: COLOUR_SORT
-std::vector<int> CliSAT(const std::string& filename, const bool MISP, const int sorting_method) {
+std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const int sorting_method) {
     auto begin = std::chrono::steady_clock::now();
+    auto max_time = std::chrono::steady_clock::now() + time_limit;
     custom_graph g(filename);
     if (MISP) g.complement();
     auto end = std::chrono::steady_clock::now();
@@ -159,6 +166,11 @@ std::vector<int> CliSAT(const std::string& filename, const bool MISP, const int 
     pruned = 0;
 
     for (std::size_t i = lb; i < g.size(); ++i) {
+        if (std::chrono::steady_clock::now() > max_time) {
+            std::cout << "Exit on timeout" << std::endl;
+            break;
+        }
+
         begin = std::chrono::steady_clock::now();
         static custom_bitset B(g.size());
         static custom_bitset P(g.size());
@@ -183,7 +195,7 @@ std::vector<int> CliSAT(const std::string& filename, const bool MISP, const int 
         auto old_pruned = pruned;
 
         K.push_back(i);
-        FindMaxClique(g, K, K_max, P, B, u);
+        FindMaxClique(g, K, K_max, P, B, u, max_time);
         K.pop_back();
 
         // u[i] = lb

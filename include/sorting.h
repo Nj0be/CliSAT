@@ -5,49 +5,7 @@
 #pragma once
 
 #include "custom_graph.h"
-
-// Minimum Weight Sort
-static std::vector<std::size_t> MWS(custom_graph G) {
-    std::vector<std::size_t> vertices(G.size());
-    std::vector<std::size_t> degrees(G.size());
-    std::vector<std::size_t> neighb_deg(G.size());
-    std::iota(vertices.begin(), vertices.end(), 0);
-
-    for (std::size_t i = 0; i < G.size(); i++) {
-        degrees[i] = G[i].degree();
-    }
-    for (std::size_t i = 0; i < G.size(); i++) {
-        for (const auto v : G[i]) {
-            neighb_deg[i] += degrees[v];
-        }
-    }
-
-    for (std::size_t i = 1; i <= G.size(); i++) {
-        for (std::size_t j = 0; j <= G.size()-i; j++) {
-            const auto curr_vert = vertices[j];
-            neighb_deg[curr_vert] = 0;
-            for (const auto v : G[curr_vert]) {
-                neighb_deg[curr_vert] += degrees[v];
-            }
-        }
-        auto v_min = std::ranges::min_element(vertices.begin(), std::prev(vertices.end(), static_cast<std::ptrdiff_t>(i)),
-            [=](const std::size_t a, const std::size_t b) {
-                if (degrees[a] != degrees[b]) return degrees[a] < degrees[b];
-                return neighb_deg[a] < neighb_deg[b];
-            });
-
-        // destructive to clean graph
-        for (auto cursor = G[*v_min].pop_front();
-             cursor != custom_bitset::npos;
-             cursor = G[*v_min].pop_next(cursor)) {
-            degrees[cursor]--;
-            G[cursor].reset(*v_min);
-        }
-        std::iter_swap(v_min, std::prev(vertices.end(), static_cast<std::ptrdiff_t>(i)));
-    }
-
-    return vertices;
-}
+#include <chrono>
 
 // DEG_SORT
 // Minimum Weight Sort with Initial sorting
@@ -176,7 +134,7 @@ static std::vector<std::size_t> DEG_SORT(const custom_graph& G, const int p=5) {
     return MWSSI(G, p);
 }
 
-static std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g) {
+static std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g, const std::chrono::milliseconds time_limit = std::chrono::milliseconds(50)) {
     const auto g_complement = g.get_complement();
 
     std::vector<std::size_t> Ocolor;
@@ -184,7 +142,7 @@ static std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& 
     custom_bitset W(g.size(), true);
 
     while (W.any()) {
-        auto U_vec = CliSAT_no_sorting(g_complement, W);
+        auto U_vec = CliSAT_no_sorting(g_complement, W, time_limit);
         const custom_bitset U(U_vec, g.size());
 
         // sort by non-increasing order
