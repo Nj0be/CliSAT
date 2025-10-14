@@ -3,6 +3,7 @@
 //
 
 #include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -13,24 +14,67 @@
 #include "custom_graph.h"
 
 int main(int argc, char *argv[]) {
-    std::string usage = "Usage: CliSAT filename(DIMACS/EXTENDED) [time_limit(s)] [flag] [sorting_method]\nflag is -c for the MCP and -i for the MISP\nsorting method can be: 0 - none, 1 - auto (NEW_SORT), 2 - DEG_SORT, 3 - COLOUR_SORT\n";
+    std::string usage = "Usage: CliSAT filename(DIMACS/EXTENDED) [time_limit(s)] [problem_type] [sorting_method]\nproblem_type is -c for the MCP and -i for the MISP\nsorting method can be: 0 - none, 1 - auto (NEW_SORT), 2 - DEG_SORT, 3 - COLOUR_SORT\n";
     if (argc < 5) {
-        std::cout << usage;
+        std::cerr << usage;
         return 1;
     }
 
     auto filename = argv[1];
+    if (!std::filesystem::exists(filename)) {
+        std::cerr << "Error: file not found: " << filename << std::endl;
+        return 1;
+    }
 
     bool MISP = false;
-    if (strcmp(argv[2], "-c") == 0) MISP = false;
-    else if (strcmp(argv[2], "-i") == 0) MISP = true;
+    auto problem_type = argv[2];
+    if (strcmp(problem_type, "-c") == 0) MISP = false;
+    else if (strcmp(problem_type, "-i") == 0) MISP = true;
+    else {
+        std::cerr << "Error: invalid problem type: " << problem_type << std::endl;
+        std::cerr << usage;
+        return 1;
+    }
 
-    auto time_limit_int = std::stoi(argv[3]);
+    int time_limit_int = 0;
+
+    try {
+        time_limit_int = std::stoi(argv[3]);
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "Error: not a valid time limit: " << argv[3] << std::endl;
+        std::cerr << usage;
+        return 1;
+    } catch (const std::out_of_range& e) {
+        std::cerr << "Error: time limit out of range: " << argv[3] << std::endl;
+        std::cerr << usage;
+        return 1;
+    }
+
+    if (time_limit_int < 0) {
+        std::cerr << "Error: time limit negative: " << argv[3] << std::endl;
+        std::cerr << usage;
+        return 1;
+    }
     auto time_limit = std::chrono::seconds(time_limit_int);
 
-    auto sorting_method = std::stoi(argv[4], nullptr, 10);
-    if (sorting_method < 0 || sorting_method > 4) {
-        std::cout << usage;
+    int sorting_method = 0;
+
+
+    try {
+        sorting_method = std::stoi(argv[4], nullptr, 10);
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "Error: not a valid sorting method: " << argv[4] << std::endl;
+        std::cerr << usage;
+        return 1;
+    } catch (const std::out_of_range& e) {
+        std::cerr << "Error: sorting method out of range: " << argv[4] << std::endl;
+        std::cerr << usage;
+        return 1;
+    }
+
+    if (sorting_method < 0 || sorting_method > 3) {
+        std::cerr << "Error: time limit not in range [0-4]: " << argv[4] << std::endl;
+        std::cerr << usage;
         return 1;
     }
 
