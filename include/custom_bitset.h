@@ -743,7 +743,7 @@ inline void custom_bitset::OR(custom_bitset& lhs, const custom_bitset& rhs, cons
     [[assume(end <= lhs.size())]];
 
     instructions::or_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), end.block);
-    lhs._bits[end.block] |= (rhs._bits[end.block] & below_mask(end.bit));
+    lhs._bits[end.block] |= (rhs._bits[end.block] & until_mask(end.bit));
 }
 
 inline void custom_bitset::OR(custom_bitset& lhs, const custom_bitset& rhs,
@@ -761,7 +761,7 @@ inline void custom_bitset::OR(custom_bitset& lhs, const custom_bitset& rhs, cons
 
     lhs._bits[start.block] |= (rhs._bits[start.block] & from_mask(start.bit));
     instructions::or_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), start.block+1, end.block);
-    lhs._bits[end.block] |= (rhs._bits[end.block] & below_mask(end.bit));
+    lhs._bits[end.block] |= (rhs._bits[end.block] & until_mask(end.bit));
 }
 
 inline void custom_bitset::OR(custom_bitset& lhs, const custom_bitset& rhs,
@@ -796,7 +796,7 @@ inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, c
     [[assume(end <= dest.size())]];
 
     instructions::xor_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), end.block);
-    dest._bits[end.block] = (src1._bits[end.block] ^ src2._bits[end.block]) & below_mask(end.bit);
+    dest._bits[end.block] = (src1._bits[end.block] ^ src2._bits[end.block]) & until_mask(end.bit);
     instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
@@ -818,7 +818,7 @@ inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, c
     instructions::memset<alignment>(dest._bits.data(), 0, start.block);
     dest._bits[start.block] = (src1._bits[start.block] ^ src2._bits[start.block]) & from_mask(start.bit);
     instructions::xor_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), start.block+1, end.block);
-    dest._bits[end.block] = (src1._bits[end.block] ^ src2._bits[end.block]) & below_mask(end.bit);
+    dest._bits[end.block] = (src1._bits[end.block] ^ src2._bits[end.block]) & until_mask(end.bit);
     instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
@@ -845,7 +845,7 @@ inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, 
     [[assume(end <= dest.size())]];
 
     instructions::diff_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), end.block);
-    dest._bits[end.block] = (src1._bits[end.block] & ~src2._bits[end.block]) & below_mask(end.bit);
+    dest._bits[end.block] = (src1._bits[end.block] & ~src2._bits[end.block]) & until_mask(end.bit);
     instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
@@ -866,7 +866,7 @@ inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, 
     instructions::memset<alignment>(dest._bits.data(), 0, start.block);
     dest._bits[start.block] = (src1._bits[start.block] & ~src2._bits[start.block]) & from_mask(start.bit);
     instructions::diff_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), start.block+1, end.block);
-    dest._bits[end.block] = (src1._bits[end.block] & ~src2._bits[end.block]) & below_mask(end.bit);
+    dest._bits[end.block] = (src1._bits[end.block] & ~src2._bits[end.block]) & until_mask(end.bit);
     instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
 }
 
