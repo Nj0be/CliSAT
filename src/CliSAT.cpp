@@ -6,6 +6,7 @@
 #include <string>
 #include <chrono>
 #include <print>
+#include <numeric>
 #include "custom_graph.h"
 #include "CliSAT.h"
 
@@ -71,7 +72,12 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 }
 
 // MISP indicates if the program needs to resolve the maximum independent set problem (1)
-std::vector<int> CliSAT(const std::string& filename, const bool MISP) {
+// sorting can be:
+//  - 0: no sorting
+//  - 1: NEW_SORT
+//  - 2: DEG_SORT
+//  - 3: COLOUR_SORT
+std::vector<int> CliSAT(const std::string& filename, const bool MISP, const int sorting_method) {
     auto begin = std::chrono::steady_clock::now();
     custom_graph g(filename);
     if (MISP) g.complement();
@@ -80,9 +86,30 @@ std::vector<int> CliSAT(const std::string& filename, const bool MISP) {
     std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;
     std::cout << "N: " << g.size() << " M: " << g.get_n_edges() << " D: " << g.get_density() << std::endl;
 
+    std::vector<std::size_t> ordering(g.size());
     begin = std::chrono::steady_clock::now();
-    auto [ordering, k] = NEW_SORT(g);
-    g.change_order(ordering);
+
+    switch (sorting_method) {
+        case 0:
+            std::iota(ordering.begin(), ordering.end(), 0);
+            break;
+        case 1:
+            ordering = NEW_SORT(g);
+            g.change_order(ordering);
+            break;
+        case 2:
+            ordering = DEG_SORT(g);
+            g.change_order(ordering);
+            break;
+        case 3:
+            ordering = COLOUR_SORT(g).first;
+            g.change_order(ordering);
+            break;
+        default:
+            return {};
+            break;
+    }
+
     end = std::chrono::steady_clock::now();
     seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Preprocessing = " << seconds_double << "[s]" << std::endl;
@@ -172,5 +199,5 @@ std::vector<int> CliSAT(const std::string& filename, const bool MISP) {
     std::cout << "Pruned: " << pruned << std::endl;
     //std::cout << custom_bitset(K_max) << std::endl;
 
-    return g.convert_back_set(K_max);
+    return g.convert_back_set(K_max, ordering);
 }

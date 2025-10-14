@@ -1326,7 +1326,7 @@ static bool FindMaxClique(
                 // K_max = K U {bi}
                 K_max = K;
                 K_max.push_back(bi);
-                std::cout << "Last incumbent: " << K_max.size() << std::endl;
+                //std::cout << "Last incumbent: " << K_max.size() << std::endl;
                 if (ISs.size() <= K_max.size()) ISs.emplace_back(G.size());
                 ISs_t.emplace_back(G.size());
                 P_Bjs.emplace_back(G.size());
@@ -1403,4 +1403,4 @@ static bool FindMaxClique(
 }
 
 std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb);
-std::vector<int> CliSAT(const std::string& filename, const bool MISP);
+std::vector<int> CliSAT(const std::string& filename, const bool MISP, const int sorting_method);

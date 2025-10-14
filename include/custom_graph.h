@@ -16,7 +16,6 @@ class custom_graph {
     typedef custom_bitset::size_type size_type;
 
     std::vector<custom_bitset> _graph;
-    std::vector<size_type> _order_conversion;
 
 public:
     explicit custom_graph(const std::string& filename);
@@ -55,9 +54,9 @@ public:
     [[nodiscard]] size_type adjacent(size_type u, size_type v) const;
     [[nodiscard]] float get_density() const noexcept;
 
-    [[nodiscard]] std::vector<size_type> convert_back_set(const std::vector<size_type> &v) const;
-    [[nodiscard]] std::vector<int> convert_back_set(const std::vector<int> &v) const;
-    [[nodiscard]] custom_bitset convert_back_set(const custom_bitset &bb) const;
+    [[nodiscard]] std::vector<size_type> convert_back_set(const std::vector<size_type> &v, const std::vector<size_type> &ordering) const;
+    [[nodiscard]] std::vector<int> convert_back_set(const std::vector<int> &v, const std::vector<size_type> &ordering) const;
+    [[nodiscard]] custom_bitset convert_back_set(const custom_bitset &bb, const std::vector<size_type> &ordering) const;
     [[nodiscard]] custom_graph get_complement() const;
     void complement();
     void change_order(const std::vector<size_type>& order);
@@ -121,13 +120,11 @@ inline custom_graph::custom_graph(const std::string& filename) {
                         // num3 == cliques
 
                         _graph.reserve(num1);
-                        _order_conversion.resize(num1);
                         numbers.resize(num1);
 
                         remaining_edges = num2;
                         remaining_cliques = num3;
 
-                        std::iota(_order_conversion.begin(), _order_conversion.end(), 0);
                         for (size_type j = 0; j < num1; ++j) {
                             _graph.emplace_back(num1);
                         }
@@ -216,8 +213,7 @@ inline custom_graph::custom_graph(const std::string& filename) {
 }
 
 inline custom_graph::custom_graph(const size_type size)
-    : _graph(size, custom_bitset(size)), _order_conversion(size) {
-    std::iota(_order_conversion.begin(), _order_conversion.end(), 0);
+    : _graph(size, custom_bitset(size)) {
 }
 
 /*
@@ -353,35 +349,34 @@ inline float custom_graph::get_density() const noexcept {
            (static_cast<float>(size()) * static_cast<float>(size() - 1));
 }
 
-inline std::vector<custom_graph::size_type> custom_graph::convert_back_set(const std::vector<size_type> &v) const {
+inline std::vector<custom_graph::size_type> custom_graph::convert_back_set(const std::vector<size_type> &v, const std::vector<size_type> &ordering) const {
     std::vector<size_type> set;
     set.reserve(v.size());
     for (const auto vertex : v) {
-        set.push_back(_order_conversion[vertex]);
+        set.push_back(ordering[vertex]);
     }
     return set;
 }
 
-inline std::vector<int> custom_graph::convert_back_set(const std::vector<int> &v) const {
+inline std::vector<int> custom_graph::convert_back_set(const std::vector<int> &v, const std::vector<size_type> &ordering) const {
     std::vector<int> set;
     set.reserve(v.size());
     for (const auto vertex : v) {
-        set.push_back(_order_conversion[vertex]);
+        set.push_back(ordering[vertex]);
     }
     return set;
 }
 
-inline custom_bitset custom_graph::convert_back_set(const custom_bitset &bb) const {
+inline custom_bitset custom_graph::convert_back_set(const custom_bitset &bb, const std::vector<size_type> &ordering) const {
     custom_bitset set(bb.size());
     for (const auto v : bb) {
-        set.set(_order_conversion[v]);
+        set.set(ordering[v]);
     }
     return set;
 }
 
 inline custom_graph custom_graph::get_complement() const {
     custom_graph complement(*this);
-    std::iota(complement._order_conversion.begin(), complement._order_conversion.end(), 0);
 
     for (size_type i = 0; i < complement.size(); i++) {
         complement._graph[i].flip();
@@ -401,7 +396,6 @@ inline void custom_graph::complement() {
 
 inline void custom_graph::change_order(const std::vector<size_type> &order) {
     custom_graph g_copy(*this);
-    _order_conversion = order;
 
     std::vector<size_type> conversion_helper(size());
     for (size_type i = 0; i < _graph.size(); i++) {

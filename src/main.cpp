@@ -13,8 +13,9 @@
 #include "custom_graph.h"
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        std::cout << "Usage: CliSAT filename(DIMACS/EXTENDED) [flag]/n flag is -c for the MCP and -i for the MISP" << std::endl;
+    std::string usage = "Usage: CliSAT filename(DIMACS/EXTENDED) [flag] [sorting_method]\nflag is -c for the MCP and -i for the MISP\nsorting method can be: 0 - none, 1 - auto (NEW_SORT), 2 - DEG_SORT, 3 - COLOUR_SORT\n";
+    if (argc < 4) {
+        std::cout << usage;
         return 1;
     }
 
@@ -24,8 +25,13 @@ int main(int argc, char *argv[]) {
     if (strcmp(argv[2], "-c") == 0) MISP = false;
     else if (strcmp(argv[2], "-i") == 0) MISP = true;
 
+    auto sorting_method = std::stoi(argv[3], nullptr, 10);
+    if (sorting_method < 0 || sorting_method > 4) {
+        std::cout << usage;
+        return 1;
+    }
 
-    std::cout << custom_bitset(CliSAT(filename, MISP)) << std::endl;
+    std::cout << custom_bitset(CliSAT(filename, MISP, sorting_method)) << std::endl;
 
     /*
     begin = std::chrono::steady_clock::now();
