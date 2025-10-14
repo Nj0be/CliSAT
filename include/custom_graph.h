@@ -158,7 +158,7 @@ inline custom_graph::custom_graph(const std::string& filename) {
                         int first = numbers.front();
                         int last = numbers.back();
                         
-                        for (auto v = first; v != last; v = numbers.next(v)) {
+                        for (auto v = first; v != custom_bitset::npos; v = numbers.next(v)) {
                             custom_bitset::OR(_graph[v], numbers, first, last);
                             _graph[v].reset(v);
                         }
