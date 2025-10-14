@@ -103,6 +103,10 @@ inline custom_graph::custom_graph(const std::string& filename) {
             auto c = buf[i];
             if (first_char) {
                 line_type = c;
+                if (line_type != 'c' && line_type != 'p' && line_type != 'e' && line_type != 'q') {
+                    std::cerr << "Error while parsing input file: invalid DIMACS/DIMACS_EXTENDED format" << std::endl;
+                    exit(1);
+                }
                 first_char = (c == '\n');
                 last_space_tab = false;
                 spaces = 0;
@@ -138,6 +142,10 @@ inline custom_graph::custom_graph(const std::string& filename) {
                         // num1 == node1
                         // num2 == node2
                         // num3 == nothing
+                        if (num1 <= 0 || num1 > size() || num2 <= 0 || num2 > size()) {
+                            std::cerr << "Error while parsing input file: wrong edge in DIMACS format" << std::endl;
+                            exit(1);
+                        }
                          
                         add_edge(num1-1, num2-1);
                         remaining_edges--;
@@ -152,7 +160,19 @@ inline custom_graph::custom_graph(const std::string& filename) {
 
                         // if last number
                         if (num3 < num1) {
+                            if (last_space_tab || num3+1 < num1) {
+                                std::cerr << "Error while parsing input file: incomplete clique in DIMACS_EXTENDED format" << std::endl;
+                                exit(1);
+                            }
+                            if (num2 <= 0 || num2 > size()) {
+                                std::cerr << "Error while parsing input file: wrong node in DIMACS_EXTENDED format" << std::endl;
+                                exit(1);
+                            }
                             numbers.set(num2-1);
+                            num3++;
+                        } else if (!last_space_tab) {
+                            std::cerr << "Error while parsing input file: too many nodes in clique in DIMACS_EXTENDED format" << std::endl;
+                            exit(1);
                         }
 
                         int first = numbers.front();
@@ -184,6 +204,10 @@ inline custom_graph::custom_graph(const std::string& filename) {
                     switch(line_type) {
                         case 'q':
                             if (spaces >= 2 && num3 < num1) {
+                                if (num2 <= 0 || num2 > size()) {
+                                    std::cerr << "Error while parsing input file: wrong node in DIMACS_EXTENDED format" << std::endl;
+                                    exit(1);
+                                }
                                 numbers.set(num2-1);
                                 num3++;
                                 num2 = 0;
