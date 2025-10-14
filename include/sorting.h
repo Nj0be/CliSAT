@@ -162,25 +162,22 @@ static std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& 
 inline std::vector<std::size_t> NEW_SORT(const custom_graph &G, const int p=5) {
     std::vector<std::size_t> Odeg;
     Odeg = DEG_SORT(G, p);
-    //auto [Ocolor, k] = COLOUR_SORT(g);
 
-    return Odeg;
-    
-    /*
-    if (g.get_density() <= 0.7) return {Odeg, k};
+    if (G.get_density() <= 0.7) return Odeg;
 
+    auto [Ocolor, k] = COLOUR_SORT(G);
     int color_max = 0;
-    const auto ordered_graph = g.change_order(Odeg);
-    for (std::size_t i = 1; i < g.size(); i++) {
+    auto ordered_graph = G;
+    ordered_graph.change_order(Odeg);
+    for (std::size_t i = 1; i < G.size(); i++) {
         auto Ubb = custom_bitset::before(ordered_graph.get_neighbor_set(i), i);
         color_max = std::max(color_max, ISEQ(ordered_graph, Ubb));
     }
 
     int u = 1 + color_max;
 
-    if (k < u) { return {Ocolor, k}; }
+    if (k < u) { return Ocolor; }
 
-    return {Odeg, k};
-	*/
+    return Odeg;
 }
 
