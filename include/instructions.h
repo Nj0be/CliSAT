@@ -230,6 +230,21 @@ namespace instructions {
             lhs[i] &= rhs[i];
     }
 
+
+    template <std::size_t alignment>
+    void and_inplace(
+        std::uint64_t* __restrict lhs,
+        const std::uint64_t* __restrict rhs,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = start; i < end; ++i)
+            lhs[i] &= rhs[i];
+    }
+
     template <std::size_t alignment>
     void or_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
         lhs = std::assume_aligned<alignment>(lhs);
@@ -263,11 +278,62 @@ namespace instructions {
     }
 
     template <std::size_t alignment>
+    void xor_inplace(
+        std::uint64_t* __restrict lhs,
+        const std::uint64_t* __restrict rhs,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = start; i < end; ++i)
+            lhs[i] ^= rhs[i];
+    }
+
+    template <std::size_t alignment>
+    void nor_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = 0; i < n; ++i)
+            lhs[i] = ~(lhs[i] | rhs[i]);
+    }
+
+    template <std::size_t alignment>
+    void nor_inplace(
+        std::uint64_t* __restrict lhs,
+        const std::uint64_t* __restrict rhs,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = start; i < end; ++i)
+            lhs[i] = ~(lhs[i] | rhs[i]);
+    }
+
+    template <std::size_t alignment>
     void diff_inplace(std::uint64_t* __restrict lhs, const std::uint64_t* __restrict rhs, const std::size_t n) {
         lhs = std::assume_aligned<alignment>(lhs);
         rhs = std::assume_aligned<alignment>(rhs);
 
         for (std::size_t i = 0; i < n; ++i)
+            lhs[i] &= ~rhs[i];
+    }
+
+    template <std::size_t alignment>
+    void diff_inplace(
+        std::uint64_t* __restrict lhs,
+        const std::uint64_t* __restrict rhs,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        lhs = std::assume_aligned<alignment>(lhs);
+        rhs = std::assume_aligned<alignment>(rhs);
+
+        for (std::size_t i = start; i < end; ++i)
             lhs[i] &= ~rhs[i];
     }
 
@@ -325,17 +391,6 @@ namespace instructions {
     }
 
     template <std::size_t alignment>
-    void negate_or_store(
-        std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
-        dest = std::assume_aligned<alignment>(dest);
-        src1 = std::assume_aligned<alignment>(src1);
-        src2 = std::assume_aligned<alignment>(src2);
-
-        for (std::size_t i = 0; i < n; ++i)
-            dest[i] = ~(src1[i] | src2[i]);
-    }
-
-    template <std::size_t alignment>
     void xor_store(
         std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
         dest = std::assume_aligned<alignment>(dest);
@@ -360,6 +415,33 @@ namespace instructions {
 
         for (std::size_t i = start; i < end; ++i)
             dest[i] = src1[i] ^ src2[i];
+    }
+
+    template <std::size_t alignment>
+    void nor_store(
+        std::uint64_t* __restrict dest, const std::uint64_t* __restrict src1, const std::uint64_t* __restrict src2, const std::size_t n) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = 0; i < n; ++i)
+            dest[i] = ~(src1[i] | src2[i]);
+    }
+
+    template <std::size_t alignment>
+    void nor_store(
+        std::uint64_t* __restrict dest,
+        const std::uint64_t* __restrict src1,
+        const std::uint64_t* __restrict src2,
+        const std::size_t start,
+        const std::size_t end
+    ) {
+        dest = std::assume_aligned<alignment>(dest);
+        src1 = std::assume_aligned<alignment>(src1);
+        src2 = std::assume_aligned<alignment>(src2);
+
+        for (std::size_t i = start; i < end; ++i)
+            dest[i] = ~(src1[i] | src2[i]);
     }
 
     template <std::size_t alignment>

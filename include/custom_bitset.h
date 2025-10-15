@@ -279,6 +279,11 @@ public:
     static void AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
     static void AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
     static void AND(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
+    static void AND(custom_bitset& lhs, const custom_bitset& rhs) { lhs &= rhs; };
+    static void AND(custom_bitset& lhs, const custom_bitset& rhs, const reference& end);
+    static void AND(custom_bitset& lhs, const custom_bitset& rhs, size_type end_pos);
+    static void AND(custom_bitset& lhs, const custom_bitset& rhs, const reference& start, const reference& end);
+    static void AND(custom_bitset& lhs, const custom_bitset& rhs, size_type start_pos, size_type end_pos);
     static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
     static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
     static void OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
@@ -289,17 +294,36 @@ public:
     static void OR(custom_bitset& lhs, const custom_bitset& rhs, size_type end_pos);
     static void OR(custom_bitset& lhs, const custom_bitset& rhs, const reference& start, const reference& end);
     static void OR(custom_bitset& lhs, const custom_bitset& rhs, size_type start_pos, size_type end_pos);
-    static void NEGATE_OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
     static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
     static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
     static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
     static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
     static void XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
+    static void XOR(custom_bitset& lhs, const custom_bitset& rhs) { lhs ^= rhs; };
+    static void XOR(custom_bitset& lhs, const custom_bitset& rhs, const reference& end);
+    static void XOR(custom_bitset& lhs, const custom_bitset& rhs, size_type end_pos);
+    static void XOR(custom_bitset& lhs, const custom_bitset& rhs, const reference& start, const reference& end);
+    static void XOR(custom_bitset& lhs, const custom_bitset& rhs, size_type start_pos, size_type end_pos);
+    static void NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
+    static void NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
+    static void NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
+    static void NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
+    static void NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
+    static void NOR(custom_bitset& lhs, const custom_bitset& rhs) { lhs = ~(lhs | rhs); };
+    static void NOR(custom_bitset& lhs, const custom_bitset& rhs, const reference& end);
+    static void NOR(custom_bitset& lhs, const custom_bitset& rhs, size_type end_pos);
+    static void NOR(custom_bitset& lhs, const custom_bitset& rhs, const reference& start, const reference& end);
+    static void NOR(custom_bitset& lhs, const custom_bitset& rhs, size_type start_pos, size_type end_pos);
     static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2);
     static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& end);
     static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type end_pos);
     static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference& start, const reference& end);
     static void DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, size_type start_pos, size_type end_pos);
+    static void DIFF(custom_bitset& lhs, const custom_bitset& rhs) { lhs &= ~rhs; };
+    static void DIFF(custom_bitset& lhs, const custom_bitset& rhs, const reference& end);
+    static void DIFF(custom_bitset& lhs, const custom_bitset& rhs, size_type end_pos);
+    static void DIFF(custom_bitset& lhs, const custom_bitset& rhs, const reference& start, const reference& end);
+    static void DIFF(custom_bitset& lhs, const custom_bitset& rhs, size_type start_pos, size_type end_pos);
 
     bool operator[](const reference& ref) const { return test(ref); };
     bool operator[](const size_type pos) const { return test(pos); };
@@ -687,6 +711,39 @@ inline void custom_bitset::AND(custom_bitset& dest, const custom_bitset& src1, c
     AND(dest, src1, src2, reference(start_pos), reference(end_pos));
 }
 
+inline void custom_bitset::AND(custom_bitset& lhs, const custom_bitset& rhs, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(end <= lhs.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(end <= lhs.size())]];
+
+    instructions::and_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), end.block);
+    lhs._bits[end.block] &= (rhs._bits[end.block] & until_mask(end.bit));
+}
+
+inline void custom_bitset::AND(custom_bitset& lhs, const custom_bitset& rhs,
+    const size_type end_pos) {
+    AND(lhs, rhs, reference(end_pos));
+}
+
+inline void custom_bitset::AND(custom_bitset& lhs, const custom_bitset& rhs, const reference &start, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(start < lhs.size());
+    assert(end <= lhs.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(start < lhs.size())]];
+    [[assume(end <= lhs.size())]];
+
+    lhs._bits[start.block] &= (rhs._bits[start.block] & from_mask(start.bit));
+    instructions::and_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), start.block+1, end.block);
+    lhs._bits[end.block] &= (rhs._bits[end.block] & until_mask(end.bit));
+}
+
+inline void custom_bitset::AND(custom_bitset& lhs, const custom_bitset& rhs,
+    const size_type start_pos, const size_type end_pos) {
+    AND(lhs, rhs, reference(start_pos), reference(end_pos));
+}
+
 inline void custom_bitset::OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2) {
     assert(dest.size() == src1.size());
     assert(src1.size() == src2.size());
@@ -769,15 +826,6 @@ inline void custom_bitset::OR(custom_bitset& lhs, const custom_bitset& rhs,
     OR(lhs, rhs, reference(start_pos), reference(end_pos));
 }
 
-inline void custom_bitset::NEGATE_OR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2) {
-    assert(dest.size() == src1.size());
-    assert(src1.size() == src2.size());
-    [[assume(dest.size() == src1.size())]];
-    [[assume(src1.size() == src2.size())]];
-
-    instructions::negate_or_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), dest._bits.size());
-}
-
 inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2) {
     assert(dest.size() == src1.size());
     assert(src1.size() == src2.size());
@@ -827,6 +875,121 @@ inline void custom_bitset::XOR(custom_bitset& dest, const custom_bitset& src1, c
     XOR(dest, src1, src2, reference(start_pos), reference(end_pos));
 }
 
+inline void custom_bitset::XOR(custom_bitset& lhs, const custom_bitset& rhs, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(end <= lhs.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(end <= lhs.size())]];
+
+    instructions::xor_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), end.block);
+    lhs._bits[end.block] ^= (rhs._bits[end.block] & until_mask(end.bit));
+}
+
+inline void custom_bitset::XOR(custom_bitset& lhs, const custom_bitset& rhs,
+    const size_type end_pos) {
+    XOR(lhs, rhs, reference(end_pos));
+}
+
+inline void custom_bitset::XOR(custom_bitset& lhs, const custom_bitset& rhs, const reference &start, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(start < lhs.size());
+    assert(end <= lhs.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(start < lhs.size())]];
+    [[assume(end <= lhs.size())]];
+
+    lhs._bits[start.block] ^= (rhs._bits[start.block] & from_mask(start.bit));
+    instructions::xor_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), start.block+1, end.block);
+    lhs._bits[end.block] ^= (rhs._bits[end.block] & until_mask(end.bit));
+}
+
+inline void custom_bitset::XOR(custom_bitset& lhs, const custom_bitset& rhs,
+    const size_type start_pos, const size_type end_pos) {
+    XOR(lhs, rhs, reference(start_pos), reference(end_pos));
+}
+
+inline void custom_bitset::NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+
+    instructions::nor_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), dest._bits.size());
+}
+
+inline void custom_bitset::NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(end <= dest.size())]];
+
+    instructions::nor_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), end.block);
+    dest._bits[end.block] = (~(src1._bits[end.block] | src2._bits[end.block])) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
+}
+
+inline void custom_bitset::NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
+    const size_type end_pos) {
+    NOR(dest, src1, src2, reference(end_pos));
+}
+
+inline void custom_bitset::NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2, const reference &start, const reference &end) {
+    assert(dest.size() == src1.size());
+    assert(src1.size() == src2.size());
+    assert(start < dest.size());
+    assert(end <= dest.size());
+    [[assume(dest.size() == src1.size())]];
+    [[assume(src1.size() == src2.size())]];
+    [[assume(start < dest.size())]];
+    [[assume(end <= dest.size())]];
+
+    instructions::memset<alignment>(dest._bits.data(), 0, start.block);
+    dest._bits[start.block] = (~(src1._bits[start.block] | src2._bits[start.block])) & from_mask(start.bit);
+    instructions::nor_store<alignment>(dest._bits.data(), src1._bits.data(), src2._bits.data(), start.block+1, end.block);
+    dest._bits[end.block] = (~(src1._bits[end.block] | src2._bits[end.block])) & below_mask(end.bit);
+    instructions::memset<alignment>(dest._bits.data(), 0, end.block+1, dest._bits.size());
+}
+
+inline void custom_bitset::NOR(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
+    const size_type start_pos, const size_type end_pos) {
+    NOR(dest, src1, src2, reference(start_pos), reference(end_pos));
+}
+
+inline void custom_bitset::NOR(custom_bitset& lhs, const custom_bitset& rhs, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(end <= lhs.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(end <= lhs.size())]];
+
+    instructions::nor_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), end.block);
+    lhs._bits[end.block] = (~(lhs._bits[end.block] | rhs._bits[end.block])) & until_mask(end.bit);
+}
+
+inline void custom_bitset::NOR(custom_bitset& lhs, const custom_bitset& rhs,
+    const size_type end_pos) {
+    NOR(lhs, rhs, reference(end_pos));
+}
+
+inline void custom_bitset::NOR(custom_bitset& lhs, const custom_bitset& rhs, const reference &start, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(start < lhs.size());
+    assert(end <= lhs.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(start < lhs.size())]];
+    [[assume(end <= lhs.size())]];
+
+    lhs._bits[start.block] = (~(lhs._bits[start.block] | rhs._bits[start.block])) & from_mask(start.bit);
+    instructions::nor_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), start.block+1, end.block);
+    lhs._bits[end.block] = (~(lhs._bits[end.block] | rhs._bits[end.block])) & until_mask(end.bit);
+}
+
+inline void custom_bitset::NOR(custom_bitset& lhs, const custom_bitset& rhs,
+    const size_type start_pos, const size_type end_pos) {
+    NOR(lhs, rhs, reference(start_pos), reference(end_pos));
+}
+
 inline void custom_bitset::DIFF(custom_bitset &dest, const custom_bitset &src1, const custom_bitset &src2) {
     assert(dest.size() == src1.size());
     assert(src1.size() == src2.size());
@@ -873,6 +1036,39 @@ inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, 
 inline void custom_bitset::DIFF(custom_bitset& dest, const custom_bitset& src1, const custom_bitset& src2,
     const size_type start_pos, const size_type end_pos) {
     DIFF(dest, src1, src2, reference(start_pos), reference(end_pos));
+}
+
+inline void custom_bitset::DIFF(custom_bitset& lhs, const custom_bitset& rhs, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(end <= lhs.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(end <= lhs.size())]];
+
+    instructions::diff_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), end.block);
+    lhs._bits[end.block] &= ~(rhs._bits[end.block] & until_mask(end.bit));
+}
+
+inline void custom_bitset::DIFF(custom_bitset& lhs, const custom_bitset& rhs,
+    const size_type end_pos) {
+    DIFF(lhs, rhs, reference(end_pos));
+}
+
+inline void custom_bitset::DIFF(custom_bitset& lhs, const custom_bitset& rhs, const reference &start, const reference &end) {
+    assert(lhs.size() == rhs.size());
+    assert(start < lhs.size());
+    assert(end <= lhs.size());
+    [[assume(lhs.size() == rhs.size())]];
+    [[assume(start < lhs.size())]];
+    [[assume(end <= lhs.size())]];
+
+    lhs._bits[start.block] &= ~(rhs._bits[start.block] & from_mask(start.bit));
+    instructions::diff_inplace<alignment>(lhs._bits.data(), rhs._bits.data(), start.block+1, end.block);
+    lhs._bits[end.block] &= ~(rhs._bits[end.block] & until_mask(end.bit));
+}
+
+inline void custom_bitset::DIFF(custom_bitset& lhs, const custom_bitset& rhs,
+    const size_type start_pos, const size_type end_pos) {
+    DIFF(lhs, rhs, reference(start_pos), reference(end_pos));
 }
 
 inline custom_bitset::operator std::vector<custom_bitset::size_type>() const {

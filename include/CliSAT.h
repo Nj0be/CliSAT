@@ -147,7 +147,7 @@ static int fix_oldNode_for_iset(
     static custom_bitset anti_neighbors(G.size());
     //custom_bitset::DIFF(anti_neighbors, G.get_complement_neighbor_set(fix_node), is_processed);
     // equivalent to the above -> ~a & ~b == ~(a|b) (de morgan)
-    custom_bitset::NEGATE_OR(anti_neighbors, G.get_neighbor_set(fix_node), is_processed);
+    custom_bitset::NOR(anti_neighbors, G.get_neighbor_set(fix_node), is_processed);
     //is_processed |= anti_neighbors;
 
     for (auto r : anti_neighbors) {
