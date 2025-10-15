@@ -85,9 +85,7 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 //  - 3: COLOUR_SORT
 std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const int sorting_method) {
     auto begin = std::chrono::steady_clock::now();
-    auto max_time = std::chrono::steady_clock::now() + time_limit;
-    custom_graph g(filename);
-    if (MISP) g.complement();
+    custom_graph g(filename, MISP);
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;
@@ -122,6 +120,7 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
     std::cout << "Preprocessing = " << seconds_double << "[s]" << std::endl;
 
     auto begin_CliSAT = std::chrono::steady_clock::now();
+    auto max_time = std::chrono::steady_clock::now() + time_limit;
 
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     std::vector<int> K_max;

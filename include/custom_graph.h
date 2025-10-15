@@ -18,10 +18,11 @@ class custom_graph {
     std::vector<custom_bitset> _graph;
 
 public:
-    explicit custom_graph(const std::string& filename);
     explicit custom_graph(size_type size);
+    explicit custom_graph(const std::string& filename, const bool MISP);
     //custom_graph(custom_graph g, size_type size);
-
+    //
+    
     using iterator = std::vector<custom_bitset>::iterator;
     using const_iterator = std::vector<custom_bitset>::const_iterator;
 
@@ -78,7 +79,9 @@ public:
  *  Then we add a new type of line 'q', that specify as second element the number n of nodes of the clique
  *  and as the n elements if specify the nodes of a clique
  */
-inline custom_graph::custom_graph(const std::string& filename) {
+inline custom_graph::custom_graph(const std::string& filename, const bool MISP = false) {
+    // possible improvement: memory mapped files (mmap)
+
     std::ifstream inf(filename);
     char buf[0x2000];
     char line_type = 'c';
@@ -91,27 +94,17 @@ inline custom_graph::custom_graph(const std::string& filename) {
     int spaces = 0;
     custom_bitset numbers;
 
-    std::size_t remaining_edges = std::numeric_limits<std::size_t>::max();
-    std::size_t remaining_cliques = std::numeric_limits<std::size_t>::max();
+    std::size_t remaining_edges = 1;
+    std::size_t remaining_cliques = 1;
 
     while (inf) {
+        if ((remaining_edges + remaining_cliques) == 0) break;
         inf.read(buf, sizeof(buf));
         std::streamsize bytes_read = inf.gcount();
         if (bytes_read <= 0) break;
 
-        for (size_t i = 0; i < bytes_read; ++i) {
+        for (int i = 0; i < bytes_read; ++i) {
             auto c = buf[i];
-            if (first_char) {
-                line_type = c;
-                if (line_type != 'c' && line_type != 'p' && line_type != 'e' && line_type != 'q') {
-                    std::cerr << "Error while parsing input file: invalid DIMACS/DIMACS_EXTENDED format" << std::endl;
-                    exit(1);
-                }
-                first_char = (c == '\n');
-                last_space_tab = false;
-                spaces = 0;
-                continue;
-            }
             if (c == '\r') continue;
             if (c == '\n') {
                 first_char = true;
@@ -130,7 +123,7 @@ inline custom_graph::custom_graph(const std::string& filename) {
                         remaining_cliques = num3;
 
                         for (size_type j = 0; j < num1; ++j) {
-                            _graph.emplace_back(num1);
+                            _graph.emplace_back(num1, MISP);
                         }
 
                         num1 = 0;
@@ -146,8 +139,9 @@ inline custom_graph::custom_graph(const std::string& filename) {
                             std::cerr << "Error while parsing input file: wrong edge in DIMACS format" << std::endl;
                             exit(1);
                         }
-                         
-                        add_edge(num1-1, num2-1);
+                        
+                        if (MISP) remove_edge(num1-1, num2-1);
+                        else add_edge(num1-1, num2-1);
                         remaining_edges--;
 
                         num1 = 0;
@@ -175,12 +169,18 @@ inline custom_graph::custom_graph(const std::string& filename) {
                             exit(1);
                         }
 
-                        int first = numbers.front();
-                        int last = numbers.back();
+                        auto first = numbers.front();
+                        auto last = numbers.back();
                         
                         for (auto v = first; v != custom_bitset::npos; v = numbers.next(v)) {
-                            custom_bitset::OR(_graph[v], numbers, first, last);
-                            _graph[v].reset(v);
+                            if (MISP) {
+                                custom_bitset::DIFF(_graph[v], numbers, first, last);
+                                _graph[v].set(v);
+                            }
+                            else {
+                                custom_bitset::OR(_graph[v], numbers, first, last);
+                                _graph[v].reset(v);
+                            }
                         }
                         remaining_cliques--;
 
@@ -194,6 +194,18 @@ inline custom_graph::custom_graph(const std::string& filename) {
                 // nothing to read
                 if ((remaining_edges + remaining_cliques) == 0) break;
 
+                continue;
+            }
+
+            if (first_char) {
+                line_type = c;
+                if (line_type != 'c' && line_type != 'p' && line_type != 'e' && line_type != 'q') {
+                    std::cerr << "Error while parsing input file: invalid DIMACS/DIMACS_EXTENDED format" << std::endl;
+                    exit(1);
+                }
+                first_char = (c == '\n');
+                last_space_tab = false;
+                spaces = 0;
                 continue;
             }
 

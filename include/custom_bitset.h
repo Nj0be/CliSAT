@@ -464,7 +464,7 @@ custom_bitset::custom_bitset(const Container &container)
 
 template<IntegerContainer Container>
 custom_bitset::custom_bitset(const Container &container, const size_type c_size): custom_bitset(c_size) {
-    for (const auto pos : container) {
+    for (const size_type pos : container) {
         if (pos < size()) set(static_cast<size_type>(pos));
     }
 }
