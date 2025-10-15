@@ -22,6 +22,7 @@ namespace instructions {
         bool avx512f = false;
     };
 
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
     static inline void cpuid(std::uint32_t basic_leaf, std::uint32_t extended_leaf,
         std::uint32_t& eax, std::uint32_t& ebx, std::uint32_t& ecx, std::uint32_t& edx) noexcept {
 #if defined(_MSC_VER)
@@ -64,6 +65,14 @@ namespace instructions {
         return cpu_supports;
     }
 
+#else
+    // ------------------- Non-x86 (ARM, RISC-V, etc.) Stub -------------------
+    static inline features cpu_supports_impl() noexcept {
+        // All features disabled — ARM has none of these x86 SIMD flags
+        return features{};
+    }
+#endif
+
     inline features cpu_supports = cpu_supports_impl();
 
     static inline std::size_t bsf32(std::uint32_t x) {
@@ -75,7 +84,11 @@ namespace instructions {
         _BitScanForward(&index, x);
         x = index;
 #else
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
         asm ("bsf %0, %0" : "=r" (x) : "0" (x));
+#else
+        return __builtin_ctz(x);
+#endif
 #endif
         return x;
     }
@@ -89,7 +102,11 @@ namespace instructions {
         _BitScanForward64(&index, x);
 		x = index;
 #else
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
         asm("bsfq %0, %0" : "=r" (x) : "0" (x));
+#else
+        return __builtin_ctzll(x);
+#endif
 #endif
         return x;
     }
@@ -112,7 +129,11 @@ namespace instructions {
         _BitScanReverse(&index, x);
         x = index;
 #else
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
         asm ("bsr %0, %0" : "=r" (x) : "0" (x));
+#else
+        return 63 - __builtin_clz(x);
+#endif
 #endif
         return x;
     }
@@ -126,7 +147,11 @@ namespace instructions {
         _BitScanReverse64(&index, x);
         x = index;
 #else
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
         asm("bsrq %0, %0" : "=r" (x) : "0" (x));
+#else
+        return 63 - __builtin_clzll(x);
+#endif
 #endif
         return x;
     }
@@ -158,6 +183,7 @@ namespace instructions {
     static std::size_t constexpr popcnt64_sw(const std::uint64_t x) noexcept { return std::popcount(x); }
     //std::size_t constexpr popcnt128_sw(const __uint128_t x) noexcept { return std::popcount(x); }
 
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
     static std::size_t popcnt32_hw(std::uint32_t x) noexcept {
 #if _MSC_VER
 		x = __popcnt(x);
@@ -175,6 +201,7 @@ namespace instructions {
 #endif
         return x;
     }
+#endif
 
     /*
     std::size_t constexpr popcnt128_hw(const __uint128_t x) noexcept {
@@ -186,15 +213,19 @@ namespace instructions {
 
     template <std::unsigned_integral T>
     std::size_t popcount(T x) noexcept {
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
         if (cpu_supports.popcnt) {
             if constexpr (sizeof(T) <= 4) return popcnt32_hw(static_cast<std::uint32_t>(x));
             else if constexpr (sizeof(T) == 8) return popcnt64_hw(static_cast<std::uint64_t>(x));
             //else return popcnt128_hw(static_cast<__uint128_t>(x));
         } else {
+#endif
             if constexpr (sizeof(T) <= 4) return popcnt32_sw(static_cast<std::uint32_t>(x));
             else if constexpr (sizeof(T) == 8) return popcnt64_sw(static_cast<std::uint64_t>(x));
             //else return popcnt128_sw(static_cast<__uint128_t>(x));
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
         }
+#endif
     }
 
     template <std::size_t alignment, std::unsigned_integral T>
