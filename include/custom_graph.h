@@ -214,6 +214,12 @@ inline custom_graph::custom_graph(const std::string& filename, const bool MISP =
             if ((c == ' ' || c == '\t')) {
                 if (!last_space_tab) {
                     switch(line_type) {
+                        case 'p':
+                            if (spaces == 1 && type != "edge" && type != "clique") {
+                                std::cerr << "Error while parsing input file: unknown problem \"" << type << "\" in DIMACS_EXTENDED format" << std::endl;
+                                exit(1);
+                            }
+                            break;
                         case 'q':
                             if (spaces >= 2 && num3 < num1) {
                                 if (num2 <= 0 || num2 > size()) {
