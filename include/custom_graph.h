@@ -19,7 +19,7 @@ class custom_graph {
 
 public:
     explicit custom_graph(size_type size);
-    explicit custom_graph(const std::string& filename, const bool MISP);
+    explicit custom_graph(const std::string& filename, bool complementary);
     //custom_graph(custom_graph g, size_type size);
     //
     
@@ -79,7 +79,7 @@ public:
  *  Then we add a new type of line 'q', that specify as second element the number n of nodes of the clique
  *  and as the n elements if specify the nodes of a clique
  */
-inline custom_graph::custom_graph(const std::string& filename, const bool MISP = false) {
+inline custom_graph::custom_graph(const std::string& filename, const bool complementary = false) {
     // possible improvement: memory mapped files (mmap)
 
     std::ifstream inf(filename);
@@ -123,7 +123,8 @@ inline custom_graph::custom_graph(const std::string& filename, const bool MISP =
                         remaining_cliques = num3;
 
                         for (size_type j = 0; j < num1; ++j) {
-                            _graph.emplace_back(num1, MISP);
+                            _graph.emplace_back(num1, complementary);
+                            _graph[j].reset(j);
                         }
 
                         num1 = 0;
@@ -140,7 +141,7 @@ inline custom_graph::custom_graph(const std::string& filename, const bool MISP =
                             exit(1);
                         }
                         
-                        if (MISP) remove_edge(num1-1, num2-1);
+                        if (complementary) remove_edge(num1-1, num2-1);
                         else add_edge(num1-1, num2-1);
                         remaining_edges--;
 
@@ -173,9 +174,8 @@ inline custom_graph::custom_graph(const std::string& filename, const bool MISP =
                         auto last = numbers.back();
                         
                         for (auto v = first; v != custom_bitset::npos; v = numbers.next(v)) {
-                            if (MISP) {
+                            if (complementary) {
                                 custom_bitset::DIFF(_graph[v], numbers, first, last);
-                                _graph[v].set(v);
                             }
                             else {
                                 custom_bitset::OR(_graph[v], numbers, first, last);
