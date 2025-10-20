@@ -350,7 +350,8 @@ public:
     iterator operator[](const reference& ref) { return {this, ref}; };
     iterator operator[](const size_type pos) { return {this, pos}; };
     friend std::ostream& operator<<(std::ostream& stream, const custom_bitset& bb);
-    explicit operator std::vector<size_type>() const;
+    operator std::vector<size_type>() const;
+    operator std::vector<int>() const;
 
     void set(const reference& ref);
     void set(const size_type pos) { set(reference(pos)); }
@@ -395,6 +396,7 @@ public:
     [[nodiscard]] bool is_subset_of(const custom_bitset &other) const;
     [[nodiscard]] bool is_superset_of(const custom_bitset &other) const;
     [[nodiscard]] reference front_difference(const custom_bitset &other) const;
+    [[nodiscard]] size_type and_count(const custom_bitset &other) const;
 
     void resize(size_type new_size);
 
@@ -1266,6 +1268,17 @@ inline custom_bitset::operator std::vector<custom_bitset::size_type>() const {
     return list;
 }
 
+inline custom_bitset::operator std::vector<int>() const {
+    std::vector<int> list;
+    list.reserve(count());
+
+    for (const auto v : *this) {
+        list.push_back(v);
+    }
+
+    return list;
+}
+
 inline void custom_bitset::set(const reference &ref) {
     assert(ref < _size);
     [[assume(ref < _size)]];
@@ -1525,6 +1538,21 @@ inline custom_bitset::reference custom_bitset::front_difference(const custom_bit
     }
 
     return npos;
+}
+
+inline custom_bitset::size_type custom_bitset::and_count(const custom_bitset &other) const {
+    assert(size() == other.size());
+    [[assume(size() == other.size())]];
+
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
+
+    size_type sum = 0;
+
+    for (size_type i = 0; i < _bits.size(); i++)
+        sum += instructions::popcount(a[i] & b[i]);
+
+    return sum;
 }
 
 // Needed to allow std::views::reverse and std::ranges::reverse_view compatibility

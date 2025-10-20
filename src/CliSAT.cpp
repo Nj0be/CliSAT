@@ -8,11 +8,12 @@
 #include <print>
 #include <iostream>
 #include <numeric>
+
 #include "custom_graph.h"
 #include "custom_bitset.h"
 #include "CliSAT.h"
-
 #include "sorting.h"
+#include "AMTS.h"
 
 std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
@@ -83,15 +84,15 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 //  - 1: NEW_SORT
 //  - 2: DEG_SORT
 //  - 3: COLOUR_SORT
-std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const int sorting_method) {
+std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const int sorting_method, const bool AMTS_enabled) {
     auto begin = std::chrono::steady_clock::now();
-    custom_graph g(filename, MISP);
+    custom_graph G(filename, MISP);
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;
-    std::cout << "N: " << g.size() << " M: " << g.get_n_edges() << " D: " << g.get_density() << std::endl;
+    std::cout << "N: " << G.size() << " M: " << G.get_n_edges() << " D: " << G.get_density() << std::endl;
 
-    std::vector<std::size_t> ordering(g.size());
+    std::vector<std::size_t> ordering(G.size());
     begin = std::chrono::steady_clock::now();
 
     switch (sorting_method) {
@@ -99,32 +100,35 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
             std::iota(ordering.begin(), ordering.end(), 0);
             break;
         case 1:
-            ordering = NEW_SORT(g);
-            g.change_order(ordering);
+            ordering = NEW_SORT(G);
+            G.change_order(ordering);
             break;
         case 2:
-            ordering = DEG_SORT(g);
-            g.change_order(ordering);
+            ordering = DEG_SORT(G);
+            G.change_order(ordering);
             break;
         case 3:
-            ordering = COLOUR_SORT(g).first;
-            g.change_order(ordering);
+            ordering = COLOUR_SORT(G).first;
+            G.change_order(ordering);
             break;
         default:
             return {};
             break;
     }
 
-    end = std::chrono::steady_clock::now();
-    seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
-    std::cout << "Preprocessing = " << seconds_double << "[s]" << std::endl;
 
     auto begin_CliSAT = std::chrono::steady_clock::now();
     auto max_time = std::chrono::steady_clock::now() + time_limit;
 
-    //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     std::vector<int> K_max;
     std::vector<int> K;
+
+    if (AMTS_enabled) {
+        K_max = run_AMTS(G); // lb <- |K|    ->     AMTS Tabu search
+        std::cout << "AMTS found clique of size " << K_max.size() << std::endl;
+    } else {
+        K_max.push_back(0);
+    }
 
     /*
     for (int i = 0; i < g.size(); i++) {
@@ -136,19 +140,22 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
         }
     }
     */
-    K_max.push_back(0);
     int lb = static_cast<int>(K_max.size());
 
     // u with default value 1 (minimum)
-    std::vector u(g.size(), 1);
+    std::vector u(G.size(), 1);
 
     // first |k_max| values bounded by |K_max| (==lb)
     for (auto i = 1; i < lb; i++) {
-        for (const auto neighbor : g.get_prev_neighbor_set(i)) {
+        for (const auto neighbor : G.get_prev_neighbor_set(i)) {
             u[i] = std::max(u[i], 1 + u[neighbor]);
         }
         u[i] = std::min(u[i], lb);
     }
+
+    end = std::chrono::steady_clock::now();
+    seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
+    std::cout << "Preprocessing = " << seconds_double << "[s]" << std::endl;
 
     // remaining values bounded by k
     // TODO: why it's necessary??
@@ -164,17 +171,17 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
     steps = 0;
     pruned = 0;
 
-    for (std::size_t i = lb; i < g.size(); ++i) {
+    for (std::size_t i = lb; i < G.size(); ++i) {
         if (std::chrono::steady_clock::now() > max_time) {
             std::cout << "Exit on timeout" << std::endl;
             break;
         }
 
         begin = std::chrono::steady_clock::now();
-        static custom_bitset B(g.size());
-        static custom_bitset P(g.size());
+        static custom_bitset B(G.size());
+        static custom_bitset P(G.size());
 
-        custom_bitset::BEFORE(B, g.get_neighbor_set(i), i);
+        custom_bitset::BEFORE(B, G.get_neighbor_set(i), i);
         P.reset();
 
         lb = K_max.size();
@@ -194,14 +201,15 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
         auto old_pruned = pruned;
 
         K.push_back(i);
-        FindMaxClique(g, K, K_max, P, B, u, max_time);
+        FindMaxClique(G, K, K_max, P, B, u, max_time);
         K.pop_back();
 
         // u[i] = lb
         u[i] = K_max.size();
 
         end = std::chrono::steady_clock::now();
-        std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
+        // std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
+        std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, G.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
     }
     auto end_CliSAT = std::chrono::steady_clock::now();
     std::cout << "Branching time: " << std::chrono::duration<double, std::chrono::seconds::period>(end_CliSAT - begin_CliSAT).count() << " [s]" << std::endl;
@@ -210,5 +218,5 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
     std::cout << "Pruned: " << pruned << std::endl;
     //std::cout << custom_bitset(K_max) << std::endl;
 
-    return g.convert_back_set(K_max, ordering);
+    return G.convert_back_set(K_max, ordering);
 }

@@ -1274,6 +1274,7 @@ static bool FindMaxClique(
     // |K|+1 because we are yet to add the vertex to the current solution
     const int depth = K.size()+1;
 
+    while (ISs.size() <= K_max.size()) ISs.emplace_back(G.size());
     for (const auto bi : B) {
         if (std::chrono::steady_clock::now() > max_time) {
             return false;
@@ -1407,6 +1408,6 @@ static bool FindMaxClique(
     return false;
 }
 
-std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit);
+std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb, std::chrono::milliseconds time_limit);
 
-std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const int sorting_method);
+std::vector<int> CliSAT(const std::string& filename, std::chrono::milliseconds time_limit, bool MISP, int sorting_method, bool AMTS_enabled = false);

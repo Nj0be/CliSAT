@@ -14,8 +14,8 @@
 #include "custom_graph.h"
 
 int main(int argc, char *argv[]) {
-    std::string usage = "Usage: CliSAT filename(DIMACS/EXTENDED) [time_limit(s)] [problem_type] [sorting_method]\nproblem_type is -c for the MCP and -i for the MISP\nsorting method can be: 0 - none, 1 - auto (NEW_SORT), 2 - DEG_SORT, 3 - COLOUR_SORT\n";
-    if (argc < 5) {
+    std::string usage = "Usage: CliSAT filename(DIMACS/EXTENDED) [time_limit(s)] [problem_type] [sorting_method] [AMTS_enabled]\nproblem_type is -c for the MCP and -i for the MISP\nsorting method can be: 0 - none, 1 - auto (NEW_SORT), 2 - DEG_SORT, 3 - COLOUR_SORT\nAMTS_enabled can be 0 for disabled and 1 for enabled. AMTS is a Tabu search used to find a strong initial solution\n";
+    if (argc < 6) {
         std::cerr << usage;
         return 1;
     }
@@ -59,7 +59,6 @@ int main(int argc, char *argv[]) {
 
     int sorting_method = 0;
 
-
     try {
         sorting_method = std::stoi(argv[4], nullptr, 10);
     } catch (const std::invalid_argument& e) {
@@ -78,7 +77,27 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::cout << custom_bitset(CliSAT(filename, time_limit, MISP, sorting_method)) << std::endl;
+    int AMTS_enabled = 0;
+
+    try {
+        AMTS_enabled = std::stoi(argv[5], nullptr, 10);
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "Error: not a valid AMTS_enabled: " << argv[5] << std::endl;
+        std::cerr << usage;
+        return 1;
+    } catch (const std::out_of_range& e) {
+        std::cerr << "Error: AMTS_enabled out of range: " << argv[5] << std::endl;
+        std::cerr << usage;
+        return 1;
+    }
+
+    if (AMTS_enabled < 0 || AMTS_enabled > 1) {
+        std::cerr << "Error: AMTS_enabled not in range [0-1]: " << argv[5] << std::endl;
+        std::cerr << usage;
+        return 1;
+    }
+
+    std::cout << custom_bitset(CliSAT(filename, time_limit, MISP, sorting_method, AMTS_enabled)) << std::endl;
 
     /*
     begin = std::chrono::steady_clock::now();
