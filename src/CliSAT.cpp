@@ -14,6 +14,7 @@
 #include "CliSAT.h"
 #include "sorting.h"
 #include "AMTS.h"
+#include "parsing.h"
 
 std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
@@ -86,7 +87,7 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 //  - 3: COLOUR_SORT
 std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const int sorting_method, const bool AMTS_enabled) {
     auto begin = std::chrono::steady_clock::now();
-    custom_graph G(filename, MISP);
+    custom_graph G = parse_dimacs_extended(filename, MISP);
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;
