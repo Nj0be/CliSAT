@@ -1,3 +1,5 @@
+#pragma once
+
 #include "custom_graph.h"
 
 /* In this function we are reading chunks of 8196 bytes from the file
