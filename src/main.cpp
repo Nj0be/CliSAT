@@ -79,9 +79,15 @@ int main(int argc, char *argv[]) {
            ->check(CLI::ExistingFile)
            ->required();
 
+    if (argc == 1) {
+        std::cout << app.help() << std::endl;
+        return 0;
+    }
+
     // Parse (handles --help, validation errors, etc.)
     argv = app.ensure_utf8(argv);
     CLI11_PARSE(app, argc, argv);
+
 
     if (*mcp) {
         std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, false, opts.sorting_method, opts.AMTS_enabled)) << std::endl;
