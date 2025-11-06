@@ -16,6 +16,13 @@
 #define NONE (-1)
 #define NO_REASON (-1)
 
+enum SORTING_METHOD {
+    NO_SORT,
+    NEW_SORT,
+    DEG_SORT,
+    COLOUR_SORT
+};
+
 static void identify_conflict_isets(
     const int iset,
     const std::vector<custom_bitset>& ISs,
@@ -1275,10 +1282,12 @@ static bool FindMaxClique(
     const int depth = K.size()+1;
 
     while (ISs.size() <= K_max.size()) ISs.emplace_back(G.size());
+
     for (const auto bi : B) {
         if (std::chrono::steady_clock::now() > max_time) {
             return false;
         }
+
         const int lb = K_max.size();
         P_Bj.set(bi);
 
@@ -1410,4 +1419,4 @@ static bool FindMaxClique(
 
 std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb, std::chrono::milliseconds time_limit);
 
-std::vector<int> CliSAT(const std::string& filename, std::chrono::milliseconds time_limit, bool MISP, int sorting_method, bool AMTS_enabled = false);
+std::vector<int> CliSAT(const std::string& filename, std::chrono::milliseconds time_limit, bool MISP, SORTING_METHOD sorting_method, bool AMTS_enabled = false);

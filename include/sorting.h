@@ -129,12 +129,12 @@ static std::vector<std::size_t> MWSSI(const custom_graph& G, const int p) {
     return vertices;
 }
 
-static std::vector<std::size_t> DEG_SORT(const custom_graph& G, const int p=5) {
+static std::vector<std::size_t> deg_sort(const custom_graph& G, const int p=5) {
     if (G.size() < 1000) return MWSI(G, p);
     return MWSSI(G, p);
 }
 
-static std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& g, const std::chrono::milliseconds time_limit = std::chrono::milliseconds(50)) {
+static std::pair<std::vector<std::size_t>, int> colour_sort(const custom_graph& g, const std::chrono::milliseconds time_limit = std::chrono::milliseconds(50)) {
     const auto g_complement = g.get_complement();
 
     std::vector<std::size_t> Ocolor;
@@ -159,13 +159,13 @@ static std::pair<std::vector<std::size_t>, int> COLOUR_SORT(const custom_graph& 
     return {Ocolor, k};
 }
 
-inline std::vector<std::size_t> NEW_SORT(const custom_graph &G, const int p=5) {
+inline std::vector<std::size_t> new_sort(const custom_graph &G, const int p=5) {
     std::vector<std::size_t> Odeg;
-    Odeg = DEG_SORT(G, p);
+    Odeg = deg_sort(G, p);
 
     if (G.get_density() <= 0.7) return Odeg;
 
-    auto [Ocolor, k] = COLOUR_SORT(G);
+    auto [Ocolor, k] = colour_sort(G);
     int color_max = 0;
     auto ordered_graph = G;
     ordered_graph.change_order(Odeg);

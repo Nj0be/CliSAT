@@ -3,136 +3,93 @@
 //
 
 #include <chrono>
-#include <filesystem>
 #include <iostream>
 #include <string>
-#include <vector>
-#include <string.h>
+#include <CLI/CLI.hpp>
 
 #include "CliSAT.h"
 #include "custom_bitset.h"
 #include "custom_graph.h"
 
+const inline std::string PROGRAM_NAME = "CliSAT";
+
+#define MAJOR_VERSION 0
+#define MINOR_VERSION 1
+#define PATCH_VERSION 0
+
+struct options {
+    std::string graph_filename;
+    std::string constraints_filename; // only for nesting
+    // we set it to half the maximum rapresentable value in a steady_clock (nanoseconds), used for operations with program timer
+    // if seconds or milliseconds would be used, an overflow would happen
+    std::chrono::seconds time_limit = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::duration::max()/2);
+    SORTING_METHOD sorting_method = NEW_SORT;
+    bool AMTS_enabled = false;
+};
+
 int main(int argc, char *argv[]) {
-    std::string usage = "Usage: CliSAT filename(DIMACS/EXTENDED) [time_limit(s)] [problem_type] [sorting_method] [AMTS_enabled]\nproblem_type is -c for the MCP and -i for the MISP\nsorting method can be: 0 - none, 1 - auto (NEW_SORT), 2 - DEG_SORT, 3 - COLOUR_SORT\nAMTS_enabled can be 0 for disabled and 1 for enabled. AMTS is a Tabu search used to find a strong initial solution\n";
-    if (argc < 6) {
-        std::cerr << usage;
-        return 1;
+    CLI::App app{"Algorithm for MCP/MISP", PROGRAM_NAME};
+    //app.require_subcommand(1); // exactly one of mcp/misp/nesting
+
+    // Define options in the same positional order as your original interface
+    options opts;
+
+    app.set_version_flag("-v,--version", std::format("{} version {}.{}.{}", PROGRAM_NAME, MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION));
+
+    // Subcommands
+    auto mcp = app.add_subcommand("mcp", "Maximum Clique (MCP)");
+    mcp->alias("c");
+
+    auto misp = app.add_subcommand("misp", "Maximum Independent Set (MISP)");
+    misp->alias("i");
+
+    auto nesting = app.add_subcommand("nesting", "Nesting with extra constraints");
+    nesting->alias("n");
+
+    for (auto cmd : {mcp, misp, nesting}) {
+        // 1) filename (must exist)
+        cmd->add_option("-g, --graph", opts.graph_filename, "Input graph file (DIMACS/EXTENDED)")
+            ->check(CLI::ExistingFile)
+            ->required();
+
+        // 2) time_limit (seconds, non-negative)
+        cmd->add_option("-t, --time-limit", opts.time_limit, "Time limit in seconds")
+            ->check(CLI::Range(0, std::numeric_limits<int>::max()));
+
+        // 4) sorting_method: 0..3
+        cmd->add_option_function<std::string>("-s, --sorting", 
+                        [&opts](const std::string& sorting_method) {
+                            if (sorting_method == "NO_SORT") opts.sorting_method = NO_SORT;
+                            else if (sorting_method == "NEW_SORT") opts.sorting_method = NEW_SORT;
+                            else if (sorting_method == "DEG_SORT") opts.sorting_method = DEG_SORT;
+                            else if (sorting_method == "COLOUR_SORT") opts.sorting_method = COLOUR_SORT;
+                            else throw CLI::ValidationError("--sorting must be one of { NO_SORT, NEW_SORT, DEG_SORT, COLOUR_SORT }");
+                        },
+                       "Sorting method: 0-none, 1-auto(NEW_SORT), 2-DEG_SORT, 3-COLOUR_SORT");
+            //->check(CLI::IsMember({"NO_SORT", "NEW_SORT", "DEG_SORT", "COLOUR_SORT"}));
+
+        // 5) AMTS_enabled: 0 or 1
+        cmd->add_option("-a, --amts", opts.AMTS_enabled, "AMTS enabled: 0-disabled, 1-enabled")
+            ->check(CLI::Range(0, 1));
     }
 
-    auto filename = argv[1];
-    if (!std::filesystem::exists(filename)) {
-        std::cerr << "Error: file not found: " << filename << std::endl;
-        return 1;
+    // Only nesting has constraints; make them required there
+    nesting->add_option("-c,--constraints", opts.constraints_filename,
+                        "Constraints file (required for nesting)")
+           ->check(CLI::ExistingFile)
+           ->required();
+
+    // Parse (handles --help, validation errors, etc.)
+    argv = app.ensure_utf8(argv);
+    CLI11_PARSE(app, argc, argv);
+
+    if (*mcp) {
+        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, false, opts.sorting_method, opts.AMTS_enabled)) << std::endl;
+    } else if (*misp) {
+        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, true, opts.sorting_method, opts.AMTS_enabled)) << std::endl;
+    } else if (*nesting) {
+        // std::cout << custom_bitset(CliSAT(opts.graph_filename, time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.constraints_filename)) << std::endl;
     }
-
-    bool MISP = false;
-    auto problem_type = argv[2];
-    if (strcmp(problem_type, "-c") == 0) MISP = false;
-    else if (strcmp(problem_type, "-i") == 0) MISP = true;
-    else {
-        std::cerr << "Error: invalid problem type: " << problem_type << std::endl;
-        std::cerr << usage;
-        return 1;
-    }
-
-    int time_limit_int = 0;
-
-    try {
-        time_limit_int = std::stoi(argv[3]);
-    } catch (const std::invalid_argument& e) {
-        std::cerr << "Error: not a valid time limit: " << argv[3] << std::endl;
-        std::cerr << usage;
-        return 1;
-    } catch (const std::out_of_range& e) {
-        std::cerr << "Error: time limit out of range: " << argv[3] << std::endl;
-        std::cerr << usage;
-        return 1;
-    }
-
-    if (time_limit_int < 0) {
-        std::cerr << "Error: time limit negative: " << argv[3] << std::endl;
-        std::cerr << usage;
-        return 1;
-    }
-    auto time_limit = std::chrono::seconds(time_limit_int);
-
-    int sorting_method = 0;
-
-    try {
-        sorting_method = std::stoi(argv[4], nullptr, 10);
-    } catch (const std::invalid_argument& e) {
-        std::cerr << "Error: not a valid sorting method: " << argv[4] << std::endl;
-        std::cerr << usage;
-        return 1;
-    } catch (const std::out_of_range& e) {
-        std::cerr << "Error: sorting method out of range: " << argv[4] << std::endl;
-        std::cerr << usage;
-        return 1;
-    }
-
-    if (sorting_method < 0 || sorting_method > 3) {
-        std::cerr << "Error: time limit not in range [0-4]: " << argv[4] << std::endl;
-        std::cerr << usage;
-        return 1;
-    }
-
-    int AMTS_enabled = 0;
-
-    try {
-        AMTS_enabled = std::stoi(argv[5], nullptr, 10);
-    } catch (const std::invalid_argument& e) {
-        std::cerr << "Error: not a valid AMTS_enabled: " << argv[5] << std::endl;
-        std::cerr << usage;
-        return 1;
-    } catch (const std::out_of_range& e) {
-        std::cerr << "Error: AMTS_enabled out of range: " << argv[5] << std::endl;
-        std::cerr << usage;
-        return 1;
-    }
-
-    if (AMTS_enabled < 0 || AMTS_enabled > 1) {
-        std::cerr << "Error: AMTS_enabled not in range [0-1]: " << argv[5] << std::endl;
-        std::cerr << usage;
-        return 1;
-    }
-
-    std::cout << custom_bitset(CliSAT(filename, time_limit, MISP, sorting_method, AMTS_enabled)) << std::endl;
-
-    /*
-    begin = std::chrono::steady_clock::now();
-    const custom_graph g1(filename);
-    auto g2 = g1.change_order(NEW_SORT(g1, 2).first);
-    std::cout << run_BBMC(g2) << std::endl;
-    end = std::chrono::steady_clock::now();
-    std::cout << "BBMC = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
-
-    begin = std::chrono::steady_clock::now();
-    result = BB_Max_Clique_iter(g);
-    end = std::chrono::steady_clock::now();
-    std::cout << "BBMC iter = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;#1#
-
-    begin = std::chrono::steady_clock::now();
-    const custom_graph g3(filename);
-    auto g4 = g3.change_order(NEW_SORT(g3, 2).first);
-    std::cout << run_BBMCR(g4) << std::endl;
-    end = std::chrono::steady_clock::now();
-    std::cout << "BBMCR = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
-    */
-
-    /*for (auto v : result) {
-        std::cout << v+1 << " ";
-    }
-    std::cout << std::endl << result.size() << std::endl;*/
-
-    //bitscan_benchmark1();
-    //popcount_benchmark();
-    //test_custom_bitset();
-    //subtraction_benchmark();
-    //bit_scan_forward_benchmark();
-    //bit_scan_forward_destructive_benchmark();
-    //bit_scan_reverse_benchmark();
-    //bitwise_and_benchmark();
 
     return 0;
 }

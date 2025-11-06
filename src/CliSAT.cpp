@@ -85,7 +85,7 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 //  - 1: NEW_SORT
 //  - 2: DEG_SORT
 //  - 3: COLOUR_SORT
-std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const int sorting_method, const bool AMTS_enabled) {
+std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const SORTING_METHOD sorting_method, const bool AMTS_enabled) {
     auto begin = std::chrono::steady_clock::now();
     custom_graph G = parse_dimacs_extended(filename, MISP);
     auto end = std::chrono::steady_clock::now();
@@ -97,19 +97,19 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
     begin = std::chrono::steady_clock::now();
 
     switch (sorting_method) {
-        case 0:
+        case NO_SORT:
             std::iota(ordering.begin(), ordering.end(), 0);
             break;
-        case 1:
-            ordering = NEW_SORT(G);
+        case NEW_SORT:
+            ordering = new_sort(G);
             G.change_order(ordering);
             break;
-        case 2:
-            ordering = DEG_SORT(G);
+        case DEG_SORT:
+            ordering = deg_sort(G);
             G.change_order(ordering);
             break;
-        case 3:
-            ordering = COLOUR_SORT(G).first;
+        case COLOUR_SORT:
+            ordering = colour_sort(G).first;
             G.change_order(ordering);
             break;
         default:
