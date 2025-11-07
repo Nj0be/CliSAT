@@ -16,20 +16,27 @@ add_executable(CliSAT
 add_subdirectory(third_party/CLI11)
 target_link_libraries(CliSAT PRIVATE CLI11::CLI11)
 
-# statically linked
-target_compile_options(CliSAT PRIVATE -Wall -Wextra)
-
-if(STATIC)
-    message(STATUS "Static Linking enabled")
-    target_link_options(CliSAT PRIVATE -static -static-libgcc -static-libstdc++)
+# Compiler warnings
+if (MSVC)
+    target_compile_options(CliSAT PRIVATE /W4 /permissive- /EHsc)
+else()
+    target_compile_options(CliSAT PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+# Debug and Release configurations
 target_compile_options(CliSAT PRIVATE
-    $<$<CONFIG:Debug>:-g>
+    $<$<CONFIG:Debug>:
+        $<$<CXX_COMPILER_ID:MSVC>:/Zi>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-g>
+    >
+    $<$<CONFIG:Release>:
+        $<$<CXX_COMPILER_ID:MSVC>:/O2 /GL /DNDEBUG>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O3 -flto=auto -DNDEBUG>
+    >
 )
 
-# disable asserts in release builds
-target_compile_options(CliSAT PRIVATE
-    # $<$<CONFIG:Release>:-O3 -flto=auto -march=native -DNDEBUG>
-    $<$<CONFIG:Release>:-O3 -flto=auto -DNDEBUG>
-)
+# Static linking
+if (STATIC AND NOT MSVC)
+    message(STATUS "Static Linking enabled (non-MSVC)")
+    target_link_options(CliSAT PRIVATE -static -static-libgcc -static-libstdc++)
+endif()

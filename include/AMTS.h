@@ -18,7 +18,7 @@
 #include "custom_graph.h"
 
 
-inline bool TS(const custom_graph& g, std::vector<std::uint64_t>& swap_mem, custom_bitset &S, custom_bitset& S_max, const std::uint64_t k, const std::uint64_t L, std::uint64_t& Iter, const std::chrono::time_point<std::chrono::steady_clock> max_time) {
+inline bool TS(const custom_graph& g, std::vector<std::uint64_t>& swap_mem, custom_bitset &S, custom_bitset& S_max, const unsigned long long k, const std::uint64_t L, std::uint64_t& Iter, const std::chrono::time_point<std::chrono::steady_clock> max_time) {
     std::uint64_t I = 0; // iterations
     static std::vector<std::uint64_t> tabu_list(g.size());
 
@@ -139,8 +139,8 @@ inline bool TS(const custom_graph& g, std::vector<std::uint64_t>& swap_mem, cust
 
         // TODO: we consider old or updated S for l1 calculation?
         auto l1 = k*(k-1)/2 - S_edges;
-        auto l = std::min(l1, 10UL);
-        std::uint64_t C = std::max(k/40, 6UL);
+        auto l = std::min(l1, 10ULL);
+        std::uint64_t C = std::max(k/40, 6ULL);
 
         tabu_list[u] = I + l + (int_dist(rng)%C);
         tabu_list[v] = I + 0.6*l + (int_dist(rng)%static_cast<std::uint64_t>(0.6 * C));
@@ -166,8 +166,7 @@ inline bool TS(const custom_graph& g, std::vector<std::uint64_t>& swap_mem, cust
     return false;
 }
 
-inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const std::uint64_t k, const std::uint64_t L, const std::uint64_t Iter_max, const std::chrono::time_point<std::chrono::steady_clock> max_time) {
-    static std::vector<std::uint64_t> swap_mem(g.size());
+inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const std::uint64_t k, const std::uint64_t L, const std::uint64_t Iter_max, const std::chrono::time_point<std::chrono::steady_clock> max_time, std::vector<std::uint64_t>& swap_mem) {
     static custom_bitset S(g.size());
     S.reset();
 
@@ -239,6 +238,8 @@ inline std::pair<custom_bitset, bool> AMTS(const custom_graph& g, const std::uin
 }
 
 inline std::vector<int> run_AMTS(const custom_graph& g, std::int64_t run_time=50) {
+    static std::vector<std::uint64_t> swap_mem(g.size());
+
     auto max_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(run_time);
     // TODO: get complement for p < 0.5
     std::uint64_t Iter_Max = 100000000;
@@ -252,7 +253,7 @@ inline std::vector<int> run_AMTS(const custom_graph& g, std::int64_t run_time=50
         std::uint64_t L = g.size() * k;
         // if brock or san L = 4 * k;
         bool is_legal_k_clique = false;
-        std::tie(S, is_legal_k_clique) = AMTS(g, k, L, Iter_Max, max_time);
+        std::tie(S, is_legal_k_clique) = AMTS(g, k, L, Iter_Max, max_time, swap_mem);
         if (!is_legal_k_clique) return std::vector<int>(S_max);
         S_max = S;
     }
