@@ -134,21 +134,24 @@ static std::vector<std::size_t> deg_sort(const custom_graph& G, const int p=5) {
     return MWSSI(G, p);
 }
 
-static std::pair<std::vector<std::size_t>, int> colour_sort(const custom_graph& g, const std::chrono::milliseconds time_limit = std::chrono::milliseconds(50)) {
-    const auto g_complement = g.get_complement();
+static std::pair<std::vector<std::size_t>, int> colour_sort(custom_graph& G, const std::chrono::milliseconds time_limit = std::chrono::milliseconds(50)) {
+    // we are working on the complement (no memory allocation)
+    G.complement();
 
     std::vector<std::size_t> Ocolor;
     int k = 0;
-    custom_bitset W(g.size(), true);
+    custom_bitset W(G.size(), true);
+    custom_bitset U(G.size());
 
     while (W.any()) {
-        auto U_vec = CliSAT_no_sorting(g_complement, W, time_limit);
-        const custom_bitset U(U_vec, g.size());
+        auto U_vec = CliSAT_no_sorting(G, W, time_limit);
+        U.from_container(U_vec);
 
         // sort by non-increasing order
         std::ranges::sort(U_vec.begin(), U_vec.end(),
-            [&g](auto a, auto b) {
-                return g.vertex_degree(a) > g.vertex_degree(b);
+            [&G](auto a, auto b) {
+                // we need to evaluate the degree on the orignal graph (not complement)
+                return G.complement_vertex_degree(a) > G.complement_vertex_degree(b);
             });
 
         Ocolor.insert(Ocolor.end(), U_vec.begin(), U_vec.end());
@@ -156,10 +159,13 @@ static std::pair<std::vector<std::size_t>, int> colour_sort(const custom_graph& 
         k++;
     }
 
+    // undo the complement
+    G.complement();
+
     return {Ocolor, k};
 }
 
-inline std::vector<std::size_t> new_sort(const custom_graph &G, const int p=5) {
+inline std::vector<std::size_t> new_sort(custom_graph &G, const int p=5) {
     std::vector<std::size_t> Odeg;
     Odeg = deg_sort(G, p);
 

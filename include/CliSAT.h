@@ -88,12 +88,12 @@ static int fix_newNode_for_iset(
     std::vector<int>& reason,
     fixed_vector<int>& unit_stack
 ) {
+    ISs_state[fix_iset] = false;
     ISs_size[fix_iset]--;
     reduced_iset_stack.push_back(fix_iset);
-    ISs_state[fix_iset] = false;
     passive_iset_stack.push_back(fix_iset);
-    is_processed_new[fix_node-G.size()] = true;
     fixed_node_stack.push_back(fix_node);
+    is_processed_new[fix_node-G.size()] = true;
     reason[fix_node] = fix_iset;
 
     for (auto iset_idx : conflict_iset_stack[fix_node-G.size()]) {

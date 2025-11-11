@@ -241,6 +241,12 @@ public:
     custom_bitset(const custom_bitset& other) = default;
     custom_bitset(custom_bitset&& other) noexcept = default;
 
+    template<IntegerContainer Container>
+    void from_container(const Container &container);
+
+    template<IntegerContainer Container>
+    static void from_container(custom_bitset& dest, const Container &container);
+
     static custom_bitset before(custom_bitset src, const reference& ref);
     static custom_bitset before(const custom_bitset& src, size_type pos);
     static custom_bitset until(custom_bitset src, const reference& ref);
@@ -481,13 +487,35 @@ custom_bitset::custom_bitset(const Container &container)
         : _size(std::ranges::empty(container) ? 0 : static_cast<size_type>(*std::ranges::max_element(container)) + 1),
           _bits(blocks_needed(_size))
 {
-    for (const auto pos : container) set(static_cast<size_type>(pos));
+    for (const auto pos : container) {
+        set(static_cast<size_type>(pos));
+    }
 }
 
 template<IntegerContainer Container>
 custom_bitset::custom_bitset(const Container &container, const size_type c_size): custom_bitset(c_size) {
     for (const size_type pos : container) {
         if (pos < size()) set(static_cast<size_type>(pos));
+    }
+}
+
+template<IntegerContainer Container>
+void custom_bitset::from_container(const Container &container) {
+    reset();
+
+    for (const auto pos : container) {
+        assert(pos < size());
+        set(static_cast<size_type>(pos));
+    }
+}
+
+template<IntegerContainer Container>
+void custom_bitset::from_container(custom_bitset& dest, const Container &container) {
+    dest.reset();
+
+    for (const auto pos : container) {
+        assert(pos < dest.size());
+        dest.set(static_cast<size_type>(pos));
     }
 }
 

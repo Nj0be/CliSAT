@@ -52,6 +52,7 @@ public:
     [[nodiscard]] size_type degree(size_type v) const;
     [[nodiscard]] size_type complement_degree(size_type v) const;
     [[nodiscard]] size_type vertex_degree(size_type v) const;
+    [[nodiscard]] size_type complement_vertex_degree(size_type v) const;
     [[nodiscard]] size_type adjacent(size_type u, size_type v) const;
     [[nodiscard]] float get_density() const noexcept;
 
@@ -189,6 +190,13 @@ inline custom_graph::size_type custom_graph::vertex_degree(const size_type v) co
     return _graph[v].count();
 }
 
+inline custom_graph::size_type custom_graph::complement_vertex_degree(const size_type v) const {
+    assert(v < size());
+    [[assume(v < size())]];
+
+    return size() - _graph[v].count() - 1;
+}
+
 
 inline custom_graph::size_type custom_graph::adjacent(const size_type u, const size_type v) const {
     assert(u < size());
@@ -250,18 +258,57 @@ inline void custom_graph::complement() {
 }
 
 inline void custom_graph::change_order(const std::vector<size_type> &order) {
-    custom_graph g_copy(*this);
+    constexpr size_type invalid = std::numeric_limits<size_type>::max();
 
-    std::vector<size_type> conversion_helper(size());
-    for (size_type i = 0; i < _graph.size(); i++) {
-        conversion_helper[order[i]] = i;
+    custom_bitset temp(size());
+    custom_bitset temp2(size());
+    std::vector<bool> visited(size());
+
+    // Maps original vertex -> new position
+    std::vector<size_type> old_to_new(size());
+    for (size_type i = 0; i < size(); ++i) {
+        old_to_new[order[i]] = i;
     }
 
-    for (size_type i = 0; i < size(); i++) {
-        const auto current_vertex = conversion_helper[i];
-        auto set = static_cast<std::vector<size_type>>(g_copy._graph[i]);
-        for (auto& v : set) v = conversion_helper[v];
-        _graph[current_vertex] = custom_bitset(set, size());
+    size_type temp_pos = invalid;
+
+    for (size_type i = 0; i < size(); ++i) {
+        while (temp_pos != invalid) {
+            const size_type orig_pos = temp_pos;
+
+            if (visited[orig_pos]) {
+                temp_pos = invalid;
+                break;
+            }
+
+            visited[orig_pos] = true;
+            const size_type new_pos = old_to_new[orig_pos];
+
+            temp2.swap(temp);
+            temp.swap(_graph[new_pos]);
+            _graph[new_pos].reset();
+
+            for (auto v : temp2) _graph[new_pos].set(old_to_new[v]);
+            if (new_pos != orig_pos) temp_pos = new_pos;
+            else temp_pos = invalid;
+        }
+
+        const size_type orig_pos = i;
+        if (visited[orig_pos]) continue;
+
+        visited[orig_pos] = true;
+        const size_type new_pos = old_to_new[orig_pos];
+
+        temp.swap(_graph[new_pos]);
+        _graph[new_pos].reset();
+
+        if (new_pos != orig_pos) {
+            for (auto v : _graph[orig_pos]) _graph[new_pos].set(old_to_new[v]);
+            temp_pos = new_pos;
+        } else {
+            for (auto v : temp) _graph[new_pos].set(old_to_new[v]);
+            temp_pos = invalid;
+        }
     }
 }
 

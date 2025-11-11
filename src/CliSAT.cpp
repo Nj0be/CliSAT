@@ -117,7 +117,6 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
             break;
     }
 
-
     auto begin_CliSAT = std::chrono::steady_clock::now();
     auto max_time = std::chrono::steady_clock::now() + time_limit;
 
