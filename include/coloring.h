@@ -11,54 +11,20 @@
 
 // Independent Set Sequential
 // computes the chromatic number of a graph using a greedy strategy (heuristic)
-inline int ISEQ(const custom_graph& g, custom_bitset Ubb) {
-    custom_bitset Qbb(Ubb.size());
+inline int ISEQ(const custom_graph& G, custom_bitset Ubb) {
+    static custom_bitset Qbb(G.size());
+
     int k = 0;
     for (k = 0; Ubb.any(); ++k) {
         Qbb = Ubb;
         for (const auto v : Qbb) {
             // at most we can remove vertices, so we don't need to start a new scan
-            Qbb -= g.get_neighbor_set(v);
+            Qbb -= G.get_neighbor_set(v);
             Ubb.reset(v);
         }
     }
 
     return k;
-}
-
-// Used to get the independent sets from ISEQ
-inline std::vector<custom_bitset> ISEQ_sets(const custom_graph& g, custom_bitset Ubb) {
-    std::vector<custom_bitset> independent_sets;
-    custom_bitset Qbb(Ubb.size());
-
-    while (Ubb.any()) {
-        Qbb = Ubb;
-        for (const auto v : Qbb) {
-            Qbb -= g.get_neighbor_set(v);
-            Ubb.reset(v);
-        }
-
-        independent_sets.push_back(Qbb);  // Store the independent set
-    }
-
-    return independent_sets;
-}
-
-inline custom_bitset ISEQ_pruned(const custom_graph& g, custom_bitset Ubb, const int k_max) {
-    custom_bitset pruned(g.size());
-    custom_bitset Qbb(Ubb.size());
-    int k = 0;
-    for (k = 0; k < k_max; ++k) {
-        Qbb = Ubb;
-        for (const auto v : Qbb) {
-            // at most, we can remove vertices, so we don't need to start a new scan
-            Qbb -= g.get_neighbor_set(v);
-            Ubb.reset(v);
-        }
-        // add vertices to pruned
-        pruned |= Qbb;
-    }
-    return pruned;
 }
 
 // if we can't generate k independent sets, Ubb will be empty so then node will be fathomed (B empty)
@@ -101,18 +67,18 @@ inline int ISEQ_branching(
 }
 
 inline custom_bitset ISEQ_branching(
-    const custom_graph& g,
+    const custom_graph& G,
     custom_bitset Ubb,
     const int k_max
 ) {
     int k = 0;
-    static custom_bitset Qbb(g.size());
+    static custom_bitset Qbb(G.size());
 
     for (k = 0; k < k_max; ++k) {
         Qbb = Ubb;
         for (const auto v : Qbb) {
             // at most, we can remove vertices, so we don't need to start a new scan
-            Qbb -= g.get_neighbor_set(v);
+            Qbb -= G.get_neighbor_set(v);
             Ubb.reset(v);
         }
     }

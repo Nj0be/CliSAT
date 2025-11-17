@@ -134,7 +134,7 @@ static std::vector<std::size_t> deg_sort(const custom_graph& G, const int p=5) {
     return MWSSI(G, p);
 }
 
-static std::pair<std::vector<std::size_t>, int> colour_sort(custom_graph& G, const std::chrono::milliseconds time_limit = std::chrono::milliseconds(50)) {
+static std::pair<std::vector<std::size_t>, int> colour_sort(custom_graph& G, Solver& solver, const std::chrono::milliseconds time_limit = std::chrono::milliseconds(50)) {
     // we are working on the complement (no memory allocation)
     G.complement();
 
@@ -144,7 +144,7 @@ static std::pair<std::vector<std::size_t>, int> colour_sort(custom_graph& G, con
     custom_bitset U(G.size());
 
     while (W.any()) {
-        auto U_vec = CliSAT_no_sorting(G, W, time_limit);
+        auto U_vec = CliSAT_no_sorting(G, solver, W, time_limit);
         U.from_container(U_vec);
 
         // sort by non-increasing order
@@ -165,13 +165,13 @@ static std::pair<std::vector<std::size_t>, int> colour_sort(custom_graph& G, con
     return {Ocolor, k};
 }
 
-inline std::vector<std::size_t> new_sort(custom_graph &G, const int p=5) {
+inline std::vector<std::size_t> new_sort(custom_graph &G, Solver& solver, const int p=5) {
     std::vector<std::size_t> Odeg;
     Odeg = deg_sort(G, p);
 
     if (G.get_density() <= 0.7) return Odeg;
 
-    auto [Ocolor, k] = colour_sort(G);
+    auto [Ocolor, k] = colour_sort(G, solver);
     int color_max = 0;
     auto ordered_graph = G;
     ordered_graph.change_order(Odeg);

@@ -16,7 +16,7 @@
 #include "AMTS.h"
 #include "parsing.h"
 
-std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
+std::vector<int> CliSAT_no_sorting(const custom_graph& G, Solver& solver, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     auto max_time = std::chrono::steady_clock::now() + time_limit;
     static std::vector<int> K_max;
@@ -28,11 +28,11 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
     int lb = static_cast<int>(K_max.size());
 
     // u with default value 1 (minimum)
-    static std::vector u(g.size(), 1);
+    static std::vector u(G.size(), 1);
 
     // first |k_max| values bounded by |K_max| (==lb)
     for (auto i = 1; i < lb; i++) {
-        for (const auto neighbor : g.get_prev_neighbor_set(i)) {
+        for (const auto neighbor : G.get_prev_neighbor_set(i)) {
             u[i] = std::max(u[i], 1 + u[neighbor]);
         }
         u[i] = std::min(u[i], lb);
@@ -40,7 +40,7 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
 
     // remaining values bounded by k
     // TODO: why it's necessary??
-    for (std::size_t i = lb; i < g.size(); i++) {
+    for (std::size_t i = lb; i < G.size(); i++) {
         u[i] = 1;
     }
 
@@ -50,10 +50,10 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
         }
         lb = K_max.size();
 
-        static custom_bitset B(g.size());
-        static custom_bitset P(g.size());
+        static custom_bitset B(G.size());
+        static custom_bitset P(G.size());
 
-        custom_bitset::AND(B, g.get_neighbor_set(i), Ubb, i);
+        custom_bitset::AND(B, G.get_neighbor_set(i), Ubb, i);
         //if (B.count() <= lb) continue;
         P.reset();
 
@@ -69,7 +69,7 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& g, const custom_bitset& U
         }
 
         K.push_back(i);
-        FindMaxClique(g, K, K_max, P, B, u, max_time);
+        solver.FindMaxClique(G, K, K_max, P, B, u, max_time);
         K.pop_back();
 
         // u[i] = lb
@@ -96,12 +96,14 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
     std::vector<std::size_t> ordering(G.size());
     begin = std::chrono::steady_clock::now();
 
+    Solver solver(G.size());
+
     switch (sorting_method) {
         case NO_SORT:
             std::iota(ordering.begin(), ordering.end(), 0);
             break;
         case NEW_SORT:
-            ordering = new_sort(G);
+            ordering = new_sort(G, solver);
             G.change_order(ordering);
             break;
         case DEG_SORT:
@@ -109,7 +111,7 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
             G.change_order(ordering);
             break;
         case COLOUR_SORT:
-            ordering = colour_sort(G).first;
+            ordering = colour_sort(G, solver).first;
             G.change_order(ordering);
             break;
         default:
@@ -201,7 +203,7 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
         auto old_pruned = pruned;
 
         K.push_back(i);
-        FindMaxClique(G, K, K_max, P, B, u, max_time);
+        solver.FindMaxClique(G, K, K_max, P, B, u, max_time);
         K.pop_back();
 
         // u[i] = lb
