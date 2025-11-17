@@ -188,7 +188,7 @@ namespace instructions {
 #if _MSC_VER
 		x = __popcnt(x);
 #else
-        asm ("popcnt %0, %0" : "=r"(x) : "r"(x));
+        asm("popcnt %0, %0" : "+r"(x));
 #endif
         return x;
     }
@@ -197,7 +197,7 @@ namespace instructions {
 #if _MSC_VER
         x = __popcnt64(x);
 #else
-        asm("popcnt %0, %0" : "=r"(x) : "r"(x));
+        asm("popcnt %0, %0" : "+r"(x));
 #endif
         return x;
     }
