@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.28)
 set(CMAKE_CXX_STANDARD 23)
 project(CliSAT LANGUAGES CXX)
 
-option(STATIC "Enable static linking of libraries" OFF)
+option(STATIC "Enable static linking of libraries" ON)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
