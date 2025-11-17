@@ -145,9 +145,9 @@ static int fix_oldNode_for_iset(
 
         ISs_size[iset]--;
         reduced_iset_stack.push_back(iset);
+        is_processed.set(r);
         fixed_node_stack.push_back(r);
         reason[r] = fix_iset;
-        is_processed.set(r);
 
         // conflict found
         if (ISs_size[iset] == 0) return iset;
@@ -237,6 +237,9 @@ static int unit_iset_process(
         for (auto j = 0; j < new_unit_stack.size(); j++) {
             const auto l_is2 = new_unit_stack[j];
             if (!ISs_state[l_is2]) continue;
+
+            // we are iterating on a unit_stack
+            assert(ISs_size[l_is2] == 1);
 
             empty_iset = fix_anyNode_for_iset(l_is2, G, ISs, ISs_new, ISs_new_size, conflict_iset_stack, ISs_state, ISs_size, reduced_iset_stack, passive_iset_stack, fixed_node_stack, is_processed, is_processed_new, reason, new_unit_stack, color_class);
             if (empty_iset != NONE) return empty_iset;
@@ -345,6 +348,7 @@ static void reset_context_for_maxsatz(
 ) {
     for (int i = 0; i < fixed_node_stack.size(); i++) {
         auto node = fixed_node_stack[i];
+        // G.size() == is_processed.size()
         if (node >= is_processed.size()) is_processed_new[node-is_processed.size()] = false;
         else is_processed.reset(node);
     }
@@ -355,7 +359,6 @@ static void reset_context_for_maxsatz(
     }
     passive_iset_stack.clear();
 
-    // G.size() == is_processed.size()
     for (auto i = 0; i < reduced_iset_stack.size(); i++) ISs_size[reduced_iset_stack[i]]++;
     reduced_iset_stack.clear();
 }
@@ -374,6 +377,7 @@ static void rollback_context_for_maxsatz(
 ) {
     for (int i = fixed_iset_start; i < fixed_node_stack.size(); i++) {
         auto node = fixed_node_stack[i];
+        // G.size() == is_processed.size()
         if (node >= is_processed.size()) is_processed_new[node-is_processed.size()] = false;
         else is_processed.reset(node);
     }
@@ -384,7 +388,6 @@ static void rollback_context_for_maxsatz(
     }
     passive_iset_stack.resize(passive_iset_start);
 
-    // G.size() == is_processed.size()
     for (auto i = reduced_iset_start; i < reduced_iset_stack.size(); i++) ISs_size[reduced_iset_stack[i]]++;
     reduced_iset_stack.resize(reduced_iset_start);
 }
@@ -744,7 +747,7 @@ static bool inc_maxsatz_on_last_iset(
     const int ADDED_NODE,
     const custom_graph& G,
     custom_bitset& B,
-    std::vector<custom_bitset>& ISs,
+    const std::vector<custom_bitset>& ISs,
     std::vector<std::vector<int>>& ISs_new,
     std::vector<int>& ISs_new_size,
     std::vector<std::uint8_t>& ISs_state,

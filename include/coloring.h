@@ -69,6 +69,8 @@ inline int ISEQ_branching(
     std::vector<int>& color_class,
     const int k_max
 ) {
+    assert(k_max >= 0);
+
     int k = 0;
 
     ISs[k_max] = Ubb;
