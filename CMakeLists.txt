@@ -35,6 +35,16 @@ target_compile_options(CliSAT PRIVATE
     >
 )
 
+# Enable LTO and lld linker for Clang
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    message(STATUS "Clang detected: enabling LTO and lld")
+
+    # For Release builds: use lld when LTO is active
+    target_link_options(CliSAT PRIVATE
+            $<$<CONFIG:Release>:-fuse-ld=lld>
+    )
+endif()
+
 # Static linking
 if (STATIC AND NOT MSVC)
     message(STATUS "Static Linking enabled (non-MSVC)")
