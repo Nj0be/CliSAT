@@ -14,8 +14,7 @@
 #include "custom_graph.h"
 #include "fixed_vector.h"
 
-#define NONE (-1)
-#define NO_REASON (-1)
+inline constexpr int NONE = -1;
 
 enum SORTING_METHOD {
     NO_SORT,
@@ -24,19 +23,16 @@ enum SORTING_METHOD {
     COLOUR_SORT
 };
 
-// Solver: refactor into a class.
-// - Only CliSAT is public.
-// - CliSAT_no_sorting is private.
-// - Attributes are created for each static element of SATCOL except for unit_stack.
-// - Constructor must be implemented by the user of this header.
 class Solver {
 public:
-    explicit Solver(size_t G_size) : ISs_size(G_size),
+    explicit Solver(const size_t G_size) : ISs_mapping(G_size),
+          ISs_size(G_size),
           ISs_state(G_size, true),
           ISs_involved(G_size),
           ISs_used(G_size),
+          ISs_tested(G_size),
           is_processed(G_size),
-          ISs_new_size(G_size),
+          ISs_new(G_size),
           is_processed_new(G_size),
           reason(G_size * 2),
           conflict_iset_stack(G_size),
@@ -44,7 +40,14 @@ public:
           reduced_iset_stack(G_size * 2),
           passive_iset_stack(G_size),
           fixed_node_stack(G_size * 2),
-          reason_stack(G_size) {}
+          reason_stack(G_size),
+          unit_stack(G_size),
+          unit_stack2(G_size),
+          unit_stack3(G_size),
+          nodes(G_size),
+          nodes2(G_size),
+          nodes3(G_size),
+          V_new(G_size) {}
 
     bool FindMaxClique(
         const custom_graph& G,  // graph
@@ -59,14 +62,14 @@ public:
     );
 
 private:
-    // Attributes for each static element of SATCOL except for unit_stack
+    std::vector<int> ISs_mapping;
     std::vector<int> ISs_size;
     std::vector<std::uint8_t> ISs_state;
     std::vector<std::uint8_t> ISs_involved;
     std::vector<std::uint8_t> ISs_used;
+    std::vector<std::uint8_t> ISs_tested;
     custom_bitset is_processed;
     std::vector<std::vector<int>> ISs_new;
-    std::vector<int> ISs_new_size;
     std::vector<std::uint8_t> is_processed_new;
     std::vector<int> reason;
     std::vector<std::vector<int>> conflict_iset_stack;
@@ -74,8 +77,14 @@ private:
     fixed_vector<int> passive_iset_stack;
     fixed_vector<int> fixed_node_stack;
     fixed_vector<int> reason_stack;
+    fixed_vector<int> unit_stack;
+    fixed_vector<int> unit_stack2;
+    fixed_vector<int> unit_stack3;
+    custom_bitset nodes;
+    custom_bitset nodes2;
+    custom_bitset nodes3;
+    custom_bitset V_new;
 
-    // Private helpers (converted from free/static functions)
     void identify_conflict_isets(
         int iset,
         const std::vector<custom_bitset>& ISs
@@ -113,7 +122,6 @@ private:
     int unit_iset_process(
         const custom_graph& G,
         const std::vector<custom_bitset>& ISs,
-        fixed_vector<int>& unit_stack,
         fixed_vector<int>& new_unit_stack,
         const std::vector<int>& color_class
     );
@@ -178,7 +186,6 @@ private:
         const custom_graph& G,
         custom_bitset& B,
         const std::vector<custom_bitset>& ISs,
-        fixed_vector<int>& unit_stack,
         const std::vector<int>& color_class,
         int k
     );
@@ -191,7 +198,7 @@ private:
         int k
     );
 
-    static int FiltCOL(
+    int FiltCOL(
         const custom_graph& G,  // graph
         custom_bitset& V,       // vertices set
         const std::vector<custom_bitset>& ISs,
@@ -199,7 +206,6 @@ private:
         const std::vector<int>& color_class,
         std::vector<int>& color_class_t,
         const std::vector<int>& alpha,
-        std::vector<int>& ISs_mapping,
         int k_max
     );
 
@@ -227,8 +233,6 @@ inline void Solver::identify_conflict_isets(
     const int iset,
     const std::vector<custom_bitset>& ISs
 ) {
-    static custom_bitset removed(is_processed.size());
-
     int starting_index = reason_stack.size();
     reason_stack.push_back(iset);
     ISs_involved[iset] = true;
@@ -236,18 +240,17 @@ inline void Solver::identify_conflict_isets(
         const auto reason_iset = reason_stack[i];
 
         // removed_nodes
-        custom_bitset::AND(removed, ISs[reason_iset], is_processed);
-        for (auto r : removed) {
+        custom_bitset::AND(nodes3, ISs[reason_iset], is_processed);
+        for (auto r : nodes3) {
             const auto r_iset = reason[r];
-            if (r_iset == NO_REASON || ISs_involved[r_iset]) continue;
+            if (r_iset == NONE || ISs_involved[r_iset]) continue;
 
             ISs_involved[r_iset] = true;
             reason_stack.push_back(r_iset);
         }
-        for (int j = 0; j < ISs_new_size[reason_iset]; j++) {
-            const auto r = ISs_new[reason_iset][j];
+        for (auto r : ISs_new[reason_iset]) {
             // not processed (removed)
-            if (!is_processed_new[r-is_processed.size()] || reason[r] == NO_REASON) continue;
+            if (!is_processed_new[r-is_processed.size()] || reason[r] == NONE) continue;
 
             const auto r_iset = reason[r];
             if (ISs_involved[r_iset]) continue;
@@ -269,7 +272,7 @@ inline int Solver::fix_newNode_for_iset(
     const int fix_node,
     const int fix_iset,
     const custom_graph& G,
-    fixed_vector<int>& unit_stack
+    fixed_vector<int>& new_unit_stack
 ) {
     ISs_state[fix_iset] = false;
     ISs_size[fix_iset]--;
@@ -287,7 +290,7 @@ inline int Solver::fix_newNode_for_iset(
 
         if (ISs_size[iset_idx] == 0) return iset_idx;
         if (ISs_size[iset_idx] == 1) {
-            unit_stack.push_back(iset_idx);
+            new_unit_stack.push_back(iset_idx);
         }
     }
     return NONE;
@@ -297,7 +300,7 @@ inline int Solver::fix_oldNode_for_iset(
     const int fix_node,
     const int fix_iset,
     const custom_graph& G,
-    fixed_vector<int>& unit_stack,
+    fixed_vector<int>& new_unit_stack,
     const std::vector<int>& color_class
 ) {
     ISs_size[fix_iset]--;
@@ -308,13 +311,12 @@ inline int Solver::fix_oldNode_for_iset(
     fixed_node_stack.push_back(fix_node);
     reason[fix_node] = fix_iset;
 
-    static custom_bitset anti_neighbors(G.size());
     //custom_bitset::DIFF(anti_neighbors, G.get_complement_neighbor_set(fix_node), is_processed);
     // equivalent to the above -> ~a & ~b == ~(a|b) (de morgan)
-    custom_bitset::NOR(anti_neighbors, G.get_neighbor_set(fix_node), is_processed);
+    custom_bitset::NOR(nodes3, G.get_neighbor_set(fix_node), is_processed);
     //is_processed |= anti_neighbors;
 
-    for (auto r : anti_neighbors) {
+    for (auto r : nodes3) {
         const auto iset = color_class[r];
 
         if (!ISs_state[iset]) continue;
@@ -329,7 +331,7 @@ inline int Solver::fix_oldNode_for_iset(
         if (ISs_size[iset] == 0) return iset;
 
         if (ISs_size[iset] == 1) {
-            unit_stack.push_back(iset);
+            new_unit_stack.push_back(iset);
         }
     }
 
@@ -341,8 +343,7 @@ inline int Solver::get_node_of_unit_iset(
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs
 ) const {
-    for (int i = 0; i < ISs_new_size[l_is]; i++) {
-        const auto new_node = ISs_new[l_is][i];
+    for (auto new_node : ISs_new[l_is]) {
         if (is_processed_new[new_node-G.size()]) continue;
         return new_node;
     }
@@ -358,20 +359,19 @@ inline int Solver::fix_anyNode_for_iset(
     const int fix_iset,
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
-    fixed_vector<int>& unit_stack,
+    fixed_vector<int>& new_unit_stack,
     const std::vector<int>& color_class
 ) {
     const auto fix_node = get_node_of_unit_iset(fix_iset, G, ISs);
 
-    if (fix_node >= G.size()) return fix_newNode_for_iset(fix_node, fix_iset, G, unit_stack);
+    if (fix_node >= G.size()) return fix_newNode_for_iset(fix_node, fix_iset, G, new_unit_stack);
 
-    return fix_oldNode_for_iset(fix_node, fix_iset, G, unit_stack, color_class);
+    return fix_oldNode_for_iset(fix_node, fix_iset, G, new_unit_stack, color_class);
 }
 
 inline int Solver::unit_iset_process(
     const custom_graph& G,
     const std::vector<custom_bitset>& ISs,
-    fixed_vector<int>& unit_stack,
     fixed_vector<int>& new_unit_stack,
     const std::vector<int>& color_class
 ) {
@@ -443,16 +443,14 @@ inline void Solver::enlarge_conflict_sets(
     const custom_graph& G
 ) {
     is_processed_new[ADDED_NODE-G.size()] = false;
-    reason[ADDED_NODE] = NO_REASON;
+    reason[ADDED_NODE] = NONE;
     conflict_iset_stack[ADDED_NODE-G.size()].clear();
 
     for (int iset : reason_stack) {
         if (ISs_involved[iset]) continue;
 
         ISs_involved[iset] = true;
-        if (ISs_new[iset].size() <= ISs_new_size[iset]) ISs_new[iset].push_back(ADDED_NODE);
-        else ISs_new[iset][ISs_new_size[iset]] = ADDED_NODE;
-        ISs_new_size[iset]++;
+        ISs_new[iset].push_back(ADDED_NODE);
         ISs_size[iset]++;
         conflict_iset_stack[ADDED_NODE-G.size()].push_back(iset);
     }
@@ -508,8 +506,6 @@ inline int Solver::simple_further_test_node(
     const std::vector<custom_bitset>& ISs,
     const std::vector<int>& color_class
 ) {
-    static std::vector<std::uint8_t> ISs_tested(G.size());
-
     int saved_reduced_iset_stack_fill_pointer = reduced_iset_stack.size();
     int saved_passive_iset_stack_fill_pointer = passive_iset_stack.size();
     int saved_fixed_node_stack_fill_pointer = fixed_node_stack.size();
@@ -527,21 +523,19 @@ inline int Solver::simple_further_test_node(
         if (!ISs_state[chosen_iset] || ISs_tested[chosen_iset] || ISs_size[chosen_iset] != 2) continue;
 
         ISs_tested[chosen_iset] = true;
-        static custom_bitset nodes(G.size());
         custom_bitset::DIFF(nodes, ISs[chosen_iset], is_processed);
         for (auto node : nodes) {
-            static fixed_vector<int> unit_stack(G.size());
-            unit_stack.clear();
+            unit_stack2.clear();
 
-            auto empty_iset = fix_oldNode_for_iset(node, chosen_iset, G, unit_stack, color_class);
-            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack, color_class);
+            auto empty_iset = fix_oldNode_for_iset(node, chosen_iset, G, unit_stack2, color_class);
+            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack2, color_class);
 
             rollback_context_for_maxsatz(my_saved_reduced_iset_stack_fill_pointer, my_saved_passive_iset_stack_fill_pointer, my_saved_fixed_node_stack_fill_pointer);
 
             if (empty_iset == NONE) continue;
 
             is_processed.set(node);
-            reason[node] = NO_REASON;
+            reason[node] = NONE;
             fixed_node_stack.push_back(node);
             ISs_size[chosen_iset]--;
             reduced_iset_stack.push_back(chosen_iset);
@@ -549,10 +543,10 @@ inline int Solver::simple_further_test_node(
             assert(ISs_size[chosen_iset] == 1);
 
             // unit iset
-            unit_stack.clear();
-            unit_stack.push_back(chosen_iset);
+            unit_stack2.clear();
+            unit_stack2.push_back(chosen_iset);
 
-            if (unit_iset_process_used_first(G, ISs, unit_stack, color_class) != NONE) {
+            if (unit_iset_process_used_first(G, ISs, unit_stack2, color_class) != NONE) {
                 conflict = true;
                 break;
             }
@@ -585,11 +579,10 @@ inline int Solver::test_node_for_failed_nodes(
     int saved_passive_iset_stack_fill_pointer = passive_iset_stack.size();
     int saved_fixed_node_stack_fill_pointer = fixed_node_stack.size();
 
-    static fixed_vector<int> unit_stack(G.size());
-    unit_stack.clear();
+    unit_stack2.clear();
 
-    auto empty_iset = fix_oldNode_for_iset(node, iset, G, unit_stack, color_class);
-    if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack, color_class);
+    auto empty_iset = fix_oldNode_for_iset(node, iset, G, unit_stack2, color_class);
+    if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack2, color_class);
     if (empty_iset == NONE) empty_iset = simple_further_test_node(saved_reduced_iset_stack_fill_pointer, G, ISs, color_class);
 
     rollback_context_for_maxsatz(saved_reduced_iset_stack_fill_pointer, saved_passive_iset_stack_fill_pointer, saved_fixed_node_stack_fill_pointer);
@@ -612,18 +605,14 @@ inline bool Solver::test_by_eliminate_failed_nodes(
         false_flag = 0;
         for (auto my_iset = k; my_iset >= 0; my_iset--) {
             if (!ISs_state[my_iset]) continue;
-
-            static fixed_vector<int> unit_stack(G.size());
-
             unit_stack.clear();
-            static custom_bitset nodes(G.size());
-            custom_bitset::DIFF(nodes, ISs[my_iset], is_processed);
+            custom_bitset::DIFF(nodes2, ISs[my_iset], is_processed);
 
-            for (auto node : nodes) {
+            for (auto node : nodes2) {
                 if (test_node_for_failed_nodes(node, my_iset, G, ISs, color_class) == NONE) continue;
 
                 is_processed.set(node);
-                reason[node] = NO_REASON;
+                reason[node] = NONE;
                 fixed_node_stack.push_back(node);
                 false_flag++;
                 ISs_size[my_iset]--;
@@ -656,8 +645,6 @@ inline int Solver::further_test_reduced_iset(
     const std::vector<custom_bitset>& ISs,
     const std::vector<int>& color_class
 ) {
-    static std::vector<std::uint8_t> ISs_tested(G.size());
-
     int saved_reduced_iset_stack_fill_pointer = reduced_iset_stack.size();
     int saved_passive_iset_stack_fill_pointer = passive_iset_stack.size();
     int saved_fixed_node_stack_fill_pointer = fixed_node_stack.size();
@@ -673,8 +660,7 @@ inline int Solver::further_test_reduced_iset(
         ISs_tested[chosen_iset] = true;
 
         bool has_new_node = false;
-        for (int j = 0; j < ISs_new_size[chosen_iset]; j++) {
-            auto node = ISs_new[chosen_iset][j];
+        for (auto node : ISs_new[chosen_iset]) {
             if (!is_processed_new[node-G.size()]) {
                 has_new_node = true;
                 break;
@@ -682,15 +668,13 @@ inline int Solver::further_test_reduced_iset(
         }
         if (has_new_node) continue;
 
-        static custom_bitset nodes(G.size());
-        custom_bitset::DIFF(nodes, ISs[chosen_iset], is_processed);
+        custom_bitset::DIFF(nodes2, ISs[chosen_iset], is_processed);
         std::size_t node = custom_bitset::npos;
-        for (node = nodes.front(); node != custom_bitset::npos; node = nodes.next(node)) {
-            static fixed_vector<int> unit_stack(G.size());
-            unit_stack.clear();
+        for (node = nodes2.front(); node != custom_bitset::npos; node = nodes2.next(node)) {
+            unit_stack3.clear();
 
-            auto empty_iset = fix_oldNode_for_iset(node, chosen_iset, G, unit_stack, color_class);
-            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack, color_class);
+            auto empty_iset = fix_oldNode_for_iset(node, chosen_iset, G, unit_stack3, color_class);
+            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack3, color_class);
 
             if (empty_iset == NONE) {
                 rollback_context_for_maxsatz(saved_reduced_iset_stack_fill_pointer, saved_passive_iset_stack_fill_pointer, saved_fixed_node_stack_fill_pointer);
@@ -718,27 +702,23 @@ inline int Solver::inc_maxsatz_lookahead_by_fl2(
 	int sr = reduced_iset_stack.size();
     int rs = reason_stack.size();
 
-    static fixed_vector<int> unit_stack(G.size());
-    static std::vector<std::uint8_t> tested(G.size());
-
-    for (auto i = 0; i < sr; i++) tested[reduced_iset_stack[i]] = false;
+    for (auto i = 0; i < sr; i++) ISs_tested[reduced_iset_stack[i]] = false;
 
     for (auto i = 0; i < sr; i++) {
         int iset_idx = reduced_iset_stack[i];
-        if (tested[iset_idx] || !ISs_state[iset_idx] || ISs_size[iset_idx] != 2) continue;
+        if (ISs_tested[iset_idx] || !ISs_state[iset_idx] || ISs_size[iset_idx] != 2) continue;
 
         reason_stack.resize(rs);
-        tested[iset_idx] = true;
-        static custom_bitset nodes(G.size());
+        ISs_tested[iset_idx] = true;
         custom_bitset::DIFF(nodes, ISs[iset_idx], is_processed);
         bool exit = false;
         for (auto node : nodes) {
-            unit_stack.clear();
+            unit_stack2.clear();
 
-            auto empty_iset = fix_oldNode_for_iset(node, iset_idx, G, unit_stack, color_class);
-            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack, color_class);
+            auto empty_iset = fix_oldNode_for_iset(node, iset_idx, G, unit_stack2, color_class);
+            if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack2, color_class);
             if (empty_iset == NONE) {
-                bool is_last_node = (ISs_new_size[iset_idx] == 0 && nodes.next(node) == custom_bitset::npos);
+                bool is_last_node = (ISs_new[iset_idx].empty() && nodes.next(node) == custom_bitset::npos);
                 if (is_last_node) empty_iset = further_test_reduced_iset(sr, G, ISs, color_class);
             }
 
@@ -754,17 +734,17 @@ inline int Solver::inc_maxsatz_lookahead_by_fl2(
         if (!exit) {
             node_is_last = false;
             int j;
-            for (j = 0; j < ISs_new_size[iset_idx]; j++) {
+            for (j = 0; j < ISs_new[iset_idx].size(); j++) {
                 //if (!is_node_active[node]) continue;
                 auto node = ISs_new[iset_idx][j];
                 if (is_processed_new[node-G.size()]) continue;
 
-                unit_stack.clear();
+                unit_stack2.clear();
 
-                auto empty_iset = fix_newNode_for_iset(node, iset_idx, G, unit_stack);
-                if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack, color_class);
+                auto empty_iset = fix_newNode_for_iset(node, iset_idx, G, unit_stack2);
+                if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack2, color_class);
                 if (empty_iset == NONE) {
-                    bool is_last_node = (j+1 == ISs_new_size[iset_idx]);
+                    bool is_last_node = (j+1 == ISs_new[iset_idx].size());
                     if (is_last_node) empty_iset = further_test_reduced_iset(sr, G, ISs, color_class);
                 }
 
@@ -775,7 +755,7 @@ inline int Solver::inc_maxsatz_lookahead_by_fl2(
                 identify_conflict_isets(empty_iset, ISs);
                 rollback_context_for_maxsatz(sr, sp, sn);
             }
-            node_is_last = (j == ISs_new_size[iset_idx]);
+            node_is_last = j == ISs_new[iset_idx].size();
         }
 
         if (node_is_last) return true;
@@ -794,25 +774,22 @@ inline bool Solver::inc_maxsatz_on_last_iset(
     const custom_graph& G,
     custom_bitset& B,
     const std::vector<custom_bitset>& ISs,
-    fixed_vector<int>& unit_stack,
     const std::vector<int>& color_class,
     const int k
 ) {
-    static fixed_vector<int> new_unit_stack(G.size());
-
     reason_stack.clear();
     reduced_iset_stack.clear();
     passive_iset_stack.clear();
     fixed_node_stack.clear();
 
     for (const auto bi : ISs[k]) {
-        new_unit_stack.clear();
+        unit_stack2.clear();
 
         // fix old node
-        auto empty_iset = fix_oldNode_for_iset(bi, k, G, new_unit_stack, color_class);
-        if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, new_unit_stack, color_class);
+        auto empty_iset = fix_oldNode_for_iset(bi, k, G, unit_stack2, color_class);
+        if (empty_iset == NONE) empty_iset = unit_iset_process_used_first(G, ISs, unit_stack2, color_class);
         if (empty_iset == NONE) {
-            empty_iset = unit_iset_process(G, ISs, unit_stack, new_unit_stack, color_class);
+            empty_iset = unit_iset_process(G, ISs, unit_stack2, color_class);
         }
 
         // conflict found
@@ -845,21 +822,16 @@ inline bool Solver::SATCOL(
     std::vector<int>& color_class,
     int k
 ) {
-    static fixed_vector<int> unit_stack(G.size());
     unit_stack.clear();
 
     // is_processed = true for nodes not considered
     is_processed.set();
 
-    if (ISs_new.size() <= k) {
-        ISs_new.resize(k+1);
-    }
-
     for (int i = 0; i < k; i++) {
         // is_processed = true for nodes not considered
         is_processed -= ISs[i];
         ISs_size[i] = ISs[i].count();
-        ISs_new_size[i] = 0;
+        ISs_new[i].clear();
         if (ISs_size[i] == 1) {
             unit_stack.push_back(i);
         }
@@ -877,7 +849,7 @@ inline bool Solver::SATCOL(
         ISs_involved[k] = false;
         ISs_used[k] = false;
         ISs_state[k] = true;
-        ISs_new_size[k] = 0;
+        ISs_new[k].clear();
         ISs_size[k] = ISs[k].count();
         if (ISs_size[k] == 1) {
             unit_stack.push_back(k);
@@ -894,13 +866,10 @@ inline bool Solver::SATCOL(
 
         // B is an IS
         if (B.count() == ISs_size[k] && test_by_eliminate_failed_nodes(G, ISs, color_class, k)) return true;
-        if (!inc_maxsatz_on_last_iset(ADDED_NODE, G, B, ISs, unit_stack, color_class, k)) return false;
+        if (!inc_maxsatz_on_last_iset(ADDED_NODE, G, B, ISs, color_class, k)) return false;
 
         ADDED_NODE++;
         k++;
-        if (ISs_new.size() <= k) {
-            ISs_new.resize(k+1);
-        }
         if (ISs.size() <= k) ISs.emplace_back(G.size());
     } while (B.any());
 
@@ -915,25 +884,21 @@ inline int Solver::FiltCOL(
     const std::vector<int>& color_class,
     std::vector<int>& color_class_t,
     const std::vector<int>& alpha,
-    std::vector<int>& ISs_mapping,
     const int k_max
 ) {
-    static custom_bitset Ubb(G.size());
-    static custom_bitset already_added(G.size());
-    already_added.reset();
-    Ubb = V;
+    nodes = V;
 
     for (auto i = 0; i < k_max; ++i) {
-        auto v = Ubb.front();
+        auto v = nodes.front();
         // we can't build k+1 IS => we can't improve the solution
         if (v == custom_bitset::npos) return i;
 
         const int k = color_class[v];
         ISs_mapping[i] = k;
 
-        custom_bitset::DIFF(ISs_t[i], Ubb, G.get_neighbor_set(v));
+        custom_bitset::DIFF(ISs_t[i], nodes, G.get_neighbor_set(v));
         color_class_t[v] = i;
-        Ubb.reset(v);
+        nodes.reset(v);
 
         for (v = ISs_t[i].next(v); v != custom_bitset::npos; v = ISs_t[i].next(v)) {
             // if v isn't part of the original IS
@@ -946,14 +911,14 @@ inline int Solver::FiltCOL(
                     // removed from V
                     V.reset(v);
                     // removed from future iterations
-                    Ubb.reset(v);
+                    nodes.reset(v);
                 }
                 // otherwise kept for next iterations
             } else {
                 // at most, we can remove vertices, so we don't need to start a new scan
                 ISs_t[i] -= G.get_neighbor_set(v);
                 color_class_t[v] = i;
-                Ubb.reset(v);
+                nodes.reset(v);
             }
         }
         //alpha[k] = last_v;
@@ -1001,7 +966,7 @@ inline bool Solver::FiltSAT(
         ISs_state[i] = true;
         ISs_size[i] = ISs[i].count();
         ISs_used[i] = false;
-        ISs_new_size[i] = 0;
+        ISs_new[i].clear();
         assert(ISs_involved[i] == false);
     }
 
@@ -1024,11 +989,9 @@ inline bool Solver::FindMaxClique(
     static std::vector ISs_t(K_max.size()+1, custom_bitset(G.size()));
     static std::vector<int> color_class(G.size());
     static std::vector<int> color_class_t(G.size());
-    static custom_bitset V_new(G.size());
     // bitset containing all elements of P and all elements of B up to j
     static std::vector P_Bjs(K_max.size()+2, custom_bitset(G.size()));
     static std::vector B_news(K_max.size()+1, custom_bitset(G.size()));
-    static std::vector<int> ISs_mapping(G.size());
 
     steps++;
 
@@ -1120,7 +1083,7 @@ inline bool Solver::FindMaxClique(
 
         // if is a k+1 partite graph
         if (is_k_partite) {
-            const auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alpha, ISs_mapping, k+1);
+            const auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alpha, k+1);
             if (n_isets < k+1) {
                 u[bi] = n_isets+1;
                 continue;
