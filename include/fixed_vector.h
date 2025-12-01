@@ -90,6 +90,11 @@ public:
     T& operator[](const size_t index) { return data_[index]; };
     const T& operator[](const size_t index) const { return data_[index]; };
 
+    operator std::vector<T>() const {
+        std::vector<T> data_copy(data_.begin(), data_.begin() + size_);
+        return data_copy;
+    }
+
     void push_back(const T& value) {
         assert(size_ < data_.size());
         data_[size_++] = value;

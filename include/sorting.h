@@ -6,6 +6,7 @@
 
 #include "custom_graph.h"
 #include <chrono>
+#include <set>
 
 // DEG_SORT
 // Minimum Weight Sort with Initial sorting
@@ -134,7 +135,7 @@ static std::vector<std::size_t> deg_sort(const custom_graph& G, const int p=5) {
     return MWSSI(G, p);
 }
 
-static std::pair<std::vector<std::size_t>, int> colour_sort(custom_graph& G, Solver& solver, const std::chrono::milliseconds time_limit = std::chrono::milliseconds(50)) {
+static std::pair<std::vector<std::size_t>, int> colour_sort(custom_graph& G, thread_pool<Solver>& pool, const std::chrono::milliseconds time_limit = std::chrono::milliseconds(50)) {
     // we are working on the complement (no memory allocation)
     G.complement();
 
@@ -144,7 +145,7 @@ static std::pair<std::vector<std::size_t>, int> colour_sort(custom_graph& G, Sol
     custom_bitset U(G.size());
 
     while (W.any()) {
-        auto U_vec = CliSAT_no_sorting(G, solver, W, time_limit);
+        auto U_vec = CliSAT_no_sorting(G, pool, W, time_limit);
         U.from_container(U_vec);
 
         // sort by non-increasing order
@@ -165,20 +166,20 @@ static std::pair<std::vector<std::size_t>, int> colour_sort(custom_graph& G, Sol
     return {Ocolor, k};
 }
 
-inline std::vector<std::size_t> new_sort(custom_graph &G, Solver& solver, const int p=5) {
+inline std::vector<std::size_t> new_sort(custom_graph &G, thread_pool<Solver>& pool, const int p=5) {
     std::vector<std::size_t> Odeg;
     Odeg = deg_sort(G, p);
 
     if (G.get_density() <= 0.7) return Odeg;
 
-    auto [Ocolor, k] = colour_sort(G, solver);
+    auto [Ocolor, k] = colour_sort(G, pool);
     int color_max = 0;
-    auto ordered_graph = G;
-    ordered_graph.change_order(Odeg);
+    G.change_order(Odeg);
     for (std::size_t i = 1; i < G.size(); i++) {
-        auto Ubb = custom_bitset::before(ordered_graph.get_neighbor_set(i), i);
-        color_max = std::max(color_max, ISEQ(ordered_graph, Ubb));
+        auto Ubb = custom_bitset::before(G.get_neighbor_set(i), i);
+        color_max = std::max(color_max, ISEQ(G, Ubb));
     }
+    G.restore_order(Odeg);
 
     int u = 1 + color_max;
 

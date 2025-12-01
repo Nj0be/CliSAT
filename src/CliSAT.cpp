@@ -15,12 +15,13 @@
 #include "sorting.h"
 #include "AMTS.h"
 #include "parsing.h"
+#include "solution.h"
 
-std::vector<int> CliSAT_no_sorting(const custom_graph& G, Solver& solver, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
+std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool<Solver>& pool, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     auto max_time = std::chrono::steady_clock::now() + time_limit;
-    static std::vector<int> K_max;
-    static std::vector<int> K;
+    solution<int> K_max;
+    fixed_vector<int> K(G.size());
     K_max.clear();
     K.clear();
 
@@ -69,7 +70,20 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& G, Solver& solver, const 
         }
 
         K.push_back(i);
-        solver.FindMaxClique(G, K, K_max, P, B, u, max_time);
+
+        size_t local_u_idx = pool.borrow_u();
+        std::vector<int>& local_u = pool.get_u(local_u_idx);
+        for (int j = 0; j < u.size(); j++) local_u[j] = u[j];
+
+        size_t alpha_idx = pool.borrow_alpha();
+        fixed_vector<int>& alpha = pool.get_alpha(alpha_idx);
+
+        pool.submit(0, [local_u_idx, alpha_idx, &G, &K_max, &pool, &K, &local_u, max_time, &alpha](Solver& solver, const size_t sequence) {
+            solver.FindMaxClique(G, K, K_max, P, B, local_u, max_time, pool, sequence, alpha);
+            pool.give_back_u(local_u_idx);
+            pool.give_back_alpha(alpha_idx);
+        });
+        pool.wait_until_idle();
         K.pop_back();
 
         // u[i] = lb
@@ -85,9 +99,10 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& G, Solver& solver, const 
 //  - 1: NEW_SORT
 //  - 2: DEG_SORT
 //  - 3: COLOUR_SORT
-std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const SORTING_METHOD sorting_method, const bool AMTS_enabled) {
+std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const SORTING_METHOD sorting_method, const bool AMTS_enabled, const size_t threads) {
     auto begin = std::chrono::steady_clock::now();
     custom_graph G = parse_dimacs_extended(filename, MISP);
+    thread_pool<Solver> pool(G.size(), threads);
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;
@@ -96,14 +111,12 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
     std::vector<std::size_t> ordering(G.size());
     begin = std::chrono::steady_clock::now();
 
-    Solver solver(G.size());
-
     switch (sorting_method) {
         case NO_SORT:
             std::iota(ordering.begin(), ordering.end(), 0);
             break;
         case NEW_SORT:
-            ordering = new_sort(G, solver);
+            ordering = new_sort(G, pool);
             G.change_order(ordering);
             break;
         case DEG_SORT:
@@ -111,7 +124,7 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
             G.change_order(ordering);
             break;
         case COLOUR_SORT:
-            ordering = colour_sort(G, solver).first;
+            ordering = colour_sort(G, pool).first;
             G.change_order(ordering);
             break;
         default:
@@ -122,8 +135,8 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
     auto begin_CliSAT = std::chrono::steady_clock::now();
     auto max_time = std::chrono::steady_clock::now() + time_limit;
 
-    std::vector<int> K_max;
-    std::vector<int> K;
+    solution<int> K_max;
+    fixed_vector<int> K(G.size());
 
     if (AMTS_enabled) {
         K_max = run_AMTS(G); // lb <- |K|    ->     AMTS Tabu search
@@ -203,7 +216,20 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
         auto old_pruned = pruned;
 
         K.push_back(i);
-        solver.FindMaxClique(G, K, K_max, P, B, u, max_time);
+
+        size_t local_u_idx = pool.borrow_u();
+        std::vector<int>& local_u = pool.get_u(local_u_idx);
+        for (int j = 0; j < u.size(); j++) local_u[j] = u[j];
+
+        size_t alpha_idx = pool.borrow_alpha();
+        fixed_vector<int>& alpha = pool.get_alpha(alpha_idx);
+
+        pool.submit(0, [local_u_idx, alpha_idx, &G, &K_max, &pool, &K, &local_u, max_time, &alpha](Solver& solver, const size_t sequence) {
+            solver.FindMaxClique(G, K, K_max, P, B, local_u, max_time, pool, sequence, alpha);
+            pool.give_back_u(local_u_idx);
+            pool.give_back_alpha(alpha_idx);
+        });
+        pool.wait_until_idle();
         K.pop_back();
 
         // u[i] = lb
@@ -218,7 +244,11 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
 
     std::cout << "Steps: " << steps << std::endl;
     std::cout << "Pruned: " << pruned << std::endl;
-    //std::cout << custom_bitset(K_max) << std::endl;
+
+    if (!is_clique(G, custom_bitset(std::vector<int>(K_max), G.size()))) {
+        std::cout << "Error: wrong solution (" << custom_bitset(std::vector<int>(G.convert_back_set(K_max, ordering))) << ")" << std::endl;
+        exit(1);
+    }
 
     return G.convert_back_set(K_max, ordering);
 }

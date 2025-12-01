@@ -62,6 +62,7 @@ public:
     [[nodiscard]] custom_graph get_complement() const;
     void complement();
     void change_order(const std::vector<size_type>& order);
+    void restore_order(const std::vector<size_type>& order);
     [[nodiscard]] size_type get_subgraph_edges(const custom_bitset &subset) const;
     [[nodiscard]] std::vector<size_type> get_subgraph_vertices_degree(const custom_bitset &subset) const;
 
@@ -310,6 +311,14 @@ inline void custom_graph::change_order(const std::vector<size_type> &order) {
             temp_pos = invalid;
         }
     }
+}
+
+inline void custom_graph::restore_order(const std::vector<size_type> &old_order) {
+    std::vector<size_type> order(size());
+    for (size_type i = 0; i < size(); ++i) {
+        order[old_order[i]] = i;
+    }
+    change_order(order);
 }
 
 inline custom_graph::size_type custom_graph::get_subgraph_edges(const custom_bitset &subset) const {

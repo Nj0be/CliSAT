@@ -6,13 +6,16 @@
 
 #include <cassert>
 #include <chrono>
-#include <stack>
+#include <functional>
 #include <iostream>
 
 #include "coloring.h"
 #include "custom_bitset.h"
 #include "custom_graph.h"
 #include "fixed_vector.h"
+#include "solution.h"
+#include "threadsafe_vector.h"
+#include "thread_pool.h"
 
 inline constexpr int NONE = -1;
 
@@ -25,7 +28,9 @@ enum SORTING_METHOD {
 
 class Solver {
 public:
-    explicit Solver(const size_t G_size) : ISs_mapping(G_size),
+    explicit Solver(
+        const size_t G_size
+    ) : ISs_mapping(G_size),
           ISs_size(G_size),
           ISs_state(G_size, true),
           ISs_involved(G_size),
@@ -47,18 +52,23 @@ public:
           nodes(G_size),
           nodes2(G_size),
           nodes3(G_size),
-          V_new(G_size) {}
+          V_new(G_size),
+          _color_class(G_size) {}
 
-    bool FindMaxClique(
+    void FindMaxClique(
         const custom_graph& G,  // graph
-        std::vector<int>& K,       // current branch
-        std::vector<int>& K_max,   // max branch
+        fixed_vector<int>& K,       // current branch
+        solution<int>& K_max,   // max branch
         custom_bitset& P_Bj,       // vertices set
-        custom_bitset& B,          // branching set
-        std::vector<int> u,        // incremental upper bounds
+        const custom_bitset& B,          // branching set
+        std::vector<int>& u,        // incremental upper bounds
         std::chrono::time_point<std::chrono::steady_clock> max_time,
-        const std::vector<int>& alpha = {},
-        bool is_k_partite = false
+        thread_pool<Solver>& pool,
+        size_t sequence,
+        const fixed_vector<int>& alpha,
+        bool is_k_partite = false,
+        const std::vector<custom_bitset>& ISs = {},
+        const std::vector<int>& color_class = {}
     );
 
 private:
@@ -84,6 +94,8 @@ private:
     custom_bitset nodes2;
     custom_bitset nodes3;
     custom_bitset V_new;
+    std::vector<int> _color_class;
+    std::vector<custom_bitset> _ISs;
 
     void identify_conflict_isets(
         int iset,
@@ -205,7 +217,7 @@ private:
         std::vector<custom_bitset>& ISs_t,
         const std::vector<int>& color_class,
         std::vector<int>& color_class_t,
-        const std::vector<int>& alpha,
+        const fixed_vector<int>& alpha,
         int k_max
     );
 
@@ -883,7 +895,7 @@ inline int Solver::FiltCOL(
     std::vector<custom_bitset>& ISs_t,
     const std::vector<int>& color_class,
     std::vector<int>& color_class_t,
-    const std::vector<int>& alpha,
+    const fixed_vector<int>& alpha,
     const int k_max
 ) {
     nodes = V;
@@ -974,35 +986,35 @@ inline bool Solver::FiltSAT(
     return test_by_eliminate_failed_nodes2(V, G, ISs, color_class, k_max-1);
 }
 
-inline bool Solver::FindMaxClique(
+inline void Solver::FindMaxClique(
     const custom_graph& G,  // graph
-    std::vector<int>& K,       // current branch
-    std::vector<int>& K_max,   // max branch
+    fixed_vector<int>& K,       // current branch
+    solution<int>& K_max,   // max branch
     custom_bitset& P_Bj, // vertices set
-    custom_bitset& B,       // branching set
-    std::vector<int> u, // incremental upper bounds,
+    const custom_bitset& B,       // branching set
+    std::vector<int>& u, // incremental upper bounds,
     const std::chrono::time_point<std::chrono::steady_clock> max_time,
-    const std::vector<int>& alpha, // incremental upper bounds,
-    const bool is_k_partite
+    thread_pool<Solver>& pool,
+    size_t sequence,
+    const fixed_vector<int>& alpha, // incremental upper bounds,
+    const bool is_k_partite,
+    const std::vector<custom_bitset>& ISs,
+    const std::vector<int>& color_class
 ) {
-    static std::vector ISs(K_max.size()+1, custom_bitset(G.size()));
-    static std::vector ISs_t(K_max.size()+1, custom_bitset(G.size()));
-    static std::vector<int> color_class(G.size());
-    static std::vector<int> color_class_t(G.size());
-    // bitset containing all elements of P and all elements of B up to j
-    static std::vector P_Bjs(K_max.size()+2, custom_bitset(G.size()));
-    static std::vector B_news(K_max.size()+1, custom_bitset(G.size()));
-
     steps++;
 
     // |K|+1 because we are yet to add the vertex to the current solution
     const int depth = K.size()+1;
 
-    while (ISs.size() <= K_max.size()) ISs.emplace_back(G.size());
+    while (_ISs.size() <= K_max.size()) _ISs.emplace_back(G.size());
 
-    for (const auto bi : B) {
+    for (auto bi : B) {
         if (std::chrono::steady_clock::now() > max_time) {
-            return false;
+            pool.stop_threads = true;
+            return;
+        }
+        if (pool.stop_threads) {
+            return;
         }
 
         const int lb = K_max.size();
@@ -1052,26 +1064,20 @@ inline bool Solver::FindMaxClique(
         custom_bitset::AND(V_new, P_Bj, G.get_neighbor_set(bi));
         int V_new_size = V_new.count();
 
-        // if we are in a leaf
-        if (V_new_size == 0) {
-            if (K.size()+1 > lb) {
-                // K_max = K U {bi}
-                K_max = K;
-                K_max.push_back(bi);
-                //std::cout << "Last incumbent: " << K_max.size() << std::endl;
-                if (ISs.size() <= K_max.size()) ISs.emplace_back(G.size());
-                ISs_t.emplace_back(G.size());
-                P_Bjs.emplace_back(G.size());
-                B_news.emplace_back(G.size());
-                // we can return because it's an incremental branching scheme, we can add only one vertex at a time
-                return true;
-            }
-            continue;
-        }
-
         u[bi] = std::min(u[bi], V_new_size+1);
         if (u[bi] + K.size() <= lb) {
             pruned++;
+            continue;
+        }
+
+        // if we are in a leaf
+        if (V_new_size == 0) {
+            if (K_max.update_solution(K, bi)) {
+                //std::cout << "Last incumbent: " << K_max.size() << std::endl;
+                // we can return because it's an incremental branching scheme, we can add only one vertex at a time
+                pool.stop_threads = true;
+                return;
+            }
             continue;
         }
 
@@ -1079,61 +1085,158 @@ inline bool Solver::FindMaxClique(
         u[bi] = k+1;
 
         int next_is_k_partite = is_k_partite;
-        std::vector<int> new_alpha;
+
+        size_t new_alpha_idx = pool.borrow_alpha();
+        fixed_vector<int>& new_alpha = pool.get_alpha(new_alpha_idx);
+
+        size_t B_new_idx = pool.borrow_bitset();
+        custom_bitset& B_new = pool.get_bitset(B_new_idx);
+        assert(B_new.size() == G.size());
 
         // if is a k+1 partite graph
         if (is_k_partite) {
-            const auto n_isets = FiltCOL(G, V_new, ISs, ISs_t, color_class, color_class_t, alpha, k+1);
+            const auto n_isets = FiltCOL(G, V_new, ISs, _ISs, color_class, _color_class, alpha, k+1);
             if (n_isets < k+1) {
                 u[bi] = n_isets+1;
+                pool.give_back_alpha(new_alpha_idx);
+                pool.give_back_bitset(B_new_idx);
                 continue;
             }
 
-            if (FiltSAT(G, V_new, ISs_t, color_class_t, k+1)) continue;
+            if (FiltSAT(G, V_new, _ISs, _color_class, k+1)) {
+                pool.give_back_alpha(new_alpha_idx);
+                pool.give_back_bitset(B_new_idx);
+                continue;
+            }
             new_alpha.resize(k+1);
             for (int i = 0; i < k+1; i++) {
-                new_alpha[i] = ISs_t[ISs_mapping[i]].back();
+                new_alpha[i] = _ISs[ISs_mapping[i]].back();
             }
-            B_news[depth] = ISs_t[k];
-            assert(B_news[depth].any());
+            B_new.copy_same_size(_ISs[k]);
+            assert(B_new.any());
         } else {
-            const auto n_isets = ISEQ_branching(G, V_new, ISs, color_class, k);
+            const auto n_isets = ISEQ_branching(G, V_new, _ISs, _color_class, k);
             if (n_isets < k+1) {
                 u[bi] = n_isets+1;
+                pool.give_back_alpha(new_alpha_idx);
+                pool.give_back_bitset(B_new_idx);
                 continue;
             }
-            assert(ISs[k].any());
+            assert(_ISs[k].any());
 
             //if (B_new.none()) continue;
-            if (is_IS(G, ISs[k])) {
+            if (is_IS(G, _ISs[k])) {
                 next_is_k_partite = true;
                 // if we could return here, huge gains... damn
-                if (FiltSAT(G, V_new, ISs, color_class, k+1)) continue;
+                if (FiltSAT(G, V_new, _ISs, _color_class, k+1)) {
+                    pool.give_back_alpha(new_alpha_idx);
+                    pool.give_back_bitset(B_new_idx);
+                    continue;
+                }
                 new_alpha.resize(k+1);
                 for (int i = 0; i < k+1; i++) {
-                    new_alpha[i] = ISs[i].back();
+                    new_alpha[i] = _ISs[i].back();
                 }
-                B_news[depth] = ISs[k];
+                B_new.copy_same_size(_ISs[k]);
             } else {
-                B_news[depth] = ISs[k];
-                if (SATCOL(G, B_news[depth], ISs, color_class, k)) continue;
+                B_new.copy_same_size(_ISs[k]);
+                if (SATCOL(G, B_new, _ISs, _color_class, k)) {
+                    pool.give_back_alpha(new_alpha_idx);
+                    pool.give_back_bitset(B_new_idx);
+                    continue;
+                }
             }
         }
 
         // at this point B is not empty
         K.push_back(bi);
-        custom_bitset::DIFF(P_Bjs[depth+1], V_new, B_news[depth]);
-        auto new_solution_found = FindMaxClique(G, K, K_max, P_Bjs[depth+1], B_news[depth], u, max_time, new_alpha, next_is_k_partite);
+        size_t new_P_Bj_idx = pool.borrow_bitset();
+        custom_bitset& new_P_Bj = pool.get_bitset(new_P_Bj_idx);
+        assert(new_P_Bj.size() == G.size());
+        custom_bitset::DIFF(new_P_Bj, V_new, B_new);
+
+        size_t local_u_idx = pool.borrow_u();
+        std::vector<int>& local_u = pool.get_u(local_u_idx);
+        for (int i = 0; i < u.size(); i++) local_u[i] = u[i];
+
+        /*
+        if (pool.is_queue_full()) {
+            size_t new_sequence = pool.get_new_sequence();
+            if (next_is_k_partite && color_class.empty()) {
+                size_t local_ISs_idx = pool.borrow_ISs();
+                std::vector<custom_bitset>& local_ISs = pool.get_ISs(local_ISs_idx);
+                while (local_ISs.size() <= K_max.size()) local_ISs.emplace_back(G.size());
+                std::swap(local_ISs, _ISs);
+
+                size_t local_color_class_idx = pool.borrow_color_class();
+                std::vector<int>& local_color_class = pool.get_color_class(local_color_class_idx);
+                std::swap(local_color_class, _color_class);
+
+                FindMaxClique(G, K, K_max, new_P_Bj, B_new, local_u, max_time, pool, new_sequence, new_alpha, next_is_k_partite, local_ISs, local_color_class);
+                pool.give_back_alpha(new_alpha_idx);
+                pool.give_back_bitset(B_new_idx);
+                pool.give_back_bitset(new_P_Bj_idx);
+                pool.give_back_ISs(local_ISs_idx);
+                pool.give_back_color_class(local_color_class_idx);
+                pool.give_back_u(local_u_idx);
+            } else {
+                FindMaxClique(G, K, K_max, new_P_Bj, B_new, local_u, max_time, pool, new_sequence, new_alpha, next_is_k_partite, ISs, color_class);
+                pool.give_back_alpha(new_alpha_idx);
+                pool.give_back_bitset(B_new_idx);
+                pool.give_back_bitset(new_P_Bj_idx);
+                pool.give_back_u(local_u_idx);
+            }
+        } else {
+        */
+        size_t local_K_idx = pool.borrow_K();
+        fixed_vector<int>& local_K = pool.get_K(local_K_idx);
+        local_K.resize(K.size());
+        for (int i = 0; i < K.size(); i++) local_K[i] = K[i];
+
+        if (next_is_k_partite) {
+            size_t local_ISs_idx = pool.borrow_ISs();
+            std::vector<custom_bitset>& local_ISs = pool.get_ISs(local_ISs_idx);
+            while (local_ISs.size() <= K_max.size()) local_ISs.emplace_back(G.size());
+            std::swap(local_ISs, _ISs);
+
+            size_t local_color_class_idx = pool.borrow_color_class();
+            std::vector<int>& local_color_class = pool.get_color_class(local_color_class_idx);
+            std::swap(local_color_class, _color_class);
+
+            pool.submit(depth, [new_alpha_idx, B_new_idx, new_P_Bj_idx, local_ISs_idx, local_color_class_idx, local_K_idx, local_u_idx, &G, &K_max, &new_P_Bj, &B_new, max_time, &pool, &new_alpha, next_is_k_partite, &local_ISs, &local_color_class, &local_K, &local_u](Solver& solver, size_t sequence) {
+                if (!pool.stop_threads) solver.FindMaxClique(G, local_K, K_max, new_P_Bj, B_new, local_u, max_time, pool, sequence, new_alpha, next_is_k_partite, local_ISs, local_color_class);
+                pool.give_back_alpha(new_alpha_idx);
+                pool.give_back_bitset(B_new_idx);
+                pool.give_back_bitset(new_P_Bj_idx);
+                pool.give_back_ISs(local_ISs_idx);
+                pool.give_back_color_class(local_color_class_idx);
+                pool.give_back_K(local_K_idx);
+                pool.give_back_u(local_u_idx);
+            });
+        } else {
+            pool.submit(depth, [new_alpha_idx, B_new_idx, new_P_Bj_idx, local_K_idx, local_u_idx, &G, &K_max, &new_P_Bj, &B_new, max_time, &pool, &new_alpha, next_is_k_partite, &local_K, &local_u](Solver& solver, size_t sequence) {
+                if (!pool.stop_threads) solver.FindMaxClique(G, local_K, K_max, new_P_Bj, B_new, local_u, max_time, pool, sequence, new_alpha, next_is_k_partite);
+                pool.give_back_alpha(new_alpha_idx);
+                pool.give_back_bitset(B_new_idx);
+                pool.give_back_bitset(new_P_Bj_idx);
+                pool.give_back_K(local_K_idx);
+                pool.give_back_u(local_u_idx);
+            });
+        }
+        //}
         K.pop_back();
-        if (new_solution_found) return true;
+
+        // to avoid task starvation
+        thread_pool<Solver>::Task task;
+        while (pool.is_queue_full() && pool.get_higher_priority_task(task, depth-1, sequence)) task.func(*this, task.sequence);
+
+        // if (new_solution_found) return true;
 
         // u[bi] cannot be lowered
         //u[bi] = std::min(u[bi], static_cast<int>(K_max.size() - K.size()));
     }
-
-    return false;
 }
 
-std::vector<int> CliSAT_no_sorting(const custom_graph& G, Solver& solver, const custom_bitset& Ubb, std::chrono::milliseconds time_limit);
+std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool<Solver>& pool, const custom_bitset& Ubb, std::chrono::milliseconds time_limit);
 
-std::vector<int> CliSAT(const std::string& filename, std::chrono::milliseconds time_limit, bool MISP, SORTING_METHOD sorting_method, bool AMTS_enabled = false);
+std::vector<int> CliSAT(const std::string& filename, std::chrono::milliseconds time_limit, bool MISP, SORTING_METHOD sorting_method, bool AMTS_enabled = false, const size_t threads = std::thread::hardware_concurrency());

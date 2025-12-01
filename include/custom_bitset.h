@@ -268,7 +268,9 @@ public:
     custom_bitset operator~() const;
     bool operator==(const custom_bitset& other) const;
     custom_bitset& operator=(const custom_bitset& other);
+    custom_bitset& copy_same_size(const custom_bitset& other);
     custom_bitset& operator=(custom_bitset&& other) noexcept;
+    custom_bitset& copy_same_size(custom_bitset&& other) noexcept;
 
     friend custom_bitset operator&(custom_bitset lhs, const custom_bitset& rhs);
     friend custom_bitset operator|(custom_bitset lhs, const custom_bitset& rhs);
@@ -646,6 +648,25 @@ inline bool custom_bitset::operator==(const custom_bitset &other) const {
 }
 
 inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
+    _bits.resize(other._bits.size());
+    _size = other.size();
+
+    // using this functions results in a call to memcpy, slower than manual loop
+    // few elements. -fno-tree-loop-distribute-patterns could resolve it
+    //instructions::memcpy<alignment>(_bits.data(), other._bits.data(), _bits.size());
+
+    const auto a = std::assume_aligned<alignment>(_bits.data());
+    const auto b = std::assume_aligned<alignment>(other._bits.data());
+
+    for (size_type i = 0; i < _bits.size(); ++i)
+        a[i] = b[i];
+
+    assert(count() == other.count());
+
+    return *this;
+}
+
+inline custom_bitset& custom_bitset::copy_same_size(const custom_bitset &other) {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
@@ -659,15 +680,25 @@ inline custom_bitset& custom_bitset::operator=(const custom_bitset &other) {
     for (size_type i = 0; i < _bits.size(); ++i)
         a[i] = b[i];
 
+    assert(count() == other.count());
+
     return *this;
 }
 
+
 inline custom_bitset& custom_bitset::operator=(custom_bitset&& other) noexcept {
+	_bits = std::move(other._bits);
+    _size = other._size;
+
+    return *this;
+}
+
+inline custom_bitset& custom_bitset::copy_same_size(custom_bitset&& other) noexcept {
     assert(size() == other.size());
     [[assume(size() == other.size())]];
 
-	//_size = other._size;
-	_bits = std::move(other._bits);
+    //_size = other._size;
+    _bits = std::move(other._bits);
 
     return *this;
 }

@@ -39,13 +39,13 @@ inline int ISEQ_branching(
 
     int k = 0;
 
-    ISs[k_max] = Ubb;
+    ISs[k_max].copy_same_size(Ubb);
 
     for (k = 0; k < k_max; ++k) {
         auto v = ISs[k_max].front();
         if (v == custom_bitset::npos) return k;
 
-        ISs[k] = ISs[k_max];
+        ISs[k].copy_same_size(ISs[k_max]);
 
         for (; v != custom_bitset::npos; v = ISs[k].next(v)) {
             // at most, we can remove vertices, so we don't need to start a new scan
@@ -64,25 +64,6 @@ inline int ISEQ_branching(
     }
 
     return k_max+1;
-}
-
-inline custom_bitset ISEQ_branching(
-    const custom_graph& G,
-    custom_bitset Ubb,
-    const int k_max
-) {
-    int k = 0;
-    static custom_bitset Qbb(G.size());
-
-    for (k = 0; k < k_max; ++k) {
-        Qbb = Ubb;
-        for (const auto v : Qbb) {
-            // at most, we can remove vertices, so we don't need to start a new scan
-            Qbb -= G.get_neighbor_set(v);
-            Ubb.reset(v);
-        }
-    }
-    return Ubb;
 }
 
 // methods that tries to create the largest number of independent sets
@@ -118,7 +99,7 @@ inline void ISEQ_one(
 }
 
 inline bool is_IS(
-    const custom_graph& g,
+    const custom_graph& G,
     const custom_bitset& Ubb
 ) {
     /*
@@ -127,5 +108,18 @@ inline bool is_IS(
     return true;
     */
     // every vertex of Ubb shouldn't be connected to any neighbors of other vertex of Ubb
-    return std::ranges::all_of(Ubb, [&g, &Ubb](auto v) { return !g.get_neighbor_set(v).intersects(Ubb); });
+    return std::ranges::all_of(Ubb, [&G, &Ubb](auto v) { return !G.get_neighbor_set(v).intersects(Ubb); });
+}
+
+inline bool is_clique(
+    const custom_graph& G,
+    const custom_bitset& Ubb
+) {
+    custom_bitset neighbors(G.size());
+    for (auto v : Ubb) {
+        neighbors.copy_same_size(G.get_neighbor_set(v));
+        neighbors.set(v);
+        if (!neighbors.is_superset_of(Ubb)) return false;
+    }
+    return true;
 }

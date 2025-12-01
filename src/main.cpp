@@ -23,6 +23,7 @@ struct options {
     // we set it to half the maximum rapresentable value in a steady_clock (nanoseconds), used for operations with program timer
     // if seconds or milliseconds would be used, an overflow would happen
     std::chrono::seconds time_limit = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::duration::max()/2);
+    size_t threads = std::thread::hardware_concurrency();
     SORTING_METHOD sorting_method = NEW_SORT;
     bool AMTS_enabled = false;
 };
@@ -53,8 +54,12 @@ int main(int argc, char *argv[]) {
             ->required();
 
         // 2) time_limit (seconds, non-negative)
-        cmd->add_option("-t, --time-limit", opts.time_limit, "Time limit in seconds")
+        cmd->add_option("-T, --time-limit", opts.time_limit, "Time limit in seconds")
             ->check(CLI::Range(0, std::numeric_limits<int>::max()));
+
+        // 3) threads
+        cmd->add_option("-t, --threads", opts.threads, "Time limit in seconds")
+            ->check(CLI::Range(size_t{0}, std::numeric_limits<size_t>::max()));
 
         // 4) sorting_method: 0..3
         cmd->add_option_function<std::string>("-s, --sorting", 
@@ -90,9 +95,9 @@ int main(int argc, char *argv[]) {
 
 
     if (*mcp) {
-        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, false, opts.sorting_method, opts.AMTS_enabled)) << std::endl;
+        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, false, opts.sorting_method, opts.AMTS_enabled, opts.threads)) << std::endl;
     } else if (*misp) {
-        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, true, opts.sorting_method, opts.AMTS_enabled)) << std::endl;
+        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.threads)) << std::endl;
     } else if (*nesting) {
         // std::cout << custom_bitset(CliSAT(opts.graph_filename, time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.constraints_filename)) << std::endl;
     }
