@@ -1239,4 +1239,4 @@ inline void Solver::FindMaxClique(
 
 std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool<Solver>& pool, const custom_bitset& Ubb, std::chrono::milliseconds time_limit);
 
-std::vector<int> CliSAT(const std::string& filename, std::chrono::milliseconds time_limit, bool MISP, SORTING_METHOD sorting_method, bool AMTS_enabled = false, const size_t threads = std::thread::hardware_concurrency());
+std::vector<int> CliSAT(const std::string& filename, std::chrono::milliseconds time_limit, const std::chrono::milliseconds cs_time_limit, bool MISP, SORTING_METHOD sorting_method, bool AMTS_enabled = false, const size_t threads = std::thread::hardware_concurrency());

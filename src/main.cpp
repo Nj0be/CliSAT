@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <CLI/CLI.hpp>
 
@@ -23,12 +24,19 @@ struct options {
     // we set it to half the maximum rapresentable value in a steady_clock (nanoseconds), used for operations with program timer
     // if seconds or milliseconds would be used, an overflow would happen
     std::chrono::seconds time_limit = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::duration::max()/2);
+    std::chrono::milliseconds cs_time_limit = std::chrono::milliseconds(50);
     size_t threads = std::thread::hardware_concurrency();
     SORTING_METHOD sorting_method = NEW_SORT;
     bool AMTS_enabled = false;
 };
 
 int main(int argc, char *argv[]) {
+    auto transform_time_limit = CLI::Validator(
+        [](std::string& input) {
+            if (input == "0") input = std::to_string(std::numeric_limits<int>::max());
+            return "";
+        }, "VALIDATOR DESCRIPTION", "Validator name");
+
     CLI::App app{"Algorithm for MCP/MISP", PROGRAM_NAME};
     //app.require_subcommand(1); // exactly one of mcp/misp/nesting
 
@@ -55,10 +63,16 @@ int main(int argc, char *argv[]) {
 
         // 2) time_limit (seconds, non-negative)
         cmd->add_option("-T, --time-limit", opts.time_limit, "Time limit in seconds")
-            ->check(CLI::Range(0, std::numeric_limits<int>::max()));
+            ->check(CLI::Range(0, std::numeric_limits<int>::max()))
+            ->transform(transform_time_limit);
+
+        // 2) time_limit colour sort (seconds, non-negative)
+        cmd->add_option("--cs-time-limit", opts.cs_time_limit, "Colour Sort Time limit in milliseconds")
+            ->check(CLI::Range(0, std::numeric_limits<int>::max()))
+            ->transform(transform_time_limit);
 
         // 3) threads
-        cmd->add_option("-t, --threads", opts.threads, "Time limit in seconds")
+        cmd->add_option("-t, --threads", opts.threads, "Number of threads")
             ->check(CLI::Range(size_t{0}, std::numeric_limits<size_t>::max()));
 
         // 4) sorting_method: 0..3
@@ -93,11 +107,10 @@ int main(int argc, char *argv[]) {
     argv = app.ensure_utf8(argv);
     CLI11_PARSE(app, argc, argv);
 
-
     if (*mcp) {
-        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, false, opts.sorting_method, opts.AMTS_enabled, opts.threads)) << std::endl;
+        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, opts.cs_time_limit, false, opts.sorting_method, opts.AMTS_enabled, opts.threads)) << std::endl;
     } else if (*misp) {
-        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.threads)) << std::endl;
+        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, opts.cs_time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.threads)) << std::endl;
     } else if (*nesting) {
         // std::cout << custom_bitset(CliSAT(opts.graph_filename, time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.constraints_filename)) << std::endl;
     }

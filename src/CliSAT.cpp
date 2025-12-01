@@ -99,7 +99,7 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool<Solver>& p
 //  - 1: NEW_SORT
 //  - 2: DEG_SORT
 //  - 3: COLOUR_SORT
-std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const bool MISP, const SORTING_METHOD sorting_method, const bool AMTS_enabled, const size_t threads) {
+std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const std::chrono::milliseconds cs_time_limit, const bool MISP, const SORTING_METHOD sorting_method, const bool AMTS_enabled, const size_t threads) {
     auto begin = std::chrono::steady_clock::now();
     custom_graph G = parse_dimacs_extended(filename, MISP);
     thread_pool<Solver> pool(G.size(), threads);
@@ -116,7 +116,7 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
             std::iota(ordering.begin(), ordering.end(), 0);
             break;
         case NEW_SORT:
-            ordering = new_sort(G, pool);
+            ordering = new_sort(G, pool, cs_time_limit);
             G.change_order(ordering);
             break;
         case DEG_SORT:
@@ -124,7 +124,7 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
             G.change_order(ordering);
             break;
         case COLOUR_SORT:
-            ordering = colour_sort(G, pool).first;
+            ordering = colour_sort(G, pool, cs_time_limit).first;
             G.change_order(ordering);
             break;
         default:
