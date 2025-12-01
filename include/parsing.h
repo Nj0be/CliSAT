@@ -44,6 +44,9 @@ inline custom_graph parse_dimacs_extended(const std::string& filename, const boo
             auto c = buf[i];
             if (c == '\r') continue;
             if (c == '\n') {
+                // avoid empty lines
+                if (first_char == true) continue;
+
                 first_char = true;
                 switch (line_type) {
                     case 'c':
@@ -135,20 +138,7 @@ inline custom_graph parse_dimacs_extended(const std::string& filename, const boo
                 continue;
             }
 
-            if (first_char) {
-                line_type = c;
-                if (line_type != 'c' && line_type != 'p' && line_type != 'e' && line_type != 'q') {
-                    std::cerr << "Error while parsing input file: invalid DIMACS/DIMACS_EXTENDED format" << std::endl;
-                    exit(1);
-                }
-                first_char = (c == '\n');
-                last_space_tab = false;
-                spaces = 0;
-                continue;
-            }
-
-            if (line_type == 'c') continue;
-
+            // skip spaces/tabs
             if ((c == ' ' || c == '\t')) {
                 if (!last_space_tab) {
                     switch(line_type) {
@@ -174,6 +164,21 @@ inline custom_graph parse_dimacs_extended(const std::string& filename, const boo
                 }
                 continue;
             }
+
+            if (first_char) {
+                line_type = c;
+                if (line_type != 'c' && line_type != 'p' && line_type != 'e' && line_type != 'q') {
+                    std::cerr << "Error while parsing input file: invalid DIMACS/DIMACS_EXTENDED format" << std::endl;
+                    exit(1);
+                }
+                //first_char = (c == '\n');
+                first_char = false;
+                last_space_tab = false;
+                spaces = 0;
+                continue;
+            }
+
+            if (line_type == 'c') continue;
 
             last_space_tab = false;
             if (line_type == 'p') {
