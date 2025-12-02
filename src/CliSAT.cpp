@@ -18,6 +18,7 @@
 #include "solution.h"
 
 
+// StackOverflow
 // Erases `count` lines, including the current line
 void eraseLines(int count) {
     if (count > 0) {

@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <memory>
 #include <functional>
+#include <atomic>
 
 template<typename T, typename Container = std::vector<T>, typename Compare = std::less<T>>
 class threadsafe_priority_queue {
@@ -43,20 +44,32 @@ public:
         data_cond.notify_one();
     }
 
-    // Wait until non-empty and pop
-    void wait_and_pop(T& value) {
-        std::unique_lock<std::mutex> lk(mut);
-        data_cond.wait(lk, [this]{ return !data_queue.empty(); });
+    void wake_all() {
+        std::lock_guard<std::mutex> lk(mut);
+        data_cond.notify_all();
+    }
 
+    // Wait until non-empty and pop
+    bool wait_and_pop(T& value, std::atomic_bool& done, const std::function<void()> &before_pop = {}) {
+        std::unique_lock<std::mutex> lk(mut);
+        data_cond.wait(lk, [&done, this]{ return !data_queue.empty() || done; });
+
+        if (done) return false;
+
+        if (before_pop) before_pop();
         value = std::move(const_cast<T&>(data_queue.top()));
         data_queue.pop();
+        return true;
     }
 
     // Wait until non-empty and pop (returns shared_ptr)
-    std::shared_ptr<T> wait_and_pop() {
+    std::shared_ptr<T> wait_and_pop(std::atomic_bool& done, const std::function<void()> &before_pop = {}) {
         std::unique_lock<std::mutex> lk(mut);
-        data_cond.wait(lk, [this]{ return !data_queue.empty(); });
+        data_cond.wait(lk, [&done, this]{ return !data_queue.empty() || done; });
+        
+        if (done) return nullptr;
 
+        if (before_pop) before_pop();
         auto res = std::make_shared<T>(std::move(const_cast<T&>(data_queue.top())));
         data_queue.pop();
         return res;

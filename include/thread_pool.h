@@ -60,22 +60,19 @@ private:
     void worker_thread() {
         T state = T(G_size);
 
-        while (!done) {
-            Task task;
-            // we set thread to work before popping
-            // important, we could quit before finishing if we don't set thread_working!
-            if (work_queue.try_pop(task, [this]() {
-                ++threads_working;
-            })) {
-                task.func(state, task.sequence);
-                --threads_working;
+        Task task;
 
-                if (!working()) {
-                    std::lock_guard lg(work_done_m);
-                    work_done_cv.notify_all();
-                }
-            } else {
-                std::this_thread::yield();
+        // we set thread to work before popping
+        // important, we could quit before finishing if we don't set thread_working!
+        while (work_queue.wait_and_pop(task, done, [this]() {
+            ++threads_working;
+        })) {
+            task.func(state, task.sequence);
+            --threads_working;
+
+            if (!working()) {
+                std::lock_guard lg(work_done_m);
+                work_done_cv.notify_all();
             }
         }
     }
@@ -100,6 +97,7 @@ public:
 
     ~thread_pool() {
         done = true;
+        work_queue.wake_all();
     }
 
     bool get_task(Task& task) {
