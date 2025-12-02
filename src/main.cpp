@@ -28,6 +28,7 @@ struct options {
     size_t threads = std::thread::hardware_concurrency();
     SORTING_METHOD sorting_method = NEW_SORT;
     bool AMTS_enabled = false;
+    bool verbose = false;
 };
 
 int main(int argc, char *argv[]) {
@@ -90,6 +91,8 @@ int main(int argc, char *argv[]) {
         // 5) AMTS_enabled: 0 or 1
         cmd->add_option("-a, --amts", opts.AMTS_enabled, "AMTS enabled: 0-disabled, 1-enabled")
             ->check(CLI::Range(0, 1));
+
+        cmd->add_flag("-v, --verbose", opts.verbose, "Verbose logging");
     }
 
     // Only nesting has constraints; make them required there
@@ -108,9 +111,9 @@ int main(int argc, char *argv[]) {
     CLI11_PARSE(app, argc, argv);
 
     if (*mcp) {
-        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, opts.cs_time_limit, false, opts.sorting_method, opts.AMTS_enabled, opts.threads)) << std::endl;
+        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, opts.cs_time_limit, false, opts.sorting_method, opts.AMTS_enabled, opts.threads, opts.verbose)) << std::endl;
     } else if (*misp) {
-        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, opts.cs_time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.threads)) << std::endl;
+        std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, opts.cs_time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.threads, opts.verbose)) << std::endl;
     } else if (*nesting) {
         // std::cout << custom_bitset(CliSAT(opts.graph_filename, time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.constraints_filename)) << std::endl;
     }

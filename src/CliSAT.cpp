@@ -17,6 +17,21 @@
 #include "parsing.h"
 #include "solution.h"
 
+
+// Erases `count` lines, including the current line
+void eraseLines(int count) {
+    if (count > 0) {
+        std::cout << "\x1b[2K"; // Delete current line
+        // i=1 because we included the first line
+        for (int i = 1; i < count; i++) {
+            std::cout
+            << "\x1b[1A" // Move cursor up one
+            << "\x1b[2K"; // Delete the entire line
+        }
+        std::cout << "\r"; // Resume the cursor at beginning of line
+    }
+}
+
 std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool<Solver>& pool, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     auto max_time = std::chrono::steady_clock::now() + time_limit;
@@ -99,7 +114,16 @@ std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool<Solver>& p
 //  - 1: NEW_SORT
 //  - 2: DEG_SORT
 //  - 3: COLOUR_SORT
-std::vector<int> CliSAT(const std::string& filename, const std::chrono::milliseconds time_limit, const std::chrono::milliseconds cs_time_limit, const bool MISP, const SORTING_METHOD sorting_method, const bool AMTS_enabled, const size_t threads) {
+std::vector<int> CliSAT(
+    const std::string& filename,
+    const std::chrono::milliseconds time_limit,
+    const std::chrono::milliseconds cs_time_limit,
+    const bool MISP,
+    const SORTING_METHOD sorting_method,
+    const bool AMTS_enabled,
+    const size_t threads,
+    const bool verbose
+) {
     auto begin = std::chrono::steady_clock::now();
     custom_graph G = parse_dimacs_extended(filename, MISP);
     thread_pool<Solver> pool(G.size(), threads);
@@ -186,9 +210,12 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
     steps = 0;
     pruned = 0;
 
+    bool delete_last = false;
+
     for (std::size_t i = lb; i < G.size(); ++i) {
         if (std::chrono::steady_clock::now() > max_time) {
             std::cout << "Exit on timeout" << std::endl;
+            delete_last = false;
             break;
         }
 
@@ -199,21 +226,22 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
         custom_bitset::BEFORE(B, G.get_neighbor_set(i), i);
         P.reset();
 
-        lb = K_max.size();
+        //lb = K_max.size();
 
         // we pruned first lb vertices of V (they can't improve the solution on they own)
         // if we set count to zero, we can't possibly improve the solution because the B set can become empty even tough
         // it should be possible to improve, lb vertices + 1 from k, but we remove every one from the lb ones
         auto count = 1;
         for (const auto v : B) {
-            if (count == lb) break;
+            // if count == lower_bound
+            if (count == K_max.size()) break;
             B.reset(v);
             P.set(v);
             count++;
         }
 
-        auto old_steps = steps;
-        auto old_pruned = pruned;
+        uint64_t old_steps = steps;
+        uint64_t old_pruned = pruned;
 
         K.push_back(i);
 
@@ -236,9 +264,15 @@ std::vector<int> CliSAT(const std::string& filename, const std::chrono::millisec
         u[i] = K_max.size();
 
         end = std::chrono::steady_clock::now();
-        // std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
+
+        // don't delete first line
+        if (delete_last && !verbose) eraseLines(2);
         std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, G.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
+        delete_last = true;
+        // std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
     }
+    if (delete_last && !verbose) eraseLines(2);
+
     auto end_CliSAT = std::chrono::steady_clock::now();
     std::cout << "Branching time: " << std::chrono::duration<double, std::chrono::seconds::period>(end_CliSAT - begin_CliSAT).count() << " [s]" << std::endl;
 
