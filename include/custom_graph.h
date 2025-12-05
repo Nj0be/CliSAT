@@ -55,6 +55,7 @@ public:
     [[nodiscard]] size_type complement_vertex_degree(size_type v) const;
     [[nodiscard]] size_type adjacent(size_type u, size_type v) const;
     [[nodiscard]] float get_density() const noexcept;
+    [[nodiscard]] size_type get_degeneracy() const noexcept;
 
     [[nodiscard]] std::vector<size_type> convert_back_set(const std::vector<size_type> &v, const std::vector<size_type> &ordering) const;
     [[nodiscard]] std::vector<int> convert_back_set(const std::vector<int> &v, const std::vector<size_type> &ordering) const;
@@ -211,6 +212,49 @@ inline custom_graph::size_type custom_graph::adjacent(const size_type u, const s
 inline float custom_graph::get_density() const noexcept {
     return 2.0f * static_cast<float>(get_n_edges()) /
            (static_cast<float>(size()) * static_cast<float>(size() - 1));
+}
+
+// Is the same as the k-core
+inline custom_graph::size_type custom_graph::get_degeneracy() const noexcept {
+    std::vector<std::size_t> vertices(size());
+    std::vector<std::size_t> degrees(size());
+    custom_bitset is_node_processed(size());
+    std::iota(vertices.begin(), vertices.end(), 0);
+
+    std::size_t max = 0;
+
+    for (std::size_t i = 0; i < size(); i++) {
+        degrees[i] = _graph[i].count();
+    }
+
+    std::vector<std::size_t> degrees_orig = degrees;
+
+    custom_bitset neighbors_min(size());
+
+    for (std::ptrdiff_t i = _graph.size()-1; i > 0; i--) {
+        auto min_idx = 0;
+        for (int j = 1; j <= i; j++) {
+            const auto node = vertices[j];
+            const auto v_min = vertices[min_idx];
+
+            if (degrees[node] < degrees[v_min]) min_idx = j;
+        }
+
+        const auto min = vertices[min_idx];
+
+        max = std::max(max, degrees[min]);
+
+        is_node_processed.set(min);
+        custom_bitset::DIFF(neighbors_min, _graph[min], is_node_processed);
+        for (auto v : neighbors_min) {
+            // update neigh_degree (we are going to remove v_min)
+            degrees[v]--;
+        }
+
+        std::swap(vertices[min_idx], vertices[i]);
+    }
+
+    return max;
 }
 
 inline std::vector<custom_graph::size_type> custom_graph::convert_back_set(const std::vector<size_type> &v, const std::vector<size_type> &ordering) const {
