@@ -8,6 +8,7 @@
 #include <print>
 #include <iostream>
 #include <numeric>
+#include <random>
 
 #include "custom_graph.h"
 #include "custom_bitset.h"
@@ -152,6 +153,19 @@ std::vector<int> CliSAT(
             ordering = colour_sort(G, pool, cs_time_limit).first;
             G.change_order(ordering);
             break;
+        case RANDOM_SORT:
+            std::iota(ordering.begin(), ordering.end(), 0);
+            {
+                std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+                std::shuffle(ordering.begin(), ordering.end(), rng);
+            }
+
+            std::cout << "ordering: [";
+            for (int i = 0; i < ordering.size()-1; i++) std::cout << ordering[i] << ", ";
+            std::cout << ordering.back() << "]" << std::endl;
+
+            G.change_order(ordering);
+            break;
         default:
             return {};
             break;
@@ -268,7 +282,12 @@ std::vector<int> CliSAT(
 
         // don't delete first line
         if (delete_last && !verbose) eraseLines(2);
-        std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, G.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
+        std::print("{}/{} (max {}) {}ms -> {} steps {} pruned (total: {} [s])\n",
+                   i+1, G.size(), K_max.size(),
+                   std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(),
+                   steps-old_steps, pruned-old_pruned,
+                   std::chrono::duration<double, std::chrono::seconds::period>(std::chrono::steady_clock::now() - begin_CliSAT).count()
+        );
         delete_last = true;
         // std::print("{}/{} (max {}) {}ms -> {} steps {} pruned\n", i+1, g.size(), K_max.size(), std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count(), steps-old_steps, pruned-old_pruned);
     }

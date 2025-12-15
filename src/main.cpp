@@ -83,7 +83,8 @@ int main(int argc, char *argv[]) {
                             else if (sorting_method == "NEW_SORT") opts.sorting_method = NEW_SORT;
                             else if (sorting_method == "DEG_SORT") opts.sorting_method = DEG_SORT;
                             else if (sorting_method == "COLOUR_SORT") opts.sorting_method = COLOUR_SORT;
-                            else throw CLI::ValidationError("--sorting must be one of { NO_SORT, NEW_SORT, DEG_SORT, COLOUR_SORT }");
+                            else if (sorting_method == "RANDOM_SORT") opts.sorting_method = RANDOM_SORT;
+                            else throw CLI::ValidationError("--sorting must be one of { NO_SORT, NEW_SORT, DEG_SORT, COLOUR_SORT, RANDOM_SORT }");
                         },
                        "Sorting method: 0-none, 1-auto(NEW_SORT), 2-DEG_SORT, 3-COLOUR_SORT");
             //->check(CLI::IsMember({"NO_SORT", "NEW_SORT", "DEG_SORT", "COLOUR_SORT"}));

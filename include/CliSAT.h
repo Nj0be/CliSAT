@@ -23,7 +23,8 @@ enum SORTING_METHOD {
     NO_SORT,
     NEW_SORT,
     DEG_SORT,
-    COLOUR_SORT
+    COLOUR_SORT,
+    RANDOM_SORT
 };
 
 class Solver {
