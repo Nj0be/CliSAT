@@ -17,12 +17,14 @@ mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 ```
-use `cmake -DCMAKE_BUILD_TYPE=Debug ..` for Debug builds.
+use `cmake -DCMAKE_BUILD_TYPE=Debug ..` for Debug builds (on linux).
 
-Then to build the executable run
-```
-cmake --build .
-```
+Then to build the executable run:
+ - on Linux -> `cmake --build .`
+   The binary is located in the following path: `build/CliSAT`
+ - on Windows -> `cmake --build . —-config Release`. The binary is located in the following path: `build/Release/CliSAT.exe`
+   
+   For debug mode use `cmake --build . —-config Release`. The binary is located in the following path: `build/Debug/CliSAT.exe`
 ## Usage
 Run CliSAT specifying as the first argument the type of problem to resolve. Currently, CliSAT can solve Maximum Clique Problems and Maximum Independent Set Problems.
 
@@ -51,6 +53,10 @@ To enable AMTS use `--amts BOOLEAN`
 
 To enable verbose loggin use `--verbose`
 
-Example:
+# Examples
 
-`./CliSAT mcp --graph ../examples/C250.9.clq --sorting DEG_SORT`
+From the root directory.
+
+Linux -> `./build/CliSAT mcp --graph examples/C250.9.clq --sorting DEG_SORT`
+
+Windows -> `build\Release\CliSAT.exe mcp --graph examples/C250.9.clq --sorting DEG_SORT`
