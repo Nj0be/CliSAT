@@ -21,3 +21,34 @@ Then to build the executable run
 ```
 cmake --build .
 ```
+## Usage
+Run CliSAT specifying as the first argument the type of problem to resolve. Currently, CliSAT can solve Maximum Clique Problems and Maximum Independent Set Problems.
+
+To solve MCP use `CliSAT mcp`.
+
+To solve MISP use `CliSAT misp`.
+
+To specify the graph file (DIMACS/MTX formats) use `--graph filename`.
+
+To specify a sorting method use `--sorting SORTING_METHOD`.
+
+There are 5 sorting methods:
+ - NO_SORT -> no sorting is applied
+ - DEG_SORT
+ - COLOUR_SORT
+ - NEW_SORT -> (default) decides automatically between DEG_SORT and COLOUR_SORT
+ - RANDOM_SORT -> nodes are ordered in a random fashion
+
+To apply a time limit use `--time-limit SECONDS`
+
+To apply a time limit to the colour_sort procedure use `--cs-time-limit SECONDS`
+
+To change thread count use `--threads THREAD_COUNT`
+
+To enable AMTS use `--amts BOOLEAN`
+
+To enable verbose loggin use `--verbose`
+
+Example:
+
+`./CliSAT mcp --graph C250.9.clq --sorting DEG_SORT`
