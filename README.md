@@ -3,6 +3,8 @@ Implementation of CliSAT algorithm. ([paper](https://doi.org/10.1016/j.ejor.2022
 ## Building
 This project uses CMake for building the binaries.
 
+This project requires a compiler compatible with the C++23 feature set.
+
 To build the project first clone the repository and pull all the submodules:
 ```
 git clone https://github.com/Nj0be/CliSAT
