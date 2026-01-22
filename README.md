@@ -51,4 +51,4 @@ To enable verbose loggin use `--verbose`
 
 Example:
 
-`./CliSAT mcp --graph C250.9.clq --sorting DEG_SORT`
+`./CliSAT mcp --graph ../examples/C250.9.clq --sorting DEG_SORT`
