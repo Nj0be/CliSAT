@@ -24,7 +24,7 @@ Then to build the executable run:
    The binary is located in the following path: `build/CliSAT`
  - on Windows -> `cmake --build . --config Release`. The binary is located in the following path: `build/Release/CliSAT.exe`
    
-   For debug mode use `cmake --build . --config Release`. The binary is located in the following path: `build/Debug/CliSAT.exe`
+   For debug mode use `cmake --build . --config Debug`. The binary is located in the following path: `build/Debug/CliSAT.exe`
 ## Usage
 Run CliSAT specifying as the first argument the type of problem to resolve. Currently, CliSAT can solve Maximum Clique Problems and Maximum Independent Set Problems.
 
