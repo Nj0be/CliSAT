@@ -11,6 +11,7 @@
 #include "CliSAT.h"
 #include "custom_bitset.h"
 #include "custom_graph.h"
+#include "parsing.h"
 
 const inline std::string PROGRAM_NAME = "CliSAT";
 
@@ -29,6 +30,7 @@ struct options {
     SORTING_METHOD sorting_method = NEW_SORT;
     bool AMTS_enabled = false;
     bool verbose = false;
+    bool complementary = false;
 };
 
 int main(int argc, char *argv[]) {
@@ -55,6 +57,9 @@ int main(int argc, char *argv[]) {
 
     auto nesting = app.add_subcommand("nesting", "Nesting with extra constraints");
     nesting->alias("n");
+
+    auto info = app.add_subcommand("info", "Graph info");
+    nesting->alias("d");
 
     for (auto cmd : {mcp, misp, nesting}) {
         // 1) filename (must exist)
@@ -102,6 +107,14 @@ int main(int argc, char *argv[]) {
            ->check(CLI::ExistingFile)
            ->required();
 
+    info->add_option("-g, --graph", opts.graph_filename, "Input graph file (DIMACS/EXTENDED)")
+        ->check(CLI::ExistingFile)
+        ->required();
+
+
+    info->add_option("-c, --complementary", opts.complementary, "Complementary graph: 0-disabled, 1-enabled")
+        ->check(CLI::Range(0, 1));
+
     if (argc == 1) {
         std::cout << app.help() << std::endl;
         return 0;
@@ -117,6 +130,9 @@ int main(int argc, char *argv[]) {
         std::cout << custom_bitset(CliSAT(opts.graph_filename, opts.time_limit, opts.cs_time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.threads, opts.verbose)) << std::endl;
     } else if (*nesting) {
         // std::cout << custom_bitset(CliSAT(opts.graph_filename, time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.constraints_filename)) << std::endl;
+    } else if (*info) {
+        custom_graph G = parse_graph(opts.graph_filename, opts.complementary);
+        std::cout << "N: " << G.size() << std::endl << "M: " << G.get_n_edges() << std::endl << "D: " << G.get_density() << std::endl << "d: " << G.get_degeneracy() << std::endl;
     }
 
     return 0;
