@@ -56,6 +56,7 @@ public:
     [[nodiscard]] size_type adjacent(size_type u, size_type v) const;
     [[nodiscard]] float get_density() const noexcept;
     [[nodiscard]] size_type get_degeneracy() const noexcept;
+    [[nodiscard]] size_type get_max_degree() const noexcept;
 
     [[nodiscard]] std::vector<size_type> convert_back_set(const std::vector<size_type> &v, const std::vector<size_type> &ordering) const;
     [[nodiscard]] std::vector<int> convert_back_set(const std::vector<int> &v, const std::vector<size_type> &ordering) const;
@@ -252,6 +253,16 @@ inline custom_graph::size_type custom_graph::get_degeneracy() const noexcept {
         }
 
         std::swap(vertices[min_idx], vertices[i]);
+    }
+
+    return max;
+}
+
+inline custom_graph::size_type custom_graph::get_max_degree() const noexcept {
+    size_type max = 0;
+
+    for (auto node : _graph) {
+        max = std::max(max, node.count());
     }
 
     return max;

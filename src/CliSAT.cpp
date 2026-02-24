@@ -128,7 +128,7 @@ std::vector<int> CliSAT(
 ) {
     auto begin = std::chrono::steady_clock::now();
     custom_graph G = parse_graph(filename, MISP);
-    std::cout << "N: " << G.size() << " M: " << G.get_n_edges() << " D: " << G.get_density() << " d: " << G.get_degeneracy() << std::endl;
+    std::cout << "N: " << G.size() << " M: " << G.get_n_edges() << " D: " << G.get_density() << " d: " << G.get_degeneracy() << " max degree: " << G.get_max_degree() << std::endl;
     thread_pool<Solver> pool(G.size(), threads);
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
