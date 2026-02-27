@@ -310,13 +310,20 @@ inline custom_graph::size_type custom_graph::get_community_degeneracy() const no
                 while ((u = next_node.fetch_add(1, std::memory_order_relaxed)) < n) {
                     size_t edge = incremental_count[u];
                     for (auto v = _graph[u].next(u); v != custom_bitset::npos; v = _graph[u].next(v)) {
-                        if (delta[edge] < k) {
-                            delta[edge] = std::numeric_limits<int>::max();
-                            community_degeneracy = k-1;
-                            if (--remaining == 0) pool.clear_queue();
-                            else pool.submit([u, v, k, &incremental_count, &delta, &pool, &remaining, this] {
-                                community_degeneracy_update(u, v, k, incremental_count, delta, pool, remaining);
-                            });
+                        unsigned int d = delta[edge].load(std::memory_order_relaxed);
+
+                        constexpr unsigned int CLAIMED = std::numeric_limits<unsigned int>::max();
+                        // Compare-And-Swap loop ensures thread safety.
+                        // Notice that if d == CLAIMED, it's greater than k, so it skips cleanly.
+                        while (d < k) {
+                            if (delta[edge].compare_exchange_weak(d, CLAIMED, std::memory_order_relaxed)) {
+                                delta[edge] = std::numeric_limits<int>::max();
+                                community_degeneracy = k-1;
+                                if (--remaining == 0) pool.clear_queue();
+                                else pool.submit([u, v, k, &incremental_count, &delta, &pool, &remaining, this] {
+                                    community_degeneracy_update(u, v, k, incremental_count, delta, pool, remaining);
+                                });
+                            }
                         }
                         edge++;
                     }
@@ -333,6 +340,29 @@ inline custom_graph::size_type custom_graph::get_community_degeneracy() const no
 inline void custom_graph::community_degeneracy_update(int u, int v, const size_t k, const std::vector<unsigned long long>& incremental_count, std::vector<std::atomic<unsigned int>>& delta, thread_pool& pool, std::atomic<size_type>& remaining) const noexcept {
     if (_graph[u].count() > _graph[v].count()) std::swap(u, v);
 
+    constexpr unsigned int CLAIMED = std::numeric_limits<unsigned int>::max();
+
+    // Helper lambda to safely decrement or claim the edge using CAS
+    auto update_edge = [&](size_t idx, int node1, int node2) {
+        unsigned int d = delta[idx].load(std::memory_order_relaxed);
+        while (true) {
+            if (d == CLAIMED) break; // Edge is already claimed
+
+            // If d <= k, decrementing it would drop it to the claim threshold,
+            // OR it's already below it. Claim it immediately so no edge is left behind!
+            if (d <= k) {
+                if (delta[idx].compare_exchange_weak(d, CLAIMED, std::memory_order_relaxed)) {
+                    if (--remaining == 0) pool.clear_queue();
+                    else pool.submit([node1, node2, k, &incremental_count, &delta, &pool, &remaining, this] {
+                        community_degeneracy_update(node1, node2, k, incremental_count, delta, pool, remaining);
+                    });
+                    break;
+                }
+            // Safely decrement its triangle count by 1
+            } else if (delta[idx].compare_exchange_weak(d, d - 1, std::memory_order_relaxed)) break;
+        }
+    };
+
     for (auto w : _graph[u]) {
         if (!_graph[v][w]) continue;
 
@@ -342,20 +372,8 @@ inline void custom_graph::community_degeneracy_update(int u, int v, const size_t
         if (v < w) vw_index = incremental_count[v] + _graph[v].count(v+1, w);
         else vw_index = incremental_count[w] + _graph[w].count(w+1, v);
 
-        if (--delta[uw_index] == k-1) {
-            delta[uw_index] = std::numeric_limits<int>::max();
-            if (--remaining == 0) pool.clear_queue();
-            else pool.submit([u, w, k, &incremental_count, &delta, &pool, &remaining, this] {
-                community_degeneracy_update(u, w, k, incremental_count, delta, pool, remaining);
-            });
-        }
-        if (--delta[vw_index] == k-1) {
-            delta[vw_index] = std::numeric_limits<int>::max();
-            if (--remaining == 0) pool.clear_queue();
-            else pool.submit([v, w, k, &incremental_count, &delta, &pool, &remaining, this] {
-                community_degeneracy_update(v, w, k, incremental_count, delta, pool, remaining);
-            });
-        }
+        update_edge(uw_index, u, w);
+        update_edge(vw_index, v, w);
     }
 }
 
