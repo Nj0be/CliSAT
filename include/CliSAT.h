@@ -64,7 +64,7 @@ public:
         const custom_bitset& B,          // branching set
         std::vector<int>& u,        // incremental upper bounds
         std::chrono::time_point<std::chrono::steady_clock> max_time,
-        thread_pool<Solver>& pool,
+        thread_pool_CliSAT<Solver>& pool,
         size_t sequence,
         const fixed_vector<int>& alpha,
         bool is_k_partite = false,
@@ -995,7 +995,7 @@ inline void Solver::FindMaxClique(
     const custom_bitset& B,       // branching set
     std::vector<int>& u, // incremental upper bounds,
     const std::chrono::time_point<std::chrono::steady_clock> max_time,
-    thread_pool<Solver>& pool,
+    thread_pool_CliSAT<Solver>& pool,
     size_t sequence,
     const fixed_vector<int>& alpha, // incremental upper bounds,
     const bool is_k_partite,
@@ -1228,7 +1228,7 @@ inline void Solver::FindMaxClique(
         K.pop_back();
 
         // to avoid task starvation
-        thread_pool<Solver>::Task task;
+        thread_pool_CliSAT<Solver>::Task task;
         while (pool.is_queue_full() && pool.get_higher_priority_task(task, depth-1, sequence)) task.func(*this, task.sequence);
 
         // if (new_solution_found) return true;
@@ -1238,7 +1238,7 @@ inline void Solver::FindMaxClique(
     }
 }
 
-std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool<Solver>& pool, const custom_bitset& Ubb, std::chrono::milliseconds time_limit);
+std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool_CliSAT<Solver>& pool, const custom_bitset& Ubb, std::chrono::milliseconds time_limit);
 
 std::vector<int> CliSAT(
     const std::string& filename,

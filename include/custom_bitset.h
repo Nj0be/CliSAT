@@ -394,6 +394,10 @@ public:
 
     [[nodiscard]] size_type size() const noexcept { return _size; }
     [[nodiscard]] size_type count() const noexcept;
+    [[nodiscard]] size_type count(const reference& end) const noexcept;
+    [[nodiscard]] size_type count(const size_type end_pos) const noexcept;
+    [[nodiscard]] size_type count(const reference& start, const reference& end) const noexcept;
+    [[nodiscard]] size_type count(const size_type start_pos, const size_type end_pos) const noexcept;
 
     void swap(custom_bitset& other) noexcept;
 
@@ -1461,6 +1465,45 @@ inline void custom_bitset::flip() noexcept {
 
 inline custom_bitset::size_type custom_bitset::count() const noexcept {
     return instructions::popcount<alignment>(_bits.data(), _bits.size());
+}
+
+inline custom_bitset::size_type custom_bitset::count(const reference& end) const noexcept {
+    assert(end <= size());
+    [[assume(end <= size())]];
+
+    std::size_t sum = 0;
+
+    sum += instructions::popcount<alignment>(_bits.data(), 0, end.block);
+    sum += std::popcount(_bits[end.block] & below_mask(end.bit));
+
+    return sum;
+}
+
+inline custom_bitset::size_type custom_bitset::count(const size_type end_pos) const noexcept {
+    return count(reference(end_pos));
+}
+
+inline custom_bitset::size_type custom_bitset::count(const reference& start, const reference& end) const noexcept {
+    assert(start < size());
+    assert(end <= size());
+    [[assume(start < size())]];
+    [[assume(end <= size())]];
+
+    if (start.block == end.block) {
+        return std::popcount(_bits[start.block] & from_mask(start.bit) & below_mask(end.bit));
+    }
+
+    std::size_t sum = 0;
+
+    sum += std::popcount(_bits[start.block] & from_mask(start.bit));
+    sum += instructions::popcount<alignment>(_bits.data(), start.block+1, end.block);
+    sum += std::popcount(_bits[end.block] & below_mask(end.bit));
+
+    return sum;
+}
+
+inline custom_bitset::size_type custom_bitset::count(const size_type start_pos, const size_type end_pos) const noexcept {
+    return count(reference(start_pos), reference(end_pos));
 }
 
 inline void custom_bitset::swap(custom_bitset &other) noexcept {

@@ -210,6 +210,30 @@ namespace instructions {
     }
 
     template <std::size_t alignment, std::unsigned_integral T>
+    std::size_t popcount(const T* src, const std::size_t start, const std::size_t end) noexcept {
+        src = std::assume_aligned<alignment>(src);
+
+        std::size_t sum = 0;
+
+        /*
+        if (cpu_supports.popcnt)
+            for (std::size_t i = 0; i < n; ++i)
+                sum += popcnt64_hw(src[i]);
+        else
+            for (std::size_t i = 0; i < n; ++i)
+                sum += popcnt64_sw(src[i]);
+        */
+       
+        // faster thanks to branch prediction...
+        // no need to inline two different loops
+        for (std::size_t i = start; i < end; ++i) {
+            sum += popcount(src[i]);
+        }
+
+        return sum;
+    }
+
+    template <std::size_t alignment, std::unsigned_integral T>
     std::size_t popcount(const T* src, const std::size_t n) noexcept {
         src = std::assume_aligned<alignment>(src);
 

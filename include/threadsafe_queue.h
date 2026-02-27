@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <queue>
+#include <functional>
 
 template<typename T>
 class threadsafe_queue {
@@ -14,7 +15,7 @@ class threadsafe_queue {
     std::condition_variable data_cond;
 
 public:
-    threadsafe_queue() {}
+    threadsafe_queue() = default;
 
     threadsafe_queue(const threadsafe_queue& other) {
         std::lock_guard<std::mutex> lk(other.mut); // lock source
@@ -41,6 +42,12 @@ public:
         data_cond.notify_one();
     }
 
+    void wake_all() {
+        std::lock_guard<std::mutex> lk(mut);
+        data_cond.notify_all();
+    }
+
+
     void wait_and_pop(T& value) {
         std::unique_lock<std::mutex> lk(mut);
         data_cond.wait(lk, [this]{ return !data_queue.empty(); });
@@ -54,6 +61,19 @@ public:
         std::shared_ptr<T> res(std::make_shared<T>(std::move(data_queue.front())));
         data_queue.pop();
         return res;
+    }
+
+    // Wait until non-empty and pop
+    bool wait_and_pop(T& value, std::atomic_bool& done, bool& paused, const std::function<void()> &before_pop = {}) {
+        std::unique_lock<std::mutex> lk(mut);
+        data_cond.wait(lk, [&done, &paused, this]{ return ( !data_queue.empty() && !paused ) || done; });
+
+        if (done) return false;
+
+        if (before_pop) before_pop();
+        value = std::move(const_cast<T&>(data_queue.front()));
+        data_queue.pop();
+        return true;
     }
 
     bool try_pop(T& value, const std::function<void()> &before_pop = {}) {
@@ -79,12 +99,18 @@ public:
     }
 
     bool empty() const {
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         return data_queue.empty();
     }
 
     size_t size() const {
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         return data_queue.size();
+    }
+
+    void clear() {
+        std::lock_guard lk(mut);
+        std::queue<T> empty;
+        std::swap( data_queue, empty );
     }
 };

@@ -34,7 +34,7 @@ void eraseLines(int count) {
     }
 }
 
-std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool<Solver>& pool, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
+std::vector<int> CliSAT_no_sorting(const custom_graph& G, thread_pool_CliSAT<Solver>& pool, const custom_bitset& Ubb, const std::chrono::milliseconds time_limit) {
     //auto K_max = run_AMTS(ordered_g); // lb <- |K|    ->     AMTS Tabu search
     auto max_time = std::chrono::steady_clock::now() + time_limit;
     solution<int> K_max;
@@ -129,7 +129,7 @@ std::vector<int> CliSAT(
     auto begin = std::chrono::steady_clock::now();
     custom_graph G = parse_graph(filename, MISP);
     std::cout << "N: " << G.size() << " M: " << G.get_n_edges() << " D: " << G.get_density() << " d: " << G.get_degeneracy() << " max degree: " << G.get_max_degree() << std::endl;
-    thread_pool<Solver> pool(G.size(), threads);
+    thread_pool_CliSAT<Solver> pool(G.size(), threads);
     auto end = std::chrono::steady_clock::now();
     auto seconds_double = std::chrono::duration<double, std::chrono::seconds::period>(end - begin).count();
     std::cout << "Parsing = " << seconds_double << "[s]" << std::endl;

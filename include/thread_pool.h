@@ -10,9 +10,105 @@
 #include "threadsafe_priority_queue.h"
 #include "threadsafe_queue.h"
 #include "threadsafe_stack.h"
+#include "fixed_vector.h"
+
+class thread_pool {
+public:
+    struct Task {
+        std::function<void()> func;
+    };
+
+private:
+    std::atomic_bool done = false;
+    bool paused = false;
+    threadsafe_queue<Task> work_queue;
+    std::vector<std::jthread> threads;
+    std::atomic_uint64_t threads_working = 0;
+
+    std::condition_variable work_done_cv;
+    std::mutex work_done_m;
+
+    void worker_thread() {
+        Task task;
+
+        // we set thread to work before popping
+        // important, we could quit before finishing if we don't set thread_working!
+        while (work_queue.wait_and_pop(task, done, paused, [this]() {
+            ++threads_working;
+        })) {
+            task.func();
+            --threads_working;
+
+            if (!working()) {
+                std::lock_guard lg(work_done_m);
+                work_done_cv.notify_all();
+            }
+        }
+    }
+
+    bool working() const {
+        if (!work_queue.empty() || threads_working) return true;
+        return false;
+    }
+
+public:
+    std::atomic_bool stop_threads = false;
+    explicit thread_pool(const size_t thread_count) {
+        try {
+            for (unsigned i = 0; i < thread_count; i++) {
+                threads.emplace_back(&thread_pool::worker_thread, this);
+            }
+        } catch (...) {
+            done = true;
+            throw;
+        }
+    }
+
+    ~thread_pool() {
+        done = true;
+        work_queue.wake_all();
+    }
+
+    bool get_task(Task& task) {
+        return work_queue.try_pop(task);
+    }
+
+    template<typename FunctionType>
+    void submit(FunctionType f) {
+        work_queue.push(Task(std::function<void()>(f)));
+    }
+
+    void wait_until_idle() {
+        std::unique_lock lock(work_done_m);
+        work_done_cv.wait(lock, [&]{ return !working(); });
+        stop_threads = false;
+    }
+
+    void pause() {
+        paused = true;
+    }
+
+    void resume() {
+        paused = false;
+        work_queue.wake_all();
+    }
+
+    bool is_queue_full() {
+        if (work_queue.size() >= threads.size()) return true;
+        return false;
+    }
+
+    bool is_queue_empty() {
+        return work_queue.empty();
+    }
+
+    void clear_queue() {
+        work_queue.clear();
+    }
+};
 
 template<typename T>
-class thread_pool {
+class thread_pool_CliSAT {
 public:
     struct Task {
         int depth;
@@ -84,10 +180,10 @@ private:
 
 public:
     std::atomic_bool stop_threads = false;
-    explicit thread_pool(const size_t G_size, const size_t thread_count) : G_size(G_size) {
+    explicit thread_pool_CliSAT(const size_t G_size, const size_t thread_count) : G_size(G_size) {
         try {
             for (unsigned i = 0; i < thread_count; i++) {
-                threads.emplace_back(&thread_pool::worker_thread, this);
+                threads.emplace_back(&thread_pool_CliSAT::worker_thread, this);
             }
         } catch (...) {
             done = true;
@@ -95,7 +191,7 @@ public:
         }
     }
 
-    ~thread_pool() {
+    ~thread_pool_CliSAT() {
         done = true;
         work_queue.wake_all();
     }

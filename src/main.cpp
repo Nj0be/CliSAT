@@ -132,7 +132,12 @@ int main(int argc, char *argv[]) {
         // std::cout << custom_bitset(CliSAT(opts.graph_filename, time_limit, true, opts.sorting_method, opts.AMTS_enabled, opts.constraints_filename)) << std::endl;
     } else if (*info) {
         const custom_graph G = parse_graph(opts.graph_filename, opts.complementary);
-        std::cout << "N: " << G.size() << std::endl << "M: " << G.get_n_edges() << std::endl << "D: " << G.get_density() << std::endl << "d: " << G.get_degeneracy() << std::endl << "max degree: " << G.get_max_degree() << std::endl;
+        std::cout << "N: " << G.size() << std::endl;
+        std::cout << "M: " << G.get_n_edges() << std::endl;
+        std::cout << "D: " << G.get_density() << std::endl;
+        std::cout << "d: " << G.get_degeneracy() << std::endl;
+        std::cout << "max degree: " << G.get_max_degree() << std::endl;
+        std::cout << "c: " << G.get_community_degeneracy() << std::endl;
     }
 
     return 0;

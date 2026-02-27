@@ -9,19 +9,22 @@
 #include <limits>
 #include <numeric>
 #include <iostream>
+#include <map>
+#include <queue>
 
 #include "custom_bitset.h"
+#include "threadsafe_queue.h"
+#include "thread_pool.h"
 
 class custom_graph {
     typedef custom_bitset::size_type size_type;
 
     std::vector<custom_bitset> _graph;
+    void community_degeneracy_update(int u, int v, size_t k, const std::vector<unsigned long long>& incremental_count, std::vector<std::atomic<unsigned int>>& delta, thread_pool& pool, std::atomic<size_type>& remaining) const noexcept;
 
 public:
     explicit custom_graph() {};
     explicit custom_graph(size_type size);
-    //custom_graph(custom_graph g, size_type size);
-    //
     
     using iterator = std::vector<custom_bitset>::iterator;
     using const_iterator = std::vector<custom_bitset>::const_iterator;
@@ -56,11 +59,12 @@ public:
     [[nodiscard]] size_type adjacent(size_type u, size_type v) const;
     [[nodiscard]] float get_density() const noexcept;
     [[nodiscard]] size_type get_degeneracy() const noexcept;
+    [[nodiscard]] size_type get_community_degeneracy() const noexcept;
     [[nodiscard]] size_type get_max_degree() const noexcept;
 
-    [[nodiscard]] std::vector<size_type> convert_back_set(const std::vector<size_type> &v, const std::vector<size_type> &ordering) const;
-    [[nodiscard]] std::vector<int> convert_back_set(const std::vector<int> &v, const std::vector<size_type> &ordering) const;
-    [[nodiscard]] custom_bitset convert_back_set(const custom_bitset &bb, const std::vector<size_type> &ordering) const;
+    [[nodiscard]] static std::vector<size_type> convert_back_set(const std::vector<size_type> &v, const std::vector<size_type> &ordering) ;
+    [[nodiscard]] static std::vector<int> convert_back_set(const std::vector<int> &v, const std::vector<size_type> &ordering) ;
+    [[nodiscard]] static custom_bitset convert_back_set(const custom_bitset &bb, const std::vector<size_type> &ordering);
     [[nodiscard]] custom_graph get_complement() const;
     void complement();
     void change_order(const std::vector<size_type>& order);
@@ -258,6 +262,103 @@ inline custom_graph::size_type custom_graph::get_degeneracy() const noexcept {
     return max;
 }
 
+// https://arxiv.org/pdf/1806.05523v2
+inline custom_graph::size_type custom_graph::get_community_degeneracy() const noexcept {
+    std::vector<std::atomic<unsigned int>> delta(get_n_edges());
+    std::vector<unsigned long long> incremental_count(size());
+
+    const size_t threads = std::thread::hardware_concurrency();
+
+    thread_pool pool(threads);
+
+    std::atomic<unsigned int> min_k = get_n_edges();
+
+    for (int u = 1; u < size(); u++) {
+        incremental_count[u] = incremental_count[u-1] + _graph[u-1].count(u, size());
+    }
+
+    const int n = size();
+
+    std::atomic<int> next_node{0}; // Shared counter
+
+    for (int i = 0; i < threads; i++) {
+        pool.submit([&next_node, n, &incremental_count, &delta, &min_k, this] {
+            int u;
+            // Each thread pulls the next available node index
+            while ((u = next_node.fetch_add(1, std::memory_order_relaxed)) < n) {
+                size_t edge = incremental_count[u];
+                for (auto v = _graph[u].next(u); v != custom_bitset::npos; v = _graph[u].next(v)) {
+                    // no sync needed, each edge is accessed one time only
+                    delta[edge].store(_graph[u].and_count(_graph[v]), std::memory_order_relaxed);
+                    min_k = std::min(min_k.load(), delta[edge].load(std::memory_order_relaxed));
+                    edge++;
+                }
+            }
+        });
+    }
+
+    pool.wait_until_idle();
+
+    std::atomic community_degeneracy = min_k.load(std::memory_order_relaxed);
+
+    std::atomic remaining = get_n_edges();
+    for (size_type k = min_k+1; remaining != 0; k++) {
+        next_node.store(0, std::memory_order_relaxed);
+        for (int i = 0; i < threads; i++) {
+            pool.submit([&next_node, n, k, &incremental_count, &delta, &pool, &remaining, &community_degeneracy, this] {
+                int u;
+                while ((u = next_node.fetch_add(1, std::memory_order_relaxed)) < n) {
+                    size_t edge = incremental_count[u];
+                    for (auto v = _graph[u].next(u); v != custom_bitset::npos; v = _graph[u].next(v)) {
+                        if (delta[edge] < k) {
+                            delta[edge] = std::numeric_limits<int>::max();
+                            community_degeneracy = k-1;
+                            if (--remaining == 0) pool.clear_queue();
+                            else pool.submit([u, v, k, &incremental_count, &delta, &pool, &remaining, this] {
+                                community_degeneracy_update(u, v, k, incremental_count, delta, pool, remaining);
+                            });
+                        }
+                        edge++;
+                    }
+                }
+            });
+        }
+
+        pool.wait_until_idle();
+    }
+
+    return community_degeneracy;
+}
+
+inline void custom_graph::community_degeneracy_update(int u, int v, const size_t k, const std::vector<unsigned long long>& incremental_count, std::vector<std::atomic<unsigned int>>& delta, thread_pool& pool, std::atomic<size_type>& remaining) const noexcept {
+    if (_graph[u].count() > _graph[v].count()) std::swap(u, v);
+
+    for (auto w : _graph[u]) {
+        if (!_graph[v][w]) continue;
+
+        size_t uw_index = 0, vw_index = 0;
+        if (u < w) uw_index = incremental_count[u] + _graph[u].count(u+1, w);
+        else uw_index = incremental_count[w] + _graph[w].count(w+1, u);
+        if (v < w) vw_index = incremental_count[v] + _graph[v].count(v+1, w);
+        else vw_index = incremental_count[w] + _graph[w].count(w+1, v);
+
+        if (--delta[uw_index] == k-1) {
+            delta[uw_index] = std::numeric_limits<int>::max();
+            if (--remaining == 0) pool.clear_queue();
+            else pool.submit([u, w, k, &incremental_count, &delta, &pool, &remaining, this] {
+                community_degeneracy_update(u, w, k, incremental_count, delta, pool, remaining);
+            });
+        }
+        if (--delta[vw_index] == k-1) {
+            delta[vw_index] = std::numeric_limits<int>::max();
+            if (--remaining == 0) pool.clear_queue();
+            else pool.submit([v, w, k, &incremental_count, &delta, &pool, &remaining, this] {
+                community_degeneracy_update(v, w, k, incremental_count, delta, pool, remaining);
+            });
+        }
+    }
+}
+
 inline custom_graph::size_type custom_graph::get_max_degree() const noexcept {
     size_type max = 0;
 
@@ -268,7 +369,7 @@ inline custom_graph::size_type custom_graph::get_max_degree() const noexcept {
     return max;
 }
 
-inline std::vector<custom_graph::size_type> custom_graph::convert_back_set(const std::vector<size_type> &v, const std::vector<size_type> &ordering) const {
+inline std::vector<custom_graph::size_type> custom_graph::convert_back_set(const std::vector<size_type> &v, const std::vector<size_type> &ordering) {
     std::vector<size_type> set;
     set.reserve(v.size());
     for (const auto vertex : v) {
@@ -277,7 +378,7 @@ inline std::vector<custom_graph::size_type> custom_graph::convert_back_set(const
     return set;
 }
 
-inline std::vector<int> custom_graph::convert_back_set(const std::vector<int> &v, const std::vector<size_type> &ordering) const {
+inline std::vector<int> custom_graph::convert_back_set(const std::vector<int> &v, const std::vector<size_type> &ordering) {
     std::vector<int> set;
     set.reserve(v.size());
     for (const auto vertex : v) {
@@ -286,7 +387,7 @@ inline std::vector<int> custom_graph::convert_back_set(const std::vector<int> &v
     return set;
 }
 
-inline custom_bitset custom_graph::convert_back_set(const custom_bitset &bb, const std::vector<size_type> &ordering) const {
+inline custom_bitset custom_graph::convert_back_set(const custom_bitset &bb, const std::vector<size_type> &ordering) {
     custom_bitset set(bb.size());
     for (const auto v : bb) {
         set.set(ordering[v]);

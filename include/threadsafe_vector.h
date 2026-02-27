@@ -52,32 +52,32 @@ public:
     T& operator[](const size_t index) {
         assert(index < data_vector.size());
 
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         return data_vector[index];
     }
 
     const T& operator[](const size_t index) const {
         assert(index < data_vector.size());
 
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         return data_vector[index];
     }
 
     void push_back(T new_value) {
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         data_vector.push_back(std::move(new_value));
         data_cond.notify_one();
     }
 
     void wait_and_pop(T& value) {
-        std::unique_lock<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         data_cond.wait(lk, [this]{ return !data_vector.empty(); });
         value = std::move(data_vector.back());
         data_vector.pop_back();
     }
 
     std::shared_ptr<T> wait_and_pop() {
-        std::unique_lock<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         data_cond.wait(lk, [this]{ return !data_vector.empty(); });
         std::shared_ptr<T> res(std::make_shared<T>(std::move(data_vector.back())));
         data_vector.pop_back();
@@ -85,7 +85,7 @@ public:
     }
 
     bool try_pop_back(T& value) {
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         if (data_vector.empty())
             return false;
         value = std::move(data_vector.back());
@@ -94,7 +94,7 @@ public:
     }
 
     std::shared_ptr<T> try_pop_back() {
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         if (data_vector.empty())
             return std::shared_ptr<T>();
         std::shared_ptr<T> res(std::make_shared<T>(std::move(data_vector.back())));
@@ -103,17 +103,17 @@ public:
     }
 
     void clear() {
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         data_vector.clear();
     }
 
     bool empty() const {
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         return data_vector.empty();
     }
 
     size_t size() const {
-        std::lock_guard<std::mutex> lk(mut);
+        std::lock_guard lk(mut);
         return data_vector.size();
     }
 };
